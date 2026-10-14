@@ -17,9 +17,13 @@
     P.last = Date.now();
     fetch('/api/presence', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ where: P.where, state: P.state, hist: hist() }) })
-      .then(r => r.ok ? r.json() : null).then(j => { if (j && typeof j.all === 'number') P.count = j; }).catch(() => {});
+      .then(r => r.ok ? r.json() : null).then(j => {
+        if (!j) return;
+        if (typeof j.all === 'number') P.count = j;
+        if (j.invites && j.invites.length) dispatchEvent(new CustomEvent('vw-invites', { detail: j.invites }));
+      }).catch(() => {});
   }
-  function loop(){ clearTimeout(P.t); send(true); P.t = setTimeout(loop, EVERY); }
+  function loop(){ clearTimeout(P.t); send(true); P.t = setTimeout(loop, P.signed ? 12_000 : EVERY); }
   window.VWP = {
     set(where, state){
       const changed = where !== P.where || state !== P.state;
@@ -30,6 +34,7 @@
       const h = hist(); h[game] = (h[game] || 0) + 1;
       try { localStorage.setItem(KEY, JSON.stringify(h)); } catch (e) {}
     },
+    signedIn(on){ const was = P.signed; P.signed = !!on; if (on && !was) loop(); },
     pause(on){ P.paused = !!on; if (!on) send(true); },
     get count(){ return P.count; },
   };

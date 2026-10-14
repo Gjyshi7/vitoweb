@@ -256,6 +256,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 <script src="hand.js"></script>
 <script src="ads.js"></script>
 <script src="presence.js"></script>
+<script src="account.js"></script>
 <script src="net.js"></script>
 <script>
 (() => {
@@ -995,7 +996,7 @@ function onTable(t, S2){
 
 /* ---------- menu, rooms, connection (net.js) ---------- */
 const NET = NETWORK({
-  game: 'derri', rematch: false, title: 'Derri në dorë',
+  game: 'derri', rematch: false, title: 'Derri në dorë', sub: '4 lojtarë · mos mbet me derrin', art: [9, 10, 40, 35, 20],
   seatsFor: () => [0, 1, 2, 3],
   onLocal: (cfg, seats) => { lastT = null; startLocal(cfg, seats); },
   onTable,

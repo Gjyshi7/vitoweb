@@ -29,7 +29,7 @@ const ME_COLOR = "#b02a63";
 const TURN_MS = 15_000;        // a game can set its own (spec.turnMs)
 const OFFLINE_MS = 6_000;      // a phone that is gone this long plays its turn on autopilot
 const AWAY_PUB_MS = 60_000;    // gone this long at a quick-match table: the seat goes to someone else
-const AWAY_ROOM_MS = 180_000;  // the same at a table with friends
+// At a friends' room nobody loses a seat: the table plays for you and waits for you to come back.
 const END_MS = 9_000;          // result screen between hands
 // quick match: people sit down one by one. Seats the Guard expects a real person for (someone on
 // this game's menu, someone who usually plays it) stay open up to plan.hold ms; the rest fill
@@ -193,8 +193,9 @@ export function makeTable(spec) {
     if (!x || x.bot || online.has(x.pid)) return;
     g.away = g.away || {};
     const since = g.away[x.pid] || (g.away[x.pid] = now - OFFLINE_MS);
-    if (now - since < (g.pub ? AWAY_PUB_MS : AWAY_ROOM_MS)) return;
-    g.seats[g.actor] = { ...x, name: nameOf(s, g.actor), bot: true, speed: 0.95 + Math.random() * 0.15 };
+    if (!g.pub || now - since < AWAY_PUB_MS) return;
+    // somebody new takes the seat (with the cards); the others are told who left and who sat down
+    g.seats[g.actor] = { ...newBot(s), color: x.color };
     g.left = [...(g.left || []), x.pid];
     g.why = { ...(g.why || {}), [x.pid]: "away" };
     delete g.away[x.pid];
@@ -290,7 +291,8 @@ export function makeTable(spec) {
       const g = s.g;
       if (g.phase === "lobby") { syncLobby(s); g.seq += 1; return; }
       const i = seatOf(g, pid);
-      if (i >= 0) g.seats[i] = { ...g.seats[i], name: nameOf(s, i), bot: true, speed: 0.95 + Math.random() * 0.15 };
+      if (i >= 0) g.seats[i] = g.pub ? { ...newBot(s), color: g.seats[i].color }                    // someone new sits down
+        : { ...g.seats[i], name: nameOf(s, i), bot: true, speed: 0.95 + Math.random() * 0.15 };   // friends: the seat keeps the name
     },
 
     onMessage(s, me, msg) {

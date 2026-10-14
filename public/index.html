@@ -64,6 +64,13 @@ main{min-width:0;padding:22px 28px 60px}
 .spacer{flex:1}
 .pill{height:44px;padding:0 18px;border:0;border-radius:14px;background:var(--shelf2);box-shadow:inset 0 0 0 1px var(--line);font-weight:700;letter-spacing:.04em;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
 .pill.hot{background:linear-gradient(#f06a92,var(--pink) 45%,var(--pink-dk));box-shadow:0 6px 18px rgba(176,42,99,.3);color:#fff}
+.pill.acct{padding:0 14px 0 5px;gap:10px}
+.pill.acct .av{width:34px;height:34px;border-radius:50%;background:var(--pink-dk);color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;overflow:hidden;flex:none}
+.pill.acct .av img{width:100%;height:100%;object-fit:cover}
+.back2{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:-8px 0 18px;padding:14px 18px;border:0;border-radius:16px;cursor:pointer;
+  background:rgba(239,90,134,.12);box-shadow:inset 0 0 0 1.5px var(--pink);color:var(--ink);font:700 17px var(--f-ui);text-align:left}
+.back2[hidden]{display:none}
+.back2 b{color:#fff;background:var(--pink);border-radius:10px;padding:8px 14px;font-size:15px;letter-spacing:.06em;flex:none}
 .pill svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 /* ---------- featured table ---------- */
@@ -222,7 +229,9 @@ main{min-width:0;padding:22px 28px 60px}
       <div class="phoneMark"><img class="logoImg" alt=""><b>LOJA</b></div>
       <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" type="search" placeholder="Kërko një lojë" aria-label="Kërko një lojë" autocomplete="off"></label>
       <div class="spacer"></div>
+      <button class="pill acct" id="bAcct" type="button" hidden><span class="av" id="acctAv">?</span><span class="lbl" id="acctName">Hyr</span></button>
     </div>
+    <button class="back2" id="backTable" type="button" hidden></button>
 
     <!-- games -->
     <section class="view" id="vGames">
@@ -270,6 +279,7 @@ main{min-width:0;padding:22px 28px 60px}
 </div>
 
 <script src="presence.js"></script>
+<script src="account.js"></script>
 <script src="ads.js"></script>
 <script src="cards.js"></script>
 <script>
@@ -442,6 +452,30 @@ async function start(){
   renderGrid();
 }
 start();
+window.__openGame = openGame;
+})();
+
+/* ---------- account chip, and the table you left open ---------- */
+(() => {
+  const btn = document.getElementById('bAcct');
+  if (!window.VWA) return;
+  const draw = u => {
+    btn.hidden = !VWA.enabled;
+    document.getElementById('acctName').textContent = u ? u.uname : 'Hyr';
+    document.getElementById('acctAv').innerHTML = u && u.pic ? `<img src="${u.pic.replace(/"/g, '')}" alt="" referrerpolicy="no-referrer">` : (u ? u.uname[0].toUpperCase() : '?');
+  };
+  VWA.onChange(draw); VWA.ready.then(draw);
+  btn.onclick = () => VWA.open();
+  const NAMES = { murlan: 'Murlan', spathi: 'Spathi', derri: 'Derri në dorë', domino: 'Domino' };
+  let t = null; try { t = JSON.parse(localStorage.getItem('vw.table') || 'null'); } catch (e) {}
+  if (t && NAMES[t.game] && /^[A-Z]{4}$/.test(t.code) && Date.now() - t.at < 6 * 3600_000) {
+    fetch('/api/room/' + t.code).then(r => r.json()).then(j => {
+      if (!j.ok || j.game !== t.game) { try { localStorage.removeItem('vw.table'); } catch (e) {} return; }
+      const b = document.getElementById('backTable');
+      b.innerHTML = `<span>Ke një lojë ${NAMES[t.game]} të hapur${t.quick ? '' : ' me shokët'}</span><b>KTHEHU</b>`;
+      b.hidden = false; b.onclick = () => { b.hidden = true; window.__openGame(t.game); };
+    }).catch(() => {});
+  }
 })();
 </script>
 </body>

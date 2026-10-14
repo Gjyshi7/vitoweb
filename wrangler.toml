@@ -27,6 +27,12 @@ class_name = "Room"
 name = "GUARD"
 class_name = "Guard"
 
+# Accounts (Google sign-in, usernames, friends). Made once with the Cloudflare dashboard/API.
+[[d1_databases]]
+binding = "DB"
+database_name = "vitoweb-loja"
+database_id = "0318f776-30ab-425c-a70b-2e53cfda428e"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Room", "Guard"]
@@ -55,6 +61,8 @@ PAUSE_NEW_ROOMS = "0"
 MAX_NEW_ROOMS_PER_DAY = "2000"
 # A room deletes itself after this many minutes with no activity (6 hours).
 ROOM_TTL_MINUTES = "360"
+# "Hyr me Google": the OAuth client id from Google Cloud (it is public, not a secret). Empty = sign-in hidden.
+GOOGLE_CLIENT_ID = ""
 
 # Logs in the dashboard (Workers & Pages -> vitoweb-loja -> Logs). Useful while testing.
 [observability]

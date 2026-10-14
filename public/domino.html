@@ -261,6 +261,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 <script src="hand.js"></script>
 <script src="ads.js"></script>
 <script src="presence.js"></script>
+<script src="account.js"></script>
 <script src="net.js"></script>
 <script>
 (() => {
@@ -1010,8 +1011,8 @@ function onTable(t, S2){
 
 /* ---------- menu, rooms, connection (net.js) ---------- */
 const NET = NETWORK({
-  game: 'domino', title: 'Domino',
-  modes: [{ label: '2 kundër 2', cfg: { teams: true } }, { label: '1 kundër 1', cfg: { teams: false } }],
+  game: 'domino', title: 'Domino', sub: 'Mbyll gurët para të tjerëve', art: 'domino',
+  modes: [{ label: '2 kundër 2', sub: 'partneri përballë', cfg: { teams: true } }, { label: '1 kundër 1', sub: 'kokë më kokë', cfg: { teams: false } }],
   cfg: () => ({ stock: ST.dstock === 'po', target: target() }),
   seatsFor: cfg => cfg.teams ? [0, 1, 2, 3] : [0, 2],
   teamsFor: cfg => cfg.teams ? [[0, 2], [1, 3]] : null,

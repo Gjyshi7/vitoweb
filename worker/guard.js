@@ -32,6 +32,8 @@ export class Guard extends DurableObject {
       const q = this.ctx.storage.sql;
       q.exec("CREATE TABLE IF NOT EXISTS who (id TEXT PRIMARY KEY, at INTEGER, place TEXT, state TEXT, hist TEXT)");
       q.exec("CREATE TABLE IF NOT EXISTS pub (k TEXT, code TEXT, until INTEGER, PRIMARY KEY (k, code))");
+      q.exec("CREATE TABLE IF NOT EXISTS inv (dest TEXT, src TEXT, uname TEXT, code TEXT, game TEXT, at INTEGER, PRIMARY KEY (dest, src))");
+      try { q.exec("ALTER TABLE who ADD COLUMN uid TEXT"); } catch {}       // signed-in players (friends' online dots)
       this.ready = true;
     }
     return this.ctx.storage.sql;
@@ -40,16 +42,46 @@ export class Guard extends DurableObject {
   // ---- presence: who is on the site right now, where, and what they usually play ----
   // Every open page says hello about every 25 s (and when it changes screen). A page quiet for
   // 45 s is gone. No names: a cookie id, a place and play counts.
-  async seen(id, d) {
+  async seen(id, d, uid) {
     const now = Date.now(), q = this.sql();
     const hist = {};
     if (d && d.hist && typeof d.hist === "object") for (const [k, v] of Object.entries(d.hist).slice(0, 12)) {
       if (/^[a-z]{2,12}$/.test(k)) hist[k] = Math.max(0, Math.min(10_000, Number(v) || 0));
     }
-    q.exec("INSERT OR REPLACE INTO who (id, at, place, state, hist) VALUES (?, ?, ?, ?, ?)",
-      String(id).slice(0, 80), now, String((d && d.where) || "hub").slice(0, 12), String((d && d.state) || "menu").slice(0, 8), JSON.stringify(hist));
-    if (!this.pruned || now - this.pruned > 30_000) { this.pruned = now; q.exec("DELETE FROM who WHERE at < ?", now - 60_000); }
+    q.exec("INSERT OR REPLACE INTO who (id, at, place, state, hist, uid) VALUES (?, ?, ?, ?, ?, ?)",
+      String(id).slice(0, 80), now, String((d && d.where) || "hub").slice(0, 12), String((d && d.state) || "menu").slice(0, 8), JSON.stringify(hist), uid || null);
+    if (!this.pruned || now - this.pruned > 30_000) {
+      this.pruned = now;
+      q.exec("DELETE FROM who WHERE at < ?", now - 60_000);
+      q.exec("DELETE FROM inv WHERE at < ?", now - 120_000);
+    }
+    // invitations waiting for this player: handed over once
+    if (!uid) return { invites: [] };
+    const invites = q.exec("SELECT src, uname, code, game, at FROM inv WHERE dest = ? AND at > ?", uid, now - 120_000).toArray();
+    if (invites.length) q.exec("DELETE FROM inv WHERE dest = ?", uid);
+    return { invites };
+  }
+
+  // ---- friends: who of them is on the site, and invitations to a table ----
+  async whereAre(uids) {
+    const out = {};
+    if (!Array.isArray(uids) || !uids.length) return out;
+    const now = Date.now();
+    for (const r of this.sql().exec(`SELECT uid, place, state, at FROM who WHERE at > ? AND uid IN (${uids.slice(0, 300).map(() => "?").join(",")})`, now - 45_000, ...uids.slice(0, 300)).toArray()) {
+      if (!out[r.uid] || out[r.uid].at < r.at) out[r.uid] = { place: r.place, state: r.state, at: r.at };
+    }
+    return out;
+  }
+  async invite(dest, src, uname, code, game) {
+    this.sql().exec("INSERT OR REPLACE INTO inv (dest, src, uname, code, game, at) VALUES (?, ?, ?, ?, ?, ?)", dest, src, uname, code, game, Date.now());
     return { ok: true };
+  }
+
+  // the key that signs session cookies: made once, kept here
+  async secret() {
+    let k = await this.ctx.storage.get("session-secret");
+    if (!k) { const b = new Uint8Array(48); crypto.getRandomValues(b); k = [...b].map((x) => x.toString(16).padStart(2, "0")).join(""); await this.ctx.storage.put("session-secret", k); }
+    return k;
   }
   present() {
     return this.sql().exec("SELECT id, place, state, hist FROM who WHERE at > ?", Date.now() - 45_000).toArray();

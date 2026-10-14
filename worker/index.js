@@ -10,6 +10,7 @@
 //   GET  /api/admin/stats?key=ADMIN_KEY -> rooms per day (only if the ADMIN_KEY secret is set)
 import { Room, GAMES } from "./room.js";
 import { Guard } from "./guard.js";
+import { verifyGoogle, signIn, currentUser, sessionUid, signSessionFor, sessionCookie, setUname, friendList, friendAction, areFriends, publicUser } from "./auth.js";
 import { json, roomCode, secretId, safeEqual } from "./util.js";
 
 export { Room, Guard };
@@ -150,8 +151,64 @@ async function route(req, env, url) {
     let body = {};
     try { body = await req.json(); } catch {}
     const guard = env.GUARD.get(env.GUARD.idFromName("guard"));
-    await guard.seen(gid, body);
-    return withCookie(json(await guard.online()));
+    const uid = env.DB ? await sessionUid(env, req) : null;
+    const r = await guard.seen(gid, body, uid);
+    return withCookie(json({ ...(await guard.online()), invites: r.invites || [] }));
+  }
+
+  // ---- accounts (worker/auth.js) ----
+  if (path.startsWith("/api/me") || path.startsWith("/api/auth/") || path === "/api/friends" || path === "/api/invite") {
+    if (req.method === "POST" && badOrigin(req, url)) return json({ error: "origin" }, 403);
+    if (await limited(env.RL_IP, "ip:" + ip)) return withCookie(json({ error: "slow_down" }, 429));
+    const clientId = env.GOOGLE_CLIENT_ID || "";
+    if (!env.DB || !clientId) return withCookie(json(path === "/api/me" ? { user: null, google: null } : { error: "no_accounts" }, path === "/api/me" ? 200 : 503));
+    let body = {};
+    if (req.method === "POST") { try { body = await req.json(); } catch {} }
+
+    if (path === "/api/auth/google" && req.method === "POST") {
+      if (await limited(env.RL_CREATE, "login:" + ip)) return withCookie(json({ error: "slow_down" }, 429));
+      const claims = await verifyGoogle(body.credential, clientId).catch(() => null);
+      if (!claims) return withCookie(json({ error: "bad_token" }, 401));
+      const u = await signIn(env, claims);
+      const res = withCookie(json({ user: publicUser(u), fresh: !!u.fresh }));
+      const r = new Response(res.body, res);
+      r.headers.append("Set-Cookie", sessionCookie(await signSessionFor(env, u.id), url));
+      return r;
+    }
+    // local testing only (wrangler dev with DEV_LOGIN=1 in .dev.vars, on localhost): sign in without Google
+    if (path === "/api/auth/dev" && req.method === "POST" && env.DEV_LOGIN === "1" && /^(localhost|127\.0\.0\.1)$/.test(url.hostname)) {
+      const u = await signIn(env, { sub: "dev:" + String(body.sub || "x").slice(0, 40), name: String(body.name || "Test"), given_name: String(body.name || "Test") });
+      const r = new Response(JSON.stringify({ user: publicUser(u) }), { headers: { "content-type": "application/json" } });
+      r.headers.append("Set-Cookie", sessionCookie(await signSessionFor(env, u.id), url));
+      return r;
+    }
+    if (path === "/api/auth/logout" && req.method === "POST") {
+      const r = new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json", "cache-control": "no-store" } });
+      r.headers.append("Set-Cookie", sessionCookie("", url, true));
+      return r;
+    }
+    const u = await currentUser(env, req);
+    if (path === "/api/me" && req.method === "GET") return withCookie(json({ user: publicUser(u), google: clientId }));
+    if (!u) return withCookie(json({ error: "signed_out" }, 401));
+    if (path === "/api/me/uname" && req.method === "POST") { const r = await setUname(env, u, body.uname); return withCookie(json(r, r.error ? 400 : 200)); }
+    const guard = env.GUARD.get(env.GUARD.idFromName("guard"));
+    if (path === "/api/friends" && req.method === "GET") {
+      const l = await friendList(env, u);
+      const at = await guard.whereAre(l.friends.map((f) => f.id));
+      for (const f of l.friends) { const w = at[f.id]; f.online = !!w; f.place = w ? w.place : null; f.state = w ? w.state : null; }
+      l.friends.sort((a, b) => (b.online - a.online) || a.uname.localeCompare(b.uname));
+      return withCookie(json(l));
+    }
+    if (path === "/api/friends" && req.method === "POST") { const r = await friendAction(env, u, body); return withCookie(json(r, r.error ? 400 : 200)); }
+    if (path === "/api/invite" && req.method === "POST") {
+      const to = String(body.to || ""), code = String(body.code || ""), game = String(body.game || "");
+      if (!/^[A-Z]{4}$/.test(code) || !GAMES[game]) return withCookie(json({ error: "bad_invite" }, 400));
+      if (!(await areFriends(env, u.id, to))) return withCookie(json({ error: "not_friends" }, 403));
+      if (await limited(env.RL_JOIN, "inv:" + u.id)) return withCookie(json({ error: "slow_down" }, 429));
+      await guard.invite(to, u.id, u.uname, code, game);
+      return withCookie(json({ ok: true }));
+    }
+    return withCookie(json({ error: "not_found" }, 404));
   }
 
   const rm = path.match(/^\/api\/room\/([A-Z]{4})$/);
