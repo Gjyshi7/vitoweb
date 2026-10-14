@@ -1,0 +1,219 @@
+// Room server smoke test: fake phones play Mafia and Imposter against a running copy of the site.
+//   Local:     npx wrangler dev        then   npm test
+//   Deployed:  BASE=https://vitoweb-loja.<you>.workers.dev npm test
+// Needs Node 22+ (built-in WebSocket). Creates 2 rooms; they delete themselves after 6 idle hours.
+const BASE = (process.env.BASE || "http://127.0.0.1:8787").replace(/\/$/, "");
+const WS = BASE.replace(/^http/, "ws");
+const WORDS = (await import(new URL("../public/imposter-words.js", import.meta.url))).WORDS;
+
+let passed = 0, failed = 0;
+function ok(cond, label) {
+  if (cond) { passed++; console.log("  ✓ " + label); }
+  else { failed++; console.log("  ✗ " + label); }
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const key = () => crypto.randomUUID();
+
+async function create(game) {
+  const r = await fetch(BASE + "/api/create", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game }) });
+  return { status: r.status, ...(await r.json()) };
+}
+
+function phone(code, name, { k = key(), host = "" } = {}) {
+  const q = new URLSearchParams({ name, k });
+  if (host) q.set("host", host);
+  const ws = new WebSocket(`${WS}/ws/${code}?${q}`);
+  const p = { ws, k, name, S: null, msgs: [], closed: null, kicked: false };
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    p.msgs.push(m);
+    if (m.t === "state") p.S = m;
+    if (m.t === "kicked") p.kicked = true;
+  };
+  ws.onclose = (e) => { p.closed = e.code; };
+  p.send = (o) => ws.send(JSON.stringify(o));
+  p.until = async (pred, label, ms = 4000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { if (p.S && pred(p.S)) return true; await sleep(20); }
+    console.log(`    (timeout waiting: ${label} for ${name})`);
+    return false;
+  };
+  p.open = new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
+  p.close = () => { try { ws.close(); } catch {} };
+  return p;
+}
+
+async function mafia() {
+  console.log("Mafia");
+  const c = await create("mafia");
+  ok(c.status === 200 && /^[A-Z]{4}$/.test(c.code) && c.game === "mafia", `create room (${c.code})`);
+  const host = phone(c.code, "Hosti", { host: c.hostToken });
+  await host.open;
+  const names = ["Ana", "Beni", "Drita", "Gëzim", "Erion"];
+  const ps = names.map((n) => phone(c.code, n));
+  await Promise.all(ps.map((p) => p.open));
+  ok(await host.until((S) => S.players.length === 6, "6 players"), "6 phones in the room");
+  ok(host.S.hostPid === host.S.me, "creator is host");
+  ok(host.S.seatCount === 5 && !host.S.hostPlays, "host is narrator by default (5 roles)");
+
+  host.send({ t: "config", config: { mafia: 3, doctor: 1, police: 1 } });
+  ok(await host.until((S) => S.configError === "mafia_majority", "majority"), "refuses mafia majority");
+  host.send({ t: "config", config: { mafia: 1, doctor: 1, police: 1 } });
+  await host.until((S) => !S.configError && S.config.mafia === 1, "config ok");
+  ps[0].send({ t: "deal" }); // a guest can't deal
+  await sleep(200);
+  ok(ps[0].S.phase === "lobby", "a guest can't deal");
+  host.send({ t: "deal" });
+  ok(await host.until((S) => S.phase === "dealt", "dealt"), "host deals");
+  await Promise.all(ps.map((p) => p.until((S) => S.phase === "dealt" && S.role, "role")));
+  const roles = ps.map((p) => p.S.role);
+  const count = (r) => roles.filter((x) => x === r).length;
+  ok(count("mafia") === 1 && count("doctor") === 1 && count("police") === 1 && count("villager") === 2, "1 mafia, 1 doctor, 1 police, 2 villagers");
+  ok(ps.every((p) => p.S.allRoles === null), "no player sees other roles");
+  ok(host.S.role === null && host.S.allRoles && Object.keys(host.S.allRoles).length === 5, "narrator sees the whole table");
+  ok(ps.every((p) => !JSON.stringify(p.S).includes(p.k)), "secret keys never sent to phones");
+
+  // Security: knowing someone's public seat id must not let you become them.
+  const victim = ps.find((p) => p.S.role === "police");
+  const fake = phone(c.code, "Hajni", { k: victim.S.me });
+  ok(!(await fake.open.then(() => true, () => false)), "a public seat id can't be used as a login key");
+  const thief = phone(c.code, "Hajni");
+  await thief.open;
+  await thief.until((S) => S.players.length === 7, "thief joined");
+  ok(thief.S.me !== victim.S.me && thief.S.role === null && thief.S.allRoles === null, "a new phone gets its own seat and no one else's role");
+  host.send({ t: "kick", pid: thief.S.me });
+  await sleep(300);
+  ok(thief.kicked && !host.S.players.some((x) => x.pid === thief.S.me), "host can kick (phone told, seat removed)");
+
+  // Reconnect keeps the seat and the role.
+  const r0 = ps[1];
+  const seat = r0.S.me, role = r0.S.role;
+  r0.close();
+  await sleep(200);
+  ok(await host.until((S) => S.players.find((x) => x.pid === seat)?.online === false, "offline"), "others see a dropped phone as offline");
+  const again = phone(c.code, r0.name, { k: r0.k });
+  await again.open;
+  ok(await again.until((S) => S.me === seat && S.role === role, "same seat"), "reconnecting phone gets the same seat and role");
+
+  // A second tab for the same phone replaces the first.
+  const dup = phone(c.code, again.name, { k: again.k });
+  await dup.open;
+  await sleep(300);
+  ok(again.msgs.some((m) => m.t === "replaced") && dup.S && dup.S.me === seat, "a second tab takes over the seat (old one told to stop)");
+
+  // Host drops: another player can take over after the grace period (60 s), not before.
+  ps[2].send({ t: "claimHost" });
+  await sleep(200);
+  ok(ps[2].msgs.some((m) => m.t === "error" && m.e === "host_online"), "can't take host while the host is connected");
+
+  host.send({ t: "reveal" });
+  ok(await ps[0].until((S) => S.phase === "revealed" && S.allRoles, "revealed"), "reveal shows everyone the table");
+
+  // Message flood: extra messages are dropped, the socket stays open.
+  for (let i = 1; i <= 45; i++) ps[3].send({ t: "rename", name: "Flood" + i });
+  await sleep(500);
+  const me3 = ps[3].S.players.find((x) => x.pid === ps[3].S.me);
+  ok(ps[3].closed === null && me3.name === "Flood40", `flood capped at 40 messages / 10 s (last applied: ${me3.name})`);
+
+  [host, ...ps, again, dup, thief].forEach((p) => p.close());
+}
+
+async function imposter() {
+  console.log("Imposter");
+  const c = await create("imposter");
+  ok(c.status === 200 && c.game === "imposter", `create room (${c.code})`);
+  const host = phone(c.code, "Hosti", { host: c.hostToken });
+  await host.open;
+  const ps = [host, ...["Ana", "Beni", "Drita"].map((n) => phone(c.code, n))];
+  await Promise.all(ps.map((p) => p.open));
+  await host.until((S) => S.players.length === 4, "4 players");
+  host.send({ t: "config", config: { cats: ["Kafshë"], imps: 1, hint: false, time: 120 } });
+  await host.until((S) => S.cfg.cats.join() === "Kafshë" && S.cfg.time === 120 && !S.cfg.hint, "config");
+  ps[1].send({ t: "config", config: { cats: ["Sport"] } });
+  await sleep(200);
+  ok(host.S.cfg.cats.join() === "Kafshë", "a guest can't change settings");
+
+  host.send({ t: "deal" });
+  await Promise.all(ps.map((p) => p.until((S) => S.phase === "cards" && S.card, "card")));
+  const imps = ps.filter((p) => p.S.card.imp), crew = ps.filter((p) => !p.S.card.imp);
+  const word = crew[0].S.card.word;
+  ok(imps.length === 1 && crew.length === 3, "1 imposter, 3 with the word");
+  ok(crew.every((p) => p.S.card.word === word) && WORDS["Kafshë"].includes(word), `everyone else has the same word (${word})`);
+  ok(imps[0].S.card.cat === null && !imps[0].S.card.word, "hint off: imposter gets no category");
+  ok(!JSON.stringify(imps[0].S).includes(word), "the word appears nowhere in the imposter's data");
+
+  const late = phone(c.code, "Vonë");
+  await late.open;
+  await late.until((S) => S.players.length === 5, "late");
+  ok(late.S.card === null && !late.S.holders.includes(late.S.me) && !JSON.stringify(late.S).includes(word), "late joiner waits, sees no word");
+
+  ps.forEach((p) => p.send({ t: "seen" }));
+  ok(await host.until((S) => S.phase === "talk", "talk"), "talk starts when everyone has looked");
+  const left = Math.round((host.S.timer.ends - host.S.now) / 1000);
+  ok(!host.S.timer.paused && left >= 118 && left <= 120, `server timer running (${left} s)`);
+  host.send({ t: "pause" });
+  ok(await host.until((S) => S.timer.paused && S.timer.left >= 118, "paused"), "host pauses the timer");
+
+  host.send({ t: "vote" });
+  await host.until((S) => S.phase === "vote", "vote");
+  host.send({ t: "pick", pid: imps[0].S.me });
+  await host.until((S) => S.vote === imps[0].S.me, "pick");
+  host.send({ t: "reveal" });
+  ok(await crew[0].until((S) => S.phase === "result" && S.result.caught, "result"), "imposter caught");
+  ok(imps[0].S.result.word === word, "after the reveal everyone sees the word");
+  host.send({ t: "guess", yes: false });
+  await host.until((S) => S.result.awarded, "awarded");
+  const sc = (p) => host.S.scores.find((x) => x.pid === p.S.me).score;
+  ok(crew.every((p) => sc(p) === 1) && sc(imps[0]) === 0, "missed guess: each of the others +1");
+
+  host.send({ t: "deal" });
+  await Promise.all([...ps, late].map((p) => p.until((S) => S.round === 2 && S.card, "round 2")));
+  ok(late.S.card !== null, "late joiner gets a card next round");
+  const imp2 = [...ps, late].find((p) => p.S.card.imp);
+  const innocent = [...ps, late].find((p) => !p.S.card.imp);
+  host.send({ t: "talk" });
+  await host.until((S) => S.phase === "talk", "talk2");
+  host.send({ t: "vote" });
+  await host.until((S) => S.phase === "vote", "vote2");
+  host.send({ t: "pick", pid: innocent.S.me });
+  await host.until((S) => S.vote === innocent.S.me, "pick2");
+  host.send({ t: "reveal" });
+  await host.until((S) => S.phase === "result", "result2");
+  ok(!host.S.result.caught && host.S.result.awarded && host.S.result.gain[imp2.S.me] === 2, "imposter not caught: +2");
+
+  host.send({ t: "lobby" });
+  await host.until((S) => S.phase === "lobby", "lobby");
+  host.send({ t: "resetScores" });
+  ok(await host.until((S) => S.scores.every((x) => x.score === 0), "reset"), "host resets the scores");
+
+  ps[1].send({ t: "leave" });
+  await sleep(300);
+  ok(ps[1].msgs.some((m) => m.t === "left") && host.S.players.length === 4, "a player can leave");
+  [...ps, late].forEach((p) => p.close());
+}
+
+async function misc() {
+  console.log("Site");
+  const j = await (await fetch(BASE + "/api/room/QQQQ")).json();
+  ok(j.ok === false, "unknown room code: not found");
+  const nr = phone("QQQQ", "X");
+  await nr.open.catch(() => {});
+  await sleep(300);
+  ok(nr.msgs.some((m) => m.t === "refused" && m.code === 4004), "socket to an unknown room is refused (4004)");
+  const bad = await fetch(BASE + "/api/create", { method: "POST", headers: { "content-type": "application/json", Origin: "https://evil.example" }, body: '{"game":"mafia"}' });
+  ok(bad.status === 403, "create from another website refused");
+  const bg = await create("poker");
+  ok(bg.status === 400, "unknown game refused");
+  const h = await fetch(BASE + "/");
+  ok(h.status === 200 && h.headers.get("x-content-type-options") === "nosniff", "hub served with security headers");
+  for (const page of ["murlan", "spathi", "derri", "domino", "imposter", "mafia", "imposter-words.js", "cards.js", "engine.js", "favicon.ico"]) {
+    const r = await fetch(BASE + "/" + page);
+    ok(r.status === 200, `/${page} served`);
+  }
+}
+
+await mafia();
+await imposter();
+await misc();
+console.log(`\n${passed} passed, ${failed} failed`);
+process.exit(failed ? 1 : 0);

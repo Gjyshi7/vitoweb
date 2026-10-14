@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="sq">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Domino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Same table as tavolina/tavolina.html and Murlan: one fixed 1280x720 stage (16:9), scaled to fit.
+   Held upright, the stage turns 90° so a phone can be played sideways without auto-rotate. */
+:root{
+  color-scheme:dark;
+  --room:#0b1120; --navy:#141e30; --ink:#eef1f6; --sub:#9aa6b8;
+  --pink:#ef5a86; --pink-dk:#b02a63; --gold:#f3c76a;
+  --plate:rgba(10,16,28,.86); --line:rgba(255,255,255,.09);
+  --felt-c:#1f4a63; --felt-e:#0d2232;
+  --f-ui:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --t:.34s;                /* tile move time, changed by the speed setting */
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--room);color:var(--ink);overflow:hidden}
+body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+#app{position:fixed;inset:0;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);background:var(--room)}
+#fit{position:relative;width:100%;height:100%;overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:50% 50%;overflow:hidden;
+  background:radial-gradient(1200px 700px at 50% 45%,#16223a 0%,var(--room) 70%)}
+
+/* table */
+.rail{position:absolute;left:18px;top:52px;width:1244px;height:664px;border-radius:330px/300px;
+  background:linear-gradient(#4a2e1d,#2a180e 55%,#1d110a);box-shadow:0 30px 60px rgba(0,0,0,.55),inset 0 2px 0 rgba(255,255,255,.12),inset 0 -3px 0 rgba(0,0,0,.4)}
+.felt{position:absolute;left:34px;top:68px;width:1212px;height:632px;border-radius:316px/286px;
+  background:radial-gradient(ellipse at 50% 46%,var(--felt-c) 0%,var(--felt-e) 82%);
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.25),inset 0 18px 40px rgba(0,0,0,.45)}
+.mark{position:absolute;left:50%;top:50%;transform:translate(-50%,-62%);width:150px;height:114px;opacity:.10;pointer-events:none;transition:opacity .4s}
+.mark.off{opacity:0}
+
+/* top bar */
+.top{position:absolute;left:0;right:0;top:0;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;
+  background:rgba(7,11,20,.78);border-bottom:1px solid var(--line);z-index:300}
+.top .l,.top .r{display:flex;gap:14px;align-items:center;min-width:260px}
+.top .r{justify-content:flex-end;gap:6px}
+.status{font-size:19px;font-weight:600;letter-spacing:.02em;color:var(--ink);white-space:nowrap}
+.status em{font-style:normal;color:var(--pink)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;letter-spacing:.16em;color:var(--sub)}
+.brand #brandImg{width:26px;height:20px;display:block}.brand svg,.mark svg,.start .lg svg{width:100%;height:100%;display:block}
+.meta{font-size:16px;font-weight:600;letter-spacing:.08em;color:var(--sub);white-space:nowrap}
+.meta b{color:var(--ink);font-weight:700}
+.ib{width:38px;height:34px;border:0;border-radius:9px;background:transparent;color:var(--sub);display:grid;place-items:center;cursor:pointer}
+.ib:hover{background:rgba(255,255,255,.07);color:var(--ink)}
+.ib svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ib.off{opacity:.45}
+
+/* player plates */
+.plate{position:absolute;display:flex;align-items:center;gap:12px;padding:8px 16px 8px 8px;border-radius:16px;background:var(--plate);
+  box-shadow:inset 0 0 0 1px var(--line),0 10px 24px rgba(0,0,0,.35);z-index:200;transition:box-shadow .25s}
+.plate .av{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:22px;color:#fff;flex:none}
+.plate b{display:block;font-size:22px;font-weight:600;line-height:1.05}
+.plate span{display:block;font-size:16px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+.plate span.low{color:var(--pink);font-weight:700}
+.plate.turn{box-shadow:inset 0 0 0 2px var(--pink),0 0 26px rgba(239,90,134,.35),0 10px 24px rgba(0,0,0,.35)}
+.plate span i{font-style:normal;color:#f59ab8}
+.plate.win{box-shadow:inset 0 0 0 2px var(--gold),0 0 30px rgba(243,199,106,.45)}
+.bubble{position:absolute;z-index:250;padding:6px 14px;border-radius:14px;background:#f4f1ea;color:#1a2233;font-weight:700;font-size:19px;letter-spacing:.06em;
+  opacity:0;transform:translate(-50%,-50%) scale(.8);transition:opacity .18s,transform .18s;pointer-events:none;white-space:nowrap}
+.bubble.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.bubble.gold{background:var(--gold)}
+
+/* tiles: one 60x120 element per tile, moved only with transform */
+.tile{position:absolute;left:0;top:0;width:60px;height:120px;border-radius:9px;
+  transition:transform var(--t) cubic-bezier(.2,.75,.25,1),box-shadow .15s,filter .2s,opacity .2s;
+  box-shadow:0 0 0 1px rgba(0,0,0,.22),0 0 10px rgba(0,0,0,.35);will-change:transform;contain:layout paint}
+.tile svg{width:100%;height:100%;display:block;pointer-events:none}
+.tile.mine{cursor:pointer;touch-action:none}
+.tile.sel{box-shadow:0 0 0 3px var(--pink),0 0 20px rgba(239,90,134,.45)}
+.tile.dim{filter:brightness(.48) saturate(.6)}
+.tile.last{box-shadow:0 0 0 3px rgba(255,255,255,.9),0 0 14px rgba(0,0,0,.4)}
+.tile.hint{box-shadow:0 0 0 3px var(--gold),0 0 22px rgba(243,199,106,.5)}
+.tile.drag{transition:box-shadow .15s,filter .2s!important;cursor:grabbing;box-shadow:0 0 0 3px rgba(255,255,255,.8),0 18px 34px rgba(0,0,0,.5)!important}
+.ghost{position:absolute;left:0;top:0;width:60px;height:120px;border-radius:9px;z-index:95;cursor:pointer;
+  box-shadow:0 0 0 3px var(--pink),0 0 24px rgba(239,90,134,.6);animation:pulse 1.1s ease-in-out infinite}
+.ghost svg{width:100%;height:100%;display:block;border-radius:9px;opacity:.55;pointer-events:none}
+.ghost::after{content:"";position:absolute;inset:-14px}  /* bigger tap area than the drawing */
+@keyframes pulse{50%{box-shadow:0 0 0 3px #ff9fbc,0 0 34px rgba(239,90,134,.85)}}
+.cnt{position:absolute;z-index:150;min-width:30px;height:30px;padding:0 8px;border-radius:15px;background:#f4f1ea;color:#1a2233;font-weight:700;font-size:18px;
+  display:grid;place-items:center;transform:translate(-50%,-50%);font-variant-numeric:tabular-nums;pointer-events:none}
+
+/* actions */
+.acts{position:absolute;right:28px;bottom:20px;width:224px;display:grid;grid-template-columns:1fr 1fr;gap:10px;z-index:220}
+.btn{height:62px;border:0;border-radius:16px;font:700 21px var(--f-ui);letter-spacing:.08em;color:var(--ink);cursor:pointer;
+  background:rgba(14,22,38,.9);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.14);transition:transform .08s,opacity .2s,filter .15s}
+.btn.main{grid-column:1/-1;height:74px;font-size:26px;color:#fff;background:linear-gradient(#f06a92,var(--pink) 45%,var(--pink-dk));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 18px rgba(176,42,99,.35)}
+.btn:active:not(:disabled){transform:translateY(2px)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn:focus-visible,.ib:focus-visible,.pbtn:focus-visible,.seg button:focus-visible,.linkb:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+
+/* overlays */
+.ov{position:absolute;inset:0;z-index:400;display:grid;place-items:center;background:rgba(5,8,15,.6)}
+.panel{background:#111a2b;border-radius:22px;box-shadow:inset 0 0 0 1px var(--line),0 30px 70px rgba(0,0,0,.6);padding:28px 32px;width:560px;max-height:640px;overflow:auto}
+.panel h2{margin:0 0 6px;font-size:32px;font-weight:700;letter-spacing:.01em}
+.panel p{margin:0 0 18px;font-size:19px;color:var(--sub);line-height:1.35}
+.set{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 0;border-top:1px solid var(--line);font-size:20px}
+.set small{display:block;font-size:15px;color:var(--sub)}
+.seg{display:flex;gap:4px;padding:4px;border-radius:14px;background:rgba(255,255,255,.06);flex:none}
+.seg button{border:0;border-radius:11px;padding:9px 16px;font:600 17px var(--f-ui);color:var(--sub);background:transparent;cursor:pointer}
+.seg button.on{background:var(--pink);color:#fff}
+.pbtn{display:block;width:100%;height:58px;margin-top:14px;border:0;border-radius:16px;font:700 21px var(--f-ui);letter-spacing:.06em;cursor:pointer;color:#fff;
+  background:linear-gradient(#f06a92,var(--pink) 45%,var(--pink-dk))}
+.pbtn.ghostb{background:rgba(255,255,255,.07);color:var(--ink)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.start{text-align:center;width:600px}
+.start .lg{width:96px;height:73px;margin:2px auto 8px}
+.start h2{font-size:64px;letter-spacing:-.01em;margin:0}
+.start .seg{display:inline-flex;margin:4px 0 0}
+.start .pbtn{width:320px;margin:18px auto 0}
+.start .mode-note{font-size:17px;margin:10px 0 0;min-height:24px}
+.linkb{background:none;border:0;margin-top:14px;color:var(--sub);font:600 18px var(--f-ui);letter-spacing:.06em;cursor:pointer;text-decoration:underline;text-underline-offset:4px}
+.rules ul{margin:0 0 6px;padding-left:22px;font-size:18px;line-height:1.42;color:#d9dfea}
+.rules li{margin-bottom:6px}
+.rules li b{color:#fff}
+.res{width:100%;border-collapse:collapse;margin-bottom:8px}
+.res th{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--sub);font-weight:600;text-align:left;padding:0 6px 8px}
+.res th.n{text-align:right}
+.res td{padding:9px 6px;font-size:21px;border-top:1px solid var(--line)}
+.res td small{display:block;font-size:15px;color:var(--sub);margin-top:2px}
+#ovEnd .panel{width:600px}
+.res td.n{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.res tr.me td{color:var(--pink)}
+.res .star{color:var(--gold)}
+.note{margin:-6px 0 14px;font-size:17px;color:var(--gold);font-weight:600}
+.cust{width:76px;height:38px;border:0;border-radius:11px;background:rgba(255,255,255,.1);color:var(--ink);font:600 18px var(--f-ui);text-align:center;margin-left:6px}
+.cust:focus{outline:2px solid var(--pink)}
+.start .opts{display:grid;grid-template-columns:auto auto;gap:10px 16px;justify-content:center;align-items:center;margin:4px 0 0;font-size:18px;color:var(--sub);text-align:right}
+.start .opts .seg{justify-self:start}
+.deckp{width:980px}
+.grid{display:grid;grid-template-columns:repeat(15,1fr);gap:10px;align-items:start}
+.grid svg{width:100%;height:auto;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.45))}
+.rot{text-align:center;width:460px}
+.rot svg{width:64px;height:64px;stroke:var(--pink);fill:none;stroke-width:1.6;margin-bottom:8px}
+#loading{position:absolute;inset:0;z-index:500;display:grid;place-items:center;background:var(--room);color:var(--sub);font-size:20px;letter-spacing:.1em}
+@media (prefers-reduced-motion:reduce){.tile{transition-duration:.12s}.ghost{animation:none}}
+
+/* top bar stays usable over the panels, so you can always go back to the games */
+.top{z-index:450}
+</style>
+</head>
+<body>
+<div id="app"><div id="fit">
+<div id="stage">
+  <div class="rail"></div>
+  <div class="felt" id="felt"></div>
+  <div class="mark" id="feltMark"></div>
+
+  <div class="top">
+    <div class="l"><button class="ib" id="bHome" aria-label="Kthehu te lojërat" title="Kthehu te lojërat"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><div class="brand"><span id="brandImg"></span>DOMINO</div><div class="meta" id="meta"></div></div>
+    <div class="status" id="status"></div>
+    <div class="r">
+      <button class="ib" id="bRules" aria-label="Rregullat" title="Rregullat"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 8h6M9 12h6"/></svg></button>
+      <button class="ib" id="bDeck" aria-label="Shiko gurët" title="Shiko gurët"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M7 12h10"/><circle cx="12" cy="7" r=".8"/><circle cx="12" cy="17" r=".8"/></svg></button>
+      <button class="ib" id="bSound" aria-label="Zëri" title="Zëri"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg></button>
+      <button class="ib" id="bFull" aria-label="Ekran i plotë" title="Ekran i plotë"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      <button class="ib" id="bSet" aria-label="Cilësimet" title="Cilësimet"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+    </div>
+  </div>
+
+  <div class="plate" id="pl2" style="left:640px;top:56px;transform:translateX(-50%)"></div>
+  <div class="plate" id="pl1" style="left:46px;top:214px"></div>
+  <div class="plate" id="pl3" style="right:46px;top:214px"></div>
+  <div class="plate" id="pl0" style="left:34px;top:620px"></div>
+  <div class="bubble" id="bb0" style="left:150px;top:590px"></div>
+  <div class="bubble" id="bb1" style="left:330px;top:250px"></div>
+  <div class="bubble" id="bb2" style="left:830px;top:92px"></div>
+  <div class="bubble" id="bb3" style="left:950px;top:250px"></div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <linearGradient id="dIv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fdf9ef"/><stop offset="1" stop-color="#e6dcc6"/></linearGradient>
+    <radialGradient id="dPs" cx=".68" cy=".78" r=".55"><stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="dPin" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#f6e1a8"/><stop offset="1" stop-color="#93712e"/></radialGradient>
+    <pattern id="dBp" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0 0L6 6M6 0L0 6" stroke="rgba(239,90,134,.16)" stroke-width=".8"/></pattern>
+    <linearGradient id="dLg" gradientUnits="userSpaceOnUse" x1="0" y1="428" x2="0" y2="1020"><stop offset="0" stop-color="#2c5361"/><stop offset=".33" stop-color="#7c2262"/><stop offset=".7" stop-color="#e9527f"/><stop offset="1" stop-color="#f8c6d0"/></linearGradient>
+  </defs></svg>
+  <div id="tiles"></div>
+  <div class="ghost" id="g0" hidden></div>
+  <div class="ghost" id="g1" hidden></div>
+  <div class="cnt" id="boneCnt" hidden></div>
+
+  <div class="acts">
+    <button class="btn main" id="bMain" disabled>PAS</button>
+    <button class="btn" id="bHint" disabled>NDIHMË</button>
+    <button class="btn" id="bSort">RENDIT</button>
+  </div>
+
+  <div class="ov" id="ovStart"><div class="panel start">
+    <div class="lg" id="startLogo"></div>
+    <h2>Domino</h2>
+    <p id="startLead"></p>
+    <div class="opts">
+      <span>Lojtarët</span><div class="seg" data-k="dteams"><button data-v="2v2">2 kundër 2</button><button data-v="1v1">1 kundër 1</button></div>
+      <span class="stockRow">Gurët e tepërt</span><div class="seg stockRow" data-k="dstock"><button data-v="po">Tërhiqen</button><button data-v="jo">Mbeten jashtë</button></div>
+      <span>Deri në</span><div style="display:flex;align-items:center"><div class="seg" data-k="dtarget"><button data-v="50">50</button><button data-v="100">100</button><button data-v="150">150</button><button data-v="custom">Tjetër</button></div><input class="cust" type="number" inputmode="numeric" min="10" max="1000" step="10" aria-label="Pikët për fitore"></div>
+    </div>
+    <button class="pbtn" id="bStart">Fillo lojën</button>
+    <button class="linkb" id="bRules0">Rregullat</button>
+  </div></div>
+
+  <div class="ov" id="ovRules" hidden><div class="panel rules">
+    <h2>Rregullat</h2>
+    <ul>
+      <li><b>28 gurë</b>, nga 0|0 te 6|6. Secili merr 7.</li>
+      <li><b>2 kundër 2:</b> ti dhe Drita (përballë teje) kundër Arbenit dhe Gëzimit. Shpërndahen të 28 gurët.</li>
+      <li><b>1 kundër 1:</b> ti kundër Dritës. 14 gurët e tepërt ose tërhiqen kur s'ke gur që hyn, ose mbeten jashtë loje. Zgjidhet te fillimi.</li>
+      <li><b>Dora e parë</b> e hap kush ka dyshen më të lartë (6|6 te 2 kundër 2) dhe duhet të hapë me të. Pas saj hap kush doli i pari në dorën e kaluar.</li>
+      <li>Guri vendoset në një nga dy skajet dhe numri duhet të përputhet. Kush s'ka gur që hyn, pason.</li>
+      <li><b>Pikët:</b> kur dikush mbaron gurët, ekipi i tij merr pikat e gurëve që u mbetën në dorë kundërshtarëve. 6|6 vlen 12, e kështu me radhë.</li>
+      <li><b>0|0:</b> nëse i mbetet dikujt vetëm 0|0 në dorë, vlen 10 pikë. Nëse ka edhe gurë të tjerë, 0|0 vlen 0.</li>
+      <li><b>Nëse askush s'ka lëvizje</b>, fiton ana me më pak pikë në dorë dhe merr pikat e kundërshtarëve. Nëse janë njësoj, askush s'merr pikë.</li>
+      <li>Fiton ana që arrin e para <span class="tgt">100</span> pikë.</li>
+    </ul>
+    <button class="pbtn ghostb" id="bRulesClose">Mbyll</button>
+  </div></div>
+
+  <div class="ov" id="ovSet" hidden><div class="panel">
+    <h2>Cilësimet</h2>
+    <p>Ruhen në këtë shfletues.</p>
+    <div class="set">Tavolina<div class="seg" data-k="felt"><button data-v="blu">Blu</button><button data-v="jeshile">Jeshile</button><button data-v="bordo">Bordo</button></div></div>
+    <div class="set">Pikat e gurëve<div class="seg" data-k="pipc"><button data-v="klasike">Klasike</button><button data-v="ngjyra">Me ngjyra</button></div></div>
+    <div class="set">Shpejtësia e lojtarëve<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
+    <div class="set">Zëri<div class="seg" data-k="sound"><button data-v="on">Po</button><button data-v="off">Jo</button></div></div>
+    <div class="set"><div>Lojtarët<small>Vlen nga loja e re</small></div><div class="seg" data-k="dteams"><button data-v="2v2">2 kundër 2</button><button data-v="1v1">1 kundër 1</button></div></div>
+    <div class="set stockRow"><div>Gurët e tepërt<small>Vetëm te 1 kundër 1</small></div><div class="seg" data-k="dstock"><button data-v="po">Tërhiqen</button><button data-v="jo">Mbeten jashtë</button></div></div>
+    <div class="set"><div>Deri në<small>Vlen nga loja e re</small></div><div style="display:flex;align-items:center"><div class="seg" data-k="dtarget"><button data-v="50">50</button><button data-v="100">100</button><button data-v="150">150</button><button data-v="custom">Tjetër</button></div><input class="cust" type="number" inputmode="numeric" min="10" max="1000" step="10" aria-label="Pikët për fitore"></div></div>
+    <div class="row2"><button class="pbtn ghostb" id="bNew">Lojë e re</button><button class="pbtn" id="bSetClose">Mbyll</button></div>
+  </div></div>
+
+  <div class="ov" id="ovDeck" hidden><div class="panel deckp">
+    <h2>Gurët, 0|0 deri 6|6</h2>
+    <p>28 gurë. I fundit është pjesa e pasme.</p>
+    <div class="grid" id="deckGrid"></div>
+    <button class="pbtn ghostb" id="bDeckClose">Mbyll</button>
+  </div></div>
+
+  <div class="ov" id="ovEnd" hidden><div class="panel">
+    <h2 id="endTitle">Dora mbaroi</h2>
+    <p id="endLead"></p>
+    <div class="note" id="endNote" hidden></div>
+    <table class="res" id="resTable"></table>
+    <button class="pbtn" id="bNext">Dora tjetër</button>
+  </div></div>
+
+  <div class="ov" id="ovRot" hidden><div class="panel rot">
+    <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M17 11v2"/></svg>
+    <h2>Ktheje telefonin anash</h2>
+    <p>Tavolina luhet horizontalisht. Nuk ka nevojë të ndezësh rrotullimin automatik: loja kthehet vetë.</p>
+    <button class="pbtn" id="bRotOk">Në rregull</button>
+  </div></div>
+
+  <div id="loading">Duke përgatitur gurët…</div>
+</div>
+</div></div>
+
+<script>
+/* ===== Domino engine (pure, no DOM) =====
+   Double-six set: 28 tiles. Tile id 0..27 -> [a, b] with a <= b. Id 0 is 0|0.
+   Seats 0..3 clockwise, 0 is you.
+     2 kundër 2: seats 0+2 vs 1+3, 7 tiles each, all 28 dealt.
+     1 kundër 1: seats 0 vs 2, 7 tiles each, 14 left over. With stock on, a player who can't
+                 play draws until they can; with it off the leftovers stay out of play.
+   A hand ends when someone plays their last tile ("domino") or nobody can move ("bllok").
+   The winning side scores the pips left in the losing side's hands.
+   Special rule: 0|0 counts 10 when it's the only tile left in a hand, 0 otherwise.
+   Blocked hand: the side with fewer pips left wins and scores the other side's pips; a tie scores nothing.
+   First side to reach the target (50 / 100 / 150 / custom) wins the match. */
+const E = (() => {
+  const TILES = [];
+  for (let a = 0; a <= 6; a++) for (let b = a; b <= 6; b++) TILES.push([a, b]);
+  const A = id => TILES[id][0], B = id => TILES[id][1];
+  const pips = id => TILES[id][0] + TILES[id][1];
+  const isDbl = id => TILES[id][0] === TILES[id][1];
+  const has = (id, v) => TILES[id][0] === v || TILES[id][1] === v;
+  const other = (id, v) => TILES[id][0] === v ? TILES[id][1] : TILES[id][0];
+  const sumPips = hand => hand.reduce((s, id) => s + pips(id), 0);
+  const ZERO_ALONE = 10;
+  const handValue = hand => hand.length === 1 && hand[0] === 0 ? ZERO_ALONE : sumPips(hand);
+  const label = id => `${A(id)}|${B(id)}`;
+
+  function shuffle(arr, rand) { rand = rand || Math.random; for (let i = arr.length - 1; i > 0; i--) { const j = (rand() * (i + 1)) | 0; [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+
+  function newMatch(o) {
+    o = o || {};
+    const teams = o.teams !== false;
+    return { teams, stock: !teams && !!o.stock, target: o.target || 100, rand: o.rand || Math.random,
+      seats: teams ? [0, 1, 2, 3] : [0, 2], teamOf: teams ? [0, 1, 0, 1] : [0, 1, 1, 1],
+      scores: [0, 0], handNo: 0, lastWinner: -1, winner: null, hand: null };
+  }
+  const nextSeat = (mt, p) => mt.seats[(mt.seats.indexOf(p) + 1) % mt.seats.length];
+
+  function deal(mt) {
+    mt.handNo++;
+    const deck = shuffle(Array.from({ length: 28 }, (_, i) => i), mt.rand);
+    const hands = [[], [], [], []], n = mt.seats.length * 7;
+    for (let i = 0; i < n; i++) hands[mt.seats[i % mt.seats.length]].push(deck[i]);
+    const H = { hands, bone: deck.slice(n), start: null, L: [], R: [], ends: null, cur: 0, passes: 0,
+      lacks: [new Set(), new Set(), new Set(), new Set()], played: new Set(), mustOpen: null, result: null, dealOrder: deck.slice(0, n) };
+    if (mt.lastWinner >= 0) H.cur = mt.lastWinner;
+    else {
+      // first hand (or after a tied block): the highest double opens and must be played
+      let best = -1, who = 0;
+      for (const p of mt.seats) for (const id of hands[p]) {
+        const v = (isDbl(id) ? 100 : 0) + pips(id) * 2 + B(id) * .1;
+        if (v > best) { best = v; who = p; H.mustOpen = id; }
+      }
+      H.cur = who;
+    }
+    mt.hand = H;
+    return H;
+  }
+
+  /* moves: {id, side}. side 'S' = first tile, 'L' / 'R' = which end. */
+  function movesFor(H, p) {
+    const hand = H.hands[p], out = [];
+    if (!H.start) {
+      for (const id of hand) if (H.mustOpen === null || id === H.mustOpen) out.push({ id, side: 'S' });
+      return out;
+    }
+    const [l, r] = H.ends;
+    for (const id of hand) {
+      const okL = has(id, l), okR = has(id, r);
+      if (okL && okR && l === r) out.push({ id, side: H.L.length <= H.R.length ? 'L' : 'R' });
+      else { if (okL) out.push({ id, side: 'L' }); if (okR) out.push({ id, side: 'R' }); }
+    }
+    return out;
+  }
+  const canMove = (H, p) => movesFor(H, p).length > 0;
+  const canDraw = mt => mt.stock && mt.hand.bone.length > 0;
+
+  function endsAfter(H, m) {
+    if (m.side === 'S') return [A(m.id), B(m.id)];
+    const e = H.ends.slice();
+    if (m.side === 'L') e[0] = other(m.id, e[0]); else e[1] = other(m.id, e[1]);
+    return e;
+  }
+
+  function play(mt, p, m) {
+    const H = mt.hand;
+    if (p !== H.cur) throw new Error('not your turn');
+    if (!movesFor(H, p).some(x => x.id === m.id && x.side === m.side)) throw new Error('illegal move ' + label(m.id) + ' ' + m.side);
+    H.hands[p] = H.hands[p].filter(x => x !== m.id);
+    if (m.side === 'S') { H.start = { id: m.id, left: A(m.id), right: B(m.id) }; H.ends = [A(m.id), B(m.id)]; H.mustOpen = null; }
+    else if (m.side === 'L') { const inner = H.ends[0], outer = other(m.id, inner); H.L.push({ id: m.id, inner, outer }); H.ends[0] = outer; }
+    else { const inner = H.ends[1], outer = other(m.id, inner); H.R.push({ id: m.id, inner, outer }); H.ends[1] = outer; }
+    H.played.add(m.id); H.passes = 0;
+    const ev = { type: 'play', p, id: m.id, side: m.side, over: false };
+    if (!H.hands[p].length) { finish(mt, 'domino', p); ev.over = true; ev.result = H.result; return ev; }
+    H.cur = nextSeat(mt, p);
+    return ev;
+  }
+
+  function draw(mt, p) {
+    const H = mt.hand;
+    if (p !== H.cur || !canDraw(mt) || canMove(H, p)) throw new Error('cannot draw');
+    const id = H.bone.pop(); H.hands[p].push(id);
+    return id;
+  }
+
+  function pass(mt, p) {
+    const H = mt.hand;
+    if (p !== H.cur || canMove(H, p) || canDraw(mt)) throw new Error('cannot pass');
+    if (H.ends) { H.lacks[p].add(H.ends[0]); H.lacks[p].add(H.ends[1]); }
+    H.passes++;
+    const ev = { type: 'pass', p, over: false };
+    if (H.passes >= mt.seats.length) { finish(mt, 'bllok', p); ev.over = true; ev.result = H.result; return ev; }
+    H.cur = nextSeat(mt, p);
+    return ev;
+  }
+
+  function finish(mt, kind, p) {
+    const H = mt.hand;
+    const left = [0, 0, 0, 0];
+    for (const q of mt.seats) left[q] = handValue(H.hands[q]);
+    const teamLeft = [0, 0];
+    for (const q of mt.seats) teamLeft[mt.teamOf[q]] += left[q];
+    let winTeam = null;
+    if (kind === 'domino') winTeam = mt.teamOf[p];
+    else if (teamLeft[0] !== teamLeft[1]) winTeam = teamLeft[0] < teamLeft[1] ? 0 : 1;
+    const gain = winTeam === null ? 0 : teamLeft[1 - winTeam];
+    if (winTeam !== null) mt.scores[winTeam] += gain;
+    // next hand is opened by whoever went out; after a block, by the winning side's lightest hand
+    if (kind === 'domino') mt.lastWinner = p;
+    else if (winTeam !== null) mt.lastWinner = mt.seats.filter(q => mt.teamOf[q] === winTeam).sort((a, b) => left[a] - left[b])[0];
+    else mt.lastWinner = -1;
+    if (winTeam !== null && mt.scores[winTeam] >= mt.target) mt.winner = winTeam;
+    const zeroAlone = mt.seats.filter(q => H.hands[q].length === 1 && H.hands[q][0] === 0);
+    H.cur = -1;
+    H.result = { kind, p, winTeam, gain, left, teamLeft, scores: mt.scores.slice(), matchWinner: mt.winner, zeroAlone };
+  }
+
+  /* ---- bot: one-ply evaluation using only what a real player can see ----
+     Dumps heavy tiles and doubles, keeps ends it can follow, and leaves ends that
+     opponents who already passed on can't match, while not shutting out its partner. */
+  function botChoose(mt, p) {
+    const H = mt.hand, ms = movesFor(H, p);
+    if (!ms.length) return null;
+    if (ms.length === 1) return ms[0];
+    const hand = H.hands[p], rand = mt.rand;
+    const unseen = []; for (let id = 0; id < 28; id++) if (!H.played.has(id) && !hand.includes(id)) unseen.push(id);
+    const others = []; for (let q = nextSeat(mt, p); q !== p; q = nextSeat(mt, q)) others.push(q);
+    let best = null, bs = -1e9;
+    for (const m of ms) {
+      const rest = hand.filter(x => x !== m.id);
+      if (!rest.length) return m;
+      const e = endsAfter(H, m);
+      let s = pips(m.id) * .9 + (isDbl(m.id) ? 3.5 : 0);
+      if (m.id === 0 && rest.length > 1) s -= 2;          // 0|0 is free to hold while you have other tiles
+      if (m.id !== 0 && rest.length === 1 && rest[0] === 0) s -= 6;   // don't get stuck with 0|0 alone (worth 10)
+      s += 1.6 * rest.filter(x => has(x, e[0]) || has(x, e[1])).length;
+      s -= .45 * unseen.filter(x => x !== m.id && (has(x, e[0]) || has(x, e[1]))).length;
+      others.forEach((q, k) => {
+        const mate = mt.teamOf[q] === mt.teamOf[p];
+        const blocked = H.lacks[q].has(e[0]) && H.lacks[q].has(e[1]);
+        const low = H.hands[q].length <= 2;
+        if (mate) { if (blocked) s -= 3 + (low ? 5 : 0); }
+        else if (blocked) s += (k === 0 ? 5 : 2.5) + (low ? 6 : 0);
+        else if (H.lacks[q].has(e[0]) || H.lacks[q].has(e[1])) s += k === 0 ? .8 : .3;
+      });
+      s += (rand() - .5) * .6;
+      if (s > bs) { bs = s; best = m; }
+    }
+    return best;
+  }
+
+  return { TILES, A, B, pips, isDbl, has, other, sumPips, handValue, ZERO_ALONE, label, shuffle, newMatch, nextSeat, deal, movesFor, canMove, canDraw, endsAfter, play, draw, pass, botChoose };
+})();
+if (typeof module !== 'undefined') module.exports = { E };
+
+</script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const stage = $('#stage'), fit = $('#fit');
+
+/* ---------- settings (shared key with the other tables, so felt/sound/speed carry over) ---------- */
+const DEF = {felt:'blu', speed:'normal', sound:'on', pipc:'klasike', dteams:'2v2', dstock:'po', dtarget:'100', dcustom:'200'};
+let ST = {...DEF};
+try { Object.assign(ST, JSON.parse(localStorage.getItem('vw-tavolina') || '{}')); } catch(e) {}
+const save = () => { try { localStorage.setItem('vw-tavolina', JSON.stringify(ST)); } catch(e) {} };
+const FELTS = {blu:['#1f4a63','#0d2232'], jeshile:['#1d5a44','#0b2a1f'], bordo:['#5a2338','#260f19']};
+const target = () => ST.dtarget === 'custom' ? Math.max(10, Math.min(1000, parseInt(ST.dcustom, 10) || 100)) : +ST.dtarget;
+
+/* ---------- fit: 16:9 stage, turned 90° when the screen is upright ---------- */
+let rotated = false, fitScale = 1;
+function doFit(){
+  const r = fit.getBoundingClientRect();
+  rotated = r.height > r.width * 1.05;
+  const W = rotated ? r.height : r.width, H = rotated ? r.width : r.height;
+  const s = Math.min(W / 1280, H / 720); fitScale = s;
+  stage.style.transform = `translate(-50%,-50%) rotate(${rotated ? 90 : 0}deg) scale(${s})`;
+}
+addEventListener('resize', doFit);
+if (window.visualViewport) visualViewport.addEventListener('resize', doFit);
+addEventListener('orientationchange', () => setTimeout(doFit, 150));
+doFit();
+
+/* ---------- tile art: inline SVG (no images to load, so it shows in any viewer) ----------
+   Shared gradients live in the hidden <defs> in the page. A tile is 60x120 with A on top. */
+const TW = 60, TH = 120;
+const PIPCOL = {klasike: [,'#1c1a17','#1c1a17','#1c1a17','#1c1a17','#1c1a17','#1c1a17'],
+                ngjyra:  [,'#1f63c6','#178048','#c3263b','#8a4b1f','#6b3fb3','#b86800']};
+const PIPS = {1:[[1,1]], 2:[[0,0],[2,2]], 3:[[0,0],[1,1],[2,2]], 4:[[0,0],[2,0],[0,2],[2,2]],
+              5:[[0,0],[2,0],[1,1],[0,2],[2,2]], 6:[[0,0],[2,0],[0,1],[2,1],[0,2],[2,2]]};
+const PP = [15.2, 30, 44.8];
+const LOGO_D = 'M310 428L460 428L615 735L775 428L925 428L652 983Q615 1036 578 983Z M985 428L1140 428L864 983Q828 1036 793 983L752 900Z';
+const logoSVG = () => `<svg viewBox="290 410 870 640" aria-hidden="true"><path d="${LOGO_D}" fill="url(#dLg)"/></svg>`;
+function faceSVG(id){
+  const cols = PIPCOL[ST.pipc] || PIPCOL.klasike;
+  let s = '<svg viewBox="0 0 60 120" aria-hidden="true"><rect x=".5" y=".5" width="59" height="119" rx="7.5" fill="url(#dIv)" stroke="rgba(60,40,20,.35)"/>' +
+          '<rect x="2.6" y="2.6" width="54.8" height="114.8" rx="6" fill="none" stroke="rgba(255,255,255,.75)" stroke-width=".9"/>';
+  [[E.A(id), 0], [E.B(id), 60]].forEach(([v, oy]) => {
+    for (const [u, w] of PIPS[v] || []) {
+      const x = PP[u], y = oy + PP[w];
+      s += `<circle cx="${x}" cy="${y}" r="5.4" fill="${cols[v]}"/><circle cx="${x}" cy="${y}" r="5.4" fill="url(#dPs)"/>`;
+    }
+  });
+  return s + '<path d="M8 60H52" stroke="rgba(50,35,20,.5)" stroke-width="1.2"/><path d="M8 61.1H52" stroke="rgba(255,255,255,.7)" stroke-width=".5"/>' +
+    '<circle cx="30" cy="60" r="2.8" fill="url(#dPin)" stroke="rgba(0,0,0,.35)" stroke-width=".4"/></svg>';
+}
+const BACK = '<svg viewBox="0 0 60 120" aria-hidden="true"><rect x=".5" y=".5" width="59" height="119" rx="7.5" fill="#141e30"/>' +
+  '<rect x=".5" y=".5" width="59" height="119" rx="7.5" fill="url(#dBp)"/><rect x="4" y="4" width="52" height="112" rx="5" fill="none" stroke="rgba(248,198,208,.32)" stroke-width=".8"/>' +
+  '<circle cx="30" cy="60" r="14.5" fill="#141e30" stroke="rgba(248,198,208,.32)" stroke-width=".8"/>' +
+  `<path d="${LOGO_D}" fill="url(#dLg)" transform="translate(30 59) scale(.03) translate(-725 -725)"/></svg>`;
+let FACE = [];
+const buildArt = () => { FACE = Array.from({length: 28}, (_, i) => faceSVG(i)); };
+
+/* ---------- seats & geometry ---------- */
+const NAMES = ['Ti','Arben','Drita','Gëzim'];
+const AVC = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62'];
+const AREA = {cx: 640, halfW: 380, top: 198, bot: 552};   // where the line of play may go
+const SIZES = [76, 70, 64, 58, 52, 47, 42, 38];           // tile length on the table, largest first
+const STACK = [640, 376], BONE = [330, 146];
+const els = [];
+let mt = null, H = null, gen = 0, dealt = null, reveal = false;
+let mode = 'idle', sel = -1, ghosts = [], hintMove = null, sortMode = 'num', humanResolve = null;
+let chainL = SIZES[0], offY = 376, lastId = -1;
+const D = ms => ms * (ST.speed === 'fast' ? .55 : 1);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const active = p => !mt || mt.seats.includes(p);
+const sideName = t => mt.teams ? (t === 0 ? 'Ti & Drita' : 'Arben & Gëzim') : (t === 0 ? 'Ti' : 'Drita');
+
+function mkTiles(){
+  const box = $('#tiles'); box.textContent = '';
+  for (let i = 0; i < 28; i++) {
+    const d = document.createElement('div'); d.className = 'tile'; d.dataset.id = i;
+    box.appendChild(d); els[i] = {el: d, up: null};
+  }
+}
+function place(el, x, y, rot, sc){ el.style.transform = `translate3d(${x - TW / 2}px,${y - TH / 2}px,0) rotate(${rot}deg) scale(${sc})`; }
+function put(id, x, y, rot = 0, sc = 1, z = 1, up = false){
+  const c = els[id];
+  if (c.up !== up) { c.el.innerHTML = up ? FACE[id] : BACK; c.up = up; }
+  place(c.el, x, y, rot, sc); c.el.style.zIndex = z;
+}
+
+/* ---------- the line of play ----------
+   Built outward from the first tile. Each arm runs along a row; near the edge it turns with one
+   upright tile and comes back on the next row (right arm downwards, left arm upwards).
+   Doubles lie across the line, except the tile straight after a turn, which lies along it. */
+function rotFor(dx, dy, innerIsA){
+  // A is on top of the drawing: turn it so the matching half faces where the line comes from
+  if (dx === 1) return innerIsA ? -90 : 90;
+  if (dx === -1) return innerIsA ? 90 : -90;
+  if (dy === 1) return innerIsA ? 0 : 180;
+  return innerIsA ? 180 : 0;
+}
+function armLayout(arm, s, x0, L, out){
+  const S = L / 2, lim = AREA.halfW - S;
+  let x = x0, rowY = 0, dir = s, after = false;
+  for (const t of arm) {
+    const dbl = E.isDbl(t.id), innerIsA = E.A(t.id) === t.inner;
+    if (!after) {
+      const w = dbl ? S : L;
+      if (Math.abs(x + dir * w) > lim) {            // turn the corner
+        out.push({id: t.id, x: x + dir * S / 2, y: rowY + s * S / 2, rot: rotFor(0, s, innerIsA), w: S, h: L});
+        x += dir * S; dir = -dir; rowY += s * L; after = true;
+        continue;
+      }
+      if (dbl) out.push({id: t.id, x: x + dir * S / 2, y: rowY, rot: 0, w: S, h: L});
+      else out.push({id: t.id, x: x + dir * L / 2, y: rowY, rot: rotFor(dir, 0, innerIsA), w: L, h: S});
+      x += dir * w;
+    } else {
+      out.push({id: t.id, x: x + dir * L / 2, y: rowY, rot: rotFor(dir, 0, innerIsA), w: L, h: S});
+      x += dir * L; after = false;
+    }
+  }
+}
+function layoutAt(L, extra){
+  const S = L / 2, out = [], st = H.start;
+  const dbl = E.isDbl(st.id);
+  out.push(dbl ? {id: st.id, x: 0, y: 0, rot: 0, w: S, h: L} : {id: st.id, x: 0, y: 0, rot: -90, w: L, h: S});
+  const half = dbl ? S / 2 : L / 2;
+  const left = H.L.slice(), right = H.R.slice();
+  if (extra) (extra.side === 'L' ? left : right).push(extra);
+  armLayout(left, -1, -half, L, out);
+  armLayout(right, 1, half, L, out);
+  let y0 = 1e9, y1 = -1e9;
+  for (const r of out) { y0 = Math.min(y0, r.y - r.h / 2); y1 = Math.max(y1, r.y + r.h / 2); }
+  return {L, out, y0, y1};
+}
+function fitChain(){
+  // shrink only when needed, never grow back mid-hand, so tiles don't jump around
+  let k = Math.max(0, SIZES.indexOf(chainL)), lay;
+  for (; k < SIZES.length; k++) { lay = layoutAt(SIZES[k]); if (lay.y1 - lay.y0 <= AREA.bot - AREA.top) break; }
+  if (k >= SIZES.length) lay = layoutAt(SIZES[SIZES.length - 1]);
+  chainL = lay.L;
+  if (offY + lay.y0 < AREA.top) offY = AREA.top - lay.y0;
+  if (offY + lay.y1 > AREA.bot) offY = AREA.bot - lay.y1;
+  return lay;
+}
+function renderChain(){
+  if (!H.start) return;
+  const lay = fitChain(), sc = lay.L / TH;
+  lay.out.forEach((r, i) => {
+    const e = els[r.id].el;
+    e.classList.remove('mine','sel','dim','hint');
+    e.classList.toggle('last', r.id === lastId);
+    put(r.id, AREA.cx + r.x, offY + r.y, r.rot, sc, 50 + i, true);
+  });
+  $('#feltMark').classList.add('off');
+}
+function ghostRect(m){
+  if (!H.start) return {x: AREA.cx, y: offY, rot: E.isDbl(m.id) ? 0 : -90, sc: chainL / TH};
+  const inner = m.side === 'L' ? H.ends[0] : H.ends[1];
+  const lay = layoutAt(chainL, {id: m.id, inner, outer: E.other(m.id, inner), side: m.side});
+  const r = lay.out.find(o => o.id === m.id);
+  return {x: AREA.cx + r.x, y: offY + r.y, rot: r.rot, sc: chainL / TH};
+}
+
+/* ---------- hands ---------- */
+const handOf = p => dealt ? dealt[p] : H ? H.hands[p] : [];
+const sortCmp = () => sortMode === 'pips' ? (x, y) => E.pips(y) - E.pips(x) || x - y : (x, y) => E.A(x) - E.A(y) || E.B(x) - E.B(y);
+function playableIds(){
+  if (mode !== 'play') return null;
+  return new Set(E.movesFor(H, 0).map(m => m.id));
+}
+const handScale = n => n > 11 ? .92 : 1.04;
+const HAND_GEOM = (i, n) => { const w = TW * handScale(n), step = n > 1 ? Math.min(74, (740 - w) / (n - 1)) : 0; return {x: 635 + (i - (n - 1) / 2) * step, y: 628, rot: 0}; };
+function layoutSeat(p){
+  if (!active(p)) return;
+  const h = handOf(p), n = h.length;
+  if (p === 0) {
+    const ids = orderHand(h, sortCmp(), !!dealt), ok = playableIds();
+    const sc = handScale(n);
+    ids.forEach((id, i) => {
+      const g = HAND_GEOM(i, n), y = g.y - (sel === id ? 30 : 0);
+      const e = els[id].el;
+      e.classList.add('mine'); e.classList.remove('last');
+      e.classList.toggle('sel', sel === id);
+      e.classList.toggle('hint', !!hintMove && hintMove.id === id && sel !== id);
+      e.classList.toggle('dim', !!ok && !ok.has(id));
+      if (!isDragged(id)) put(id, g.x, y, 0, sc, 100 + i, true);
+    });
+  } else {
+    h.forEach((id, i) => {
+      const o = i - (n - 1) / 2;
+      const e = els[id].el; e.classList.remove('mine','sel','dim','hint','last');
+      if (reveal) {
+        // hand over: show what was left, face up
+        const sc = .5;
+        if (p === 2) put(id, 640 + o * 34, 166, 0, sc, 300 + i, true);
+        else { const col = i % 4, row = i >> 2, x = p === 1 ? 108 + col * 34 : 1172 - col * 34; put(id, x, 346 + row * 68, 0, sc, 300 + i, true); }
+      } else if (p === 2) { const step = n > 1 ? Math.min(30, 330 / (n - 1)) : 0; put(id, 640 + o * step, 152, 0, .4, 10 + i, false); }
+      else {
+        const step = n > 1 ? Math.min(28, 190 / (n - 1)) : 0;
+        put(id, p === 1 ? 140 : 1140, 404 + o * step, p === 1 ? 90 : -90, .4, 10 + i, false);
+      }
+    });
+  }
+  renderPlate(p);
+}
+function layoutBone(){
+  const b = H ? H.bone : [];
+  b.forEach((id, i) => { const col = i % 7, row = (i / 7) | 0; put(id, BONE[0] - 80 + col * 27, BONE[1] - 24 + row * 52, 0, .4, 5 + i, false); els[id].el.classList.remove('mine','sel','dim','hint','last'); });
+  const c = $('#boneCnt');
+  c.hidden = !(H && b.length && !dealt);
+  c.textContent = (mt && mt.stock ? 'Stoku · ' : 'Jashtë loje · ') + b.length;
+  c.style.left = BONE[0] + 170 + 'px'; c.style.top = BONE[1] + 'px';
+}
+function renderPlate(p){
+  const el = $('#pl' + p);
+  el.hidden = !active(p);
+  if (!active(p)) return;
+  const n = handOf(p).length;
+  const low = n > 0 && n <= 2 && !dealt && H && H.cur >= 0;
+  const tag = p === 0 ? '' : mt && mt.teamOf[p] === 0 ? ' · <i>partneri</i>' : '';
+  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0]}</div><div><b>${NAMES[p]}</b><span class="${low ? 'low' : ''}">${n === 1 ? '1 gur' : n + ' gurë'}${tag}</span></div>`;
+}
+const renderPlates = () => { for (let p = 0; p < 4; p++) renderPlate(p); };
+function setTurn(p){ for (let i = 0; i < 4; i++) $('#pl' + i).classList.toggle('turn', i === p); }
+function status(txt){ $('#status').innerHTML = txt; }
+function meta(){
+  if (!mt) { $('#meta').innerHTML = ''; return; }
+  const [a, b] = mt.teams ? ['Ne', 'Ata'] : ['Ti', 'Drita'];
+  $('#meta').innerHTML = `${a} <b>${mt.scores[0]}</b> · ${b} <b>${mt.scores[1]}</b> · deri në ${mt.target}`;
+}
+function bubble(p, txt, gold, ms = 1150){
+  const b = $('#bb' + p); b.textContent = txt; b.classList.toggle('gold', !!gold); b.classList.add('on');
+  clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('on'), D(ms));
+}
+const T = id => `<em>${E.label(id)}</em>`;
+
+/* ---------- sound: short filtered noise bursts made on the fly ---------- */
+let actx = null;
+function audio(){ if (actx || ST.sound !== 'on') return; try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} }
+function snap(vol = .45, freq = 1900, dur = .06){
+  if (ST.sound !== 'on' || !actx) return;
+  try {
+    if (actx.state === 'suspended') actx.resume();
+    const a = actx, len = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 4);
+    const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    f.type = 'bandpass'; f.frequency.value = freq * (.88 + Math.random() * .24); f.Q.value = 1.1; g.gain.value = vol;
+    src.buffer = buf; src.connect(f).connect(g).connect(a.destination); src.start();
+  } catch(e) {}
+}
+const clack = big => { snap(big ? .75 : .55, 1500, .05); setTimeout(() => snap(.3, 3200, .03), 18); };
+const knock = () => { snap(.7, 380, .08); setTimeout(() => snap(.6, 360, .08), 150); };
+function chime(){
+  if (ST.sound !== 'on' || !actx) return;
+  try { const t = actx.currentTime; [523, 659, 784].forEach((f, i) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'triangle'; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t + i * .09); g.gain.linearRampToValueAtTime(.12, t + i * .09 + .02); g.gain.exponentialRampToValueAtTime(.001, t + i * .09 + .5);
+    o.connect(g).connect(actx.destination); o.start(t + i * .09); o.stop(t + i * .09 + .55); }); } catch(e) {}
+}
+
+/* ---------- your hand: drag a tile left/right to rearrange it ----------
+   House rule for every VitoWeb game: the hand order is the player's. Never lock it, never re-sort it on its own.
+   New tiles land at the right end; RENDIT re-sorts on demand. A tap that doesn't move 8px stays a normal tap. */
+let handOrder = [], dragging = null, dragEndT = 0;
+function orderHand(hand, sortFn, fresh){
+  const set = new Set(hand);
+  if (dragging && !set.has(dragging.id)) { dragging.el.classList.remove('drag'); dragging = null; }
+  if (fresh || !handOrder.length) { handOrder = hand.slice().sort(sortFn); return handOrder; }
+  handOrder = handOrder.filter(id => set.has(id));
+  for (const id of hand) if (!handOrder.includes(id)) handOrder.push(id);
+  return handOrder;
+}
+const isDragged = id => !!dragging && dragging.on && dragging.id === id;
+const relayoutHand = () => { if (H) layoutSeat(0); };
+const canDragHand = () => !!H && !dealt;
+function stagePoint(e){
+  const r = fit.getBoundingClientRect();
+  const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  return { x: 640 + (rotated ? dy : dx) / fitScale, y: 360 + (rotated ? -dx : dy) / fitScale };
+}
+function dragTo(p){
+  const d = dragging, n = handOrder.length, x = p.x + d.dx;
+  let best = 0, bd = 1e9;
+  for (let i = 0; i < n; i++) { const q = Math.abs(HAND_GEOM(i, n).x - x); if (q < bd) { bd = q; best = i; } }
+  const cur = handOrder.indexOf(d.id);
+  if (cur < 0) return;
+  if (best !== cur) { handOrder.splice(cur, 1); handOrder.splice(best, 0, d.id); relayoutHand(); snap(.08, 3200, .02); }
+  const g = HAND_GEOM(best, n);
+  put(d.id, Math.max(50, Math.min(1230, x)), g.y - 44, 0, handScale(n) * 1.06, 390, true);
+}
+function endDrag(e){
+  const d = dragging; if (!d || (e && e.pointerId !== d.pid)) return;
+  dragging = null;
+  if (d.on) { d.el.classList.remove('drag'); dragEndT = performance.now(); relayoutHand(); snap(.12, 2600, .03); }
+}
+(() => {
+  const box = $('#tiles');
+  box.addEventListener('pointerdown', e => {
+    if (e.button > 0 || dragging || !canDragHand()) return;
+    const c = e.target.closest('.tile.mine'); if (!c) return;
+    const id = +c.dataset.id; if (!handOrder.includes(id)) return;
+    const p = stagePoint(e);
+    dragging = { id, pid: e.pointerId, x0: p.x, y0: p.y, on: false, el: c, dx: 0 };
+    try { c.setPointerCapture(e.pointerId); } catch(_) {}
+  });
+  box.addEventListener('pointermove', e => {
+    const d = dragging; if (!d || e.pointerId !== d.pid) return;
+    if (!handOrder.includes(d.id)) return endDrag(e);
+    const p = stagePoint(e);
+    if (!d.on) {
+      if (Math.hypot(p.x - d.x0, p.y - d.y0) < 8) return;
+      d.on = true; d.el.classList.add('drag');
+      d.dx = HAND_GEOM(handOrder.indexOf(d.id), handOrder.length).x - d.x0;
+    }
+    e.preventDefault();
+    dragTo(p);
+  });
+  box.addEventListener('pointerup', endDrag);
+  box.addEventListener('pointercancel', endDrag);
+  box.addEventListener('lostpointercapture', endDrag);
+  // a drag must not also count as a tap on the tile
+  box.addEventListener('click', e => { if (performance.now() - dragEndT < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
+})();
+
+/* ---------- human input ---------- */
+function clearGhosts(){ ghosts = []; ['#g0','#g1'].forEach(s => $(s).hidden = true); }
+function showGhosts(ms){
+  ghosts = ms;
+  ms.forEach((m, i) => {
+    const g = $('#g' + i), r = ghostRect(m);
+    g.innerHTML = FACE[m.id];
+    place(g, r.x, r.y, r.rot, r.sc); g.hidden = false;
+  });
+  for (let i = ms.length; i < 2; i++) $('#g' + i).hidden = true;
+}
+function refresh(){
+  const mine = mode === 'play';
+  const ms = mine ? E.movesFor(H, 0) : [];
+  const b = $('#bMain');
+  if (mine && !ms.length) {
+    b.disabled = false;
+    if (E.canDraw(mt)) { b.textContent = 'TËRHIQ'; status(`Nuk ke gur që hyn · tërhiq nga stoku (${H.bone.length})`); }
+    else { b.textContent = 'PAS'; status('Nuk ke gur që hyn · shtyp PAS'); }
+  } else {
+    b.disabled = true; b.textContent = 'PAS';
+    if (mine) {
+      if (sel >= 0 && ghosts.length > 1) status(`Ku ta vendosësh ${T(sel)}? Prek njërën anë`);
+      else if (sel >= 0) status(`Prek vendin e ndriçuar për ${T(sel)}`);
+      else if (!H.start && H.mustOpen !== null) status(`Radha jote · hap me ${T(H.mustOpen)}`);
+      else if (!H.start) status('Radha jote · hap me çfarë guri të duash');
+      else status(`Radha jote · skajet janë <em>${H.ends[0]}</em> dhe <em>${H.ends[1]}</em>`);
+    }
+  }
+  $('#bHint').disabled = !(mine && ms.length);
+}
+function pick(id){
+  const ms = E.movesFor(H, 0).filter(m => m.id === id);
+  if (!ms.length) { snap(.1, 700, .03); status(`${T(id)} nuk hyn në asnjë skaj`); return; }
+  if (sel === id) { sel = -1; hintMove = null; clearGhosts(); layoutSeat(0); refresh(); return; }
+  if (ms.length === 1) return submit(ms[0]);            // only one place it can go: play it straight away
+  sel = id; hintMove = null; showGhosts(ms); snap(.15, 2600, .04); layoutSeat(0); refresh();
+}
+function submit(m){
+  if (mode !== 'play' || !humanResolve) return;
+  mode = 'idle'; sel = -1; hintMove = null; clearGhosts(); refresh();
+  const r = humanResolve; humanResolve = null; r({type: 'play', m});
+}
+$('#tiles').addEventListener('click', e => {
+  audio();
+  const t = e.target.closest('.tile.mine'); if (!t || mode !== 'play') return;
+  const id = +t.dataset.id; if (!H.hands[0].includes(id)) return;
+  pick(id);
+});
+['#g0','#g1'].forEach((s, i) => $(s).addEventListener('click', e => { e.stopPropagation(); audio(); if (ghosts[i]) submit(ghosts[i]); }));
+$('#felt').addEventListener('click', () => { if (mode === 'play' && sel >= 0) { sel = -1; hintMove = null; clearGhosts(); layoutSeat(0); refresh(); } });
+$('#bMain').onclick = () => {
+  audio();
+  if (mode !== 'play' || !humanResolve || E.canMove(H, 0)) return;
+  const r = humanResolve; humanResolve = null; mode = 'idle'; refresh();
+  r({type: E.canDraw(mt) ? 'draw' : 'pass'});
+};
+$('#bHint').onclick = () => {
+  audio();
+  if (mode !== 'play') return;
+  const m = E.botChoose(mt, 0); if (!m) return;
+  sel = m.id; hintMove = m; showGhosts([m]); layoutSeat(0); refresh();
+  status(`Këshilla: ${T(m.id)}${H.start ? (m.side === 'L' ? ' në skajin e majtë' : ' në skajin e djathtë') : ''}`);
+};
+$('#bSort').onclick = () => {
+  audio(); sortMode = sortMode === 'num' ? 'pips' : 'num'; handOrder = [];
+  if (H) layoutSeat(0);
+  if (mode !== 'play') return;
+  status(sortMode === 'num' ? 'Gurët u renditën sipas numrave' : 'Gurët u renditën nga më i rëndi');
+  clearTimeout(window.__st); window.__st = setTimeout(() => { if (mode === 'play') refresh(); }, 1200);
+};
+addEventListener('keydown', e => {
+  if (!$('#ovStart').hidden || e.target.tagName === 'INPUT') return;
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); $('#bMain').click(); }
+  else if (e.key === 'h' || e.key === 'H') $('#bHint').click();
+  else if (e.key === 'Escape') { ['#ovSet','#ovDeck','#ovRules'].forEach(s => $(s).hidden = true); if (sel >= 0) $('#felt').click(); }
+});
+function humanTurn(){ mode = 'play'; sel = -1; hintMove = null; clearGhosts(); layoutSeat(0); refresh(); return new Promise(r => humanResolve = r); }
+
+/* ---------- a hand ---------- */
+function resetTiles(){
+  for (let i = 0; i < 28; i++) { const e = els[i].el; e.className = 'tile'; e.style.transition = 'none'; put(i, STACK[0] + (i % 7 - 3) * 1.2, STACK[1] - i * .4, 90, .55, i, false); }
+  $('#tiles').offsetWidth; els.forEach(c => c.el.style.transition = '');
+  reveal = false; lastId = -1; chainL = SIZES[0]; offY = (AREA.top + AREA.bot) / 2; clearGhosts(); handOrder = [];
+  $('#feltMark').classList.remove('off');
+}
+async function dealAnim(my){
+  dealt = [[], [], [], []]; renderPlates(); $('#boneCnt').hidden = true;
+  status('Duke përzier…');
+  for (let k = 0; k < 3; k++) {     // a quick shuffle on the felt, then deal one at a time
+    for (let i = 0; i < 28; i++) put(i, STACK[0] + (Math.random() - .5) * 120, STACK[1] + (Math.random() - .5) * 70, 90 + (Math.random() - .5) * 60, .55, i, false);
+    snap(.12, 3000, .12); await sleep(D(170)); if (my !== gen) return;
+  }
+  for (let i = 0; i < 28; i++) put(i, STACK[0] + (i % 7 - 3) * 1.2, STACK[1] - i * .4, 90, .55, i, false);
+  await sleep(D(260));
+  status('Duke shpërndarë…');
+  for (let i = 0; i < H.dealOrder.length; i++) {
+    if (my !== gen) return;
+    const p = mt.seats[i % mt.seats.length]; dealt[p].push(H.dealOrder[i]); layoutSeat(p);
+    if (i % 2 === 0) snap(.16, 2200, .04);
+    await sleep(D(38));
+  }
+  dealt = null; layoutBone(); renderPlates();
+  await sleep(D(380));
+}
+async function botTurn(p, my){
+  if (!E.canMove(H, p) && E.canDraw(mt)) {
+    status(`${NAMES[p]} tërheq nga stoku…`);
+    while (!E.canMove(H, p) && E.canDraw(mt)) {
+      await sleep(D(330)); if (my !== gen) return null;
+      E.draw(mt, p); snap(.2, 2400, .04); layoutSeat(p); layoutBone();
+    }
+    await sleep(D(300)); if (my !== gen) return null;
+  }
+  status(!H.start && H.mustOpen !== null ? `${NAMES[p]} hap me ${T(H.mustOpen)}` : `Luan ${NAMES[p]}…`);
+  await sleep(D(480 + Math.random() * 420)); if (my !== gen) return null;
+  const m = E.botChoose(mt, p);
+  return m ? {type: 'play', m} : {type: 'pass'};
+}
+async function runHand(){
+  const my = ++gen;
+  mode = 'idle'; humanResolve = null; sel = -1; refresh();
+  H = E.deal(mt); meta(); setTurn(-1);
+  resetTiles(); renderPlates();
+  await dealAnim(my); if (my !== gen) return;
+  while (true) {
+    const p = H.cur; setTurn(p);
+    const act = p === 0 ? await humanTurn() : await botTurn(p, my);
+    if (my !== gen || !act) return;
+    if (act.type === 'draw') {                 // human draws one tile, then gets the turn back
+      const id = E.draw(mt, 0); snap(.25, 2400, .04);
+      hintMove = null; layoutSeat(0); layoutBone();
+      els[id].el.classList.add('hint'); setTimeout(() => els[id].el.classList.remove('hint'), D(900));
+      await sleep(D(220)); continue;
+    }
+    if (act.type === 'pass') {
+      const ev = E.pass(mt, p);
+      bubble(p, 'Pas'); knock(); renderPlate(p);
+      if (p !== 0) status(`${NAMES[p]} pason`);
+      await sleep(D(p === 0 ? 300 : 620));
+      if (ev.over) return endHand(ev.result, my);
+      continue;
+    }
+    const ev = E.play(mt, p, act.m);
+    lastId = act.m.id;
+    renderChain(); layoutSeat(p);
+    clack(E.isDbl(act.m.id));
+    if (p !== 0) status(`${NAMES[p]} luajti ${T(act.m.id)}`);
+    if (ev.over) { bubble(p, 'Domino!', true, 1600); chime(); await sleep(D(900)); return endHand(ev.result, my); }
+    if (H.hands[p].length === 1) { bubble(p, 'Një gur!', true); await sleep(D(520)); }
+    else await sleep(D(p === 0 ? 260 : 330));
+  }
+}
+async function endHand(res, my){
+  setTurn(-1); mode = 'idle'; refresh();
+  if (res.kind === 'bllok') status('Askush s\'ka lëvizje · <em>loja u bllokua</em>');
+  else status(res.p === 0 ? '<em>Domino!</em> Mbarove gurët' : `<em>${NAMES[res.p]}</em> mbaroi gurët`);
+  await sleep(D(700)); if (my !== gen) return;
+  reveal = true; mt.seats.forEach(layoutSeat);
+  for (const p of mt.seats) if (H.hands[p].length) bubble(p, res.zeroAlone.includes(p) ? '0|0 vetëm = 10' : `${res.left[p]} pikë`, res.zeroAlone.includes(p), 2200);
+  if (res.winTeam !== null) mt.seats.forEach(p => $('#pl' + p).classList.toggle('win', mt.teamOf[p] === res.winTeam));
+  meta();
+  await sleep(D(2300)); if (my !== gen) return;
+  showResult(res);
+}
+function showResult(res){
+  for (let p = 0; p < 4; p++) $('#pl' + p).classList.remove('win');
+  const done = res.matchWinner !== null, we = res.winTeam === 0;
+  let title, lead;
+  if (done) {
+    title = res.matchWinner === 0 ? (mt.teams ? 'Fituat lojën!' : 'Fitove lojën!') : (mt.teams ? 'Fituan Arbeni dhe Gëzimi' : 'Fitoi Drita');
+    lead = `${sideName(res.matchWinner)} ${mt.teams ? 'arritën' : (res.matchWinner === 0 ? 'arrite' : 'arriti')} ${res.scores[res.matchWinner]} pikë pas ${mt.handNo} duarsh.`;
+  } else if (res.winTeam === null) {
+    title = 'Barazim, askush s\'merr pikë';
+    lead = 'Loja u bllokua dhe të dyja anët kishin njësoj pikë në dorë.';
+  } else {
+    const takes = mt.teams ? 'marrin' : 'merr';
+    title = we ? (mt.teams ? 'E fituat dorën!' : 'Fitove dorën!') : `${sideName(res.winTeam)} ${mt.teams ? 'fituan' : 'fitoi'} dorën`;
+    lead = res.kind === 'domino'
+      ? `${res.p === 0 ? 'Mbarove' : NAMES[res.p] + ' mbaroi'} gurët. ${mt.teams ? sideName(res.winTeam) + ' marrin' : (we ? 'Merr' : 'Drita merr')} ${res.gain} pikë nga gurët që u mbetën kundërshtarëve.`
+      : `Askush s'kishte lëvizje. Më pak pikë në dorë kishin ${sideName(res.winTeam)}, ndaj ${takes} ${res.gain}.`;
+  }
+  $('#endTitle').textContent = title; $('#endLead').textContent = lead;
+  const note = $('#endNote');
+  note.hidden = !res.zeroAlone.length;
+  note.textContent = res.zeroAlone.length ? res.zeroAlone.map(p => p === 0 ? 'Të mbeti vetëm 0|0' : `${NAMES[p]} i mbeti vetëm 0|0`).join(', ') + ': vlen 10 pikë.' : '';
+  const rows = [0, 1].map(t => {
+    const who = mt.seats.filter(p => mt.teamOf[p] === t);
+    const parts = mt.teams ? `<small>${who.map(p => `${NAMES[p]} ${res.left[p]}`).join(' · ')}</small>` : '';
+    return `<tr class="${t === 0 ? 'me' : ''} ${t === res.winTeam ? 'w' : ''}"><td>${sideName(t)}${t === res.winTeam ? ' <span class="star">★</span>' : ''}${parts}</td><td class="n">${res.teamLeft[t]}</td><td class="n">${t === res.winTeam ? '+' + res.gain : '0'}</td><td class="n">${res.scores[t]}</td></tr>`;
+  });
+  $('#resTable').innerHTML = '<tr><th>Ana</th><th class="n">Mbetën në dorë</th><th class="n">Kjo dorë</th><th class="n">Gjithsej</th></tr>' + rows.join('');
+  $('#bNext').textContent = done ? 'Lojë e re' : 'Dora tjetër';
+  $('#bNext').onclick = () => { audio(); $('#ovEnd').hidden = true; if (done) newMatch(); else runHand(); };
+  $('#ovEnd').hidden = false;
+  if (we) chime();
+}
+function newMatch(){
+  gen++; humanResolve = null;
+  mt = E.newMatch({teams: ST.dteams !== '1v1', stock: ST.dstock === 'po', target: target()});
+  H = null; renderPlates(); meta();
+  runHand();
+}
+
+/* ---------- settings & panels ---------- */
+function applySettings(){
+  const f = FELTS[ST.felt] || FELTS.blu;
+  stage.style.setProperty('--felt-c', f[0]); stage.style.setProperty('--felt-e', f[1]);
+  stage.style.setProperty('--t', ST.speed === 'fast' ? '.22s' : '.34s');
+  $('#bSound').classList.toggle('off', ST.sound !== 'on');
+  $$('.seg').forEach(sg => sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', ST[sg.dataset.k] === b.dataset.v)));
+  $$('.stockRow').forEach(r => r.hidden = ST.dteams !== '1v1');
+  $$('.cust').forEach(i => { i.hidden = ST.dtarget !== 'custom'; if (document.activeElement !== i) i.value = ST.dcustom; });
+  const n = target();
+  $('#startLead').innerHTML = (ST.dteams === '1v1' ? 'Ti kundër Dritës. Fiton kush arrin i pari ' : 'Ti dhe Drita kundër Arbenit dhe Gëzimit. Fiton ekipi që arrin i pari ') + `<span style="white-space:nowrap">${n} pikë</span>.`;
+  $$('.tgt').forEach(s => s.textContent = n);
+}
+$$('.seg').forEach(sg => sg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const k = sg.dataset.k, old = ST[k]; ST[k] = b.dataset.v; save(); applySettings(); audio();
+  if (k === 'dtarget' && ST.dtarget === 'custom') { const i = sg.parentNode.querySelector('.cust'); if (i) { i.focus(); i.select(); } }
+  if (k === 'pipc' && old !== ST.pipc) { buildArt(); els.forEach((c, id) => { if (c.up) c.el.innerHTML = FACE[id]; }); fillDeck(); if (ghosts.length) showGhosts(ghosts); }
+}));
+$$('.cust').forEach(i => {
+  i.addEventListener('input', () => { ST.dcustom = i.value; save(); $$('.cust').forEach(j => { if (j !== i) j.value = i.value; }); applySettings(); });
+  i.addEventListener('change', () => { ST.dcustom = String(target()); save(); $$('.cust').forEach(j => j.value = ST.dcustom); applySettings(); });
+});
+$('#bSet').onclick = () => { $('#ovSet').hidden = false; };
+$('#bSetClose').onclick = () => { $('#ovSet').hidden = true; };
+$('#bNew').onclick = () => { $('#ovSet').hidden = true; $('#ovEnd').hidden = true; $('#ovStart').hidden = true; newMatch(); };
+$('#bSound').onclick = () => { ST.sound = ST.sound === 'on' ? 'off' : 'on'; save(); applySettings(); audio(); clack(); };
+$('#bRules').onclick = $('#bRules0').onclick = () => { $('#ovRules').hidden = false; };
+$('#bRulesClose').onclick = () => { $('#ovRules').hidden = true; };
+$('#bHome').onclick = () => { gen++; if (window.parent !== window) { try { parent.postMessage({vw: 'home'}, '*'); } catch(e) {} } else location.href = './'; };
+function fillDeck(){ $('#deckGrid').innerHTML = FACE.join('') + BACK; }
+$('#bDeck').onclick = () => { $('#ovDeck').hidden = false; };
+$('#bDeckClose').onclick = () => { $('#ovDeck').hidden = true; };
+const fsOK = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+if (!fsOK) $('#bFull').hidden = true;
+$('#bFull').onclick = async () => {
+  try {
+    if (document.fullscreenElement) { await document.exitFullscreen(); return; }
+    await (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen).call(document.documentElement);
+    try { await screen.orientation.lock('landscape'); } catch(e) {}
+  } catch(e) {}
+  setTimeout(doFit, 200);
+};
+$('#bRotOk').onclick = () => { $('#ovRot').hidden = true; try { localStorage.setItem('vw-rot-seen', '1'); } catch(e) {} };
+$('#bStart').onclick = () => { audio(); $('#ovStart').hidden = true; newMatch(); };
+
+/* ---------- start (nothing to download or generate: draws instantly) ---------- */
+function start(){
+  applySettings(); buildArt();
+  $('#brandImg').innerHTML = $('#feltMark').innerHTML = $('#startLogo').innerHTML = logoSVG();
+  mkTiles(); fillDeck(); resetTiles(); renderPlates();
+  status('Gati për lojë');
+  $('#loading').hidden = true;
+  let seen = false; try { seen = localStorage.getItem('vw-rot-seen') === '1'; } catch(e) {}
+  if (rotated && !seen) $('#ovRot').hidden = false;
+}
+window.__dom = { get mt(){ return mt; }, get H(){ return H; }, layoutAt: L => layoutAt(L) };   // for testing
+start();
+})();
+
+</script>
+</body>
+</html>

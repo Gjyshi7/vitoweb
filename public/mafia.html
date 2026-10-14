@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="sq">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13110f">
+<title>Mafia · VitoWeb</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#13110f; --panel:#1d1a17; --line:#2e2925; --ink:#f1e9dc; --mute:#9a8f82;
+  --mafia:#c4382f; --doctor:#2f9e86; --police:#3f6fd0; --villager:#c9a46a;
+  --accent:#e9c46a;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100%}
+body{padding:env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto;-webkit-user-select:none;user-select:none}
+h1,h2,.display{font-family:"Big Shoulders Display",Impact,sans-serif;letter-spacing:.02em;margin:0}
+.hidden{display:none!important}
+button{font:inherit;color:inherit;border:0;cursor:pointer;background:none}
+input{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;width:100%;outline:none;-webkit-user-select:text;user-select:text}
+input:focus{border-color:var(--accent)}
+.btn{display:block;width:100%;padding:15px;border-radius:12px;font-weight:700;text-align:center;background:var(--ink);color:var(--bg)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.red{background:var(--mafia);color:#fff}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center}
+.stack>*+*{margin-top:12px}
+.mute{color:var(--mute)}
+.small{font-size:13px}
+.sec{margin-top:26px}
+.label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin-bottom:10px}
+
+/* top bar */
+.top{display:flex;align-items:center;justify-content:space-between;padding:14px 0 6px}
+.top .l{display:flex;align-items:center;gap:8px}
+.back{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--mute)}
+.back:hover{background:var(--panel);color:var(--ink)}
+.back svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.brand{font-family:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;font-weight:900;font-size:22px;letter-spacing:.08em}
+.brand span{color:var(--mafia)}
+.net{font-size:12px;color:var(--mute);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:#555}
+.dot.on{background:#4caf7a}
+
+/* home */
+.hero{padding:48px 0 30px}
+.hero h1{font-size:96px;line-height:.85;font-weight:900}
+.hero h1 span{color:var(--mafia)}
+.hero p{margin:14px 0 0;color:var(--mute);max-width:30ch}
+.or{display:flex;align-items:center;gap:12px;color:var(--mute);font-size:13px;margin:22px 0}
+.or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
+#codeIn{text-transform:uppercase;letter-spacing:.4em;text-align:center;font-weight:700;font-size:22px}
+
+/* lobby */
+.codebox{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;text-align:center}
+.code{font-family:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;font-weight:900;font-size:64px;letter-spacing:.18em;line-height:1;margin:4px 0 12px;padding-left:.18em}
+.share{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.share .btn{padding:11px;font-size:14px}
+.players{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.players li{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--line)}
+.players li:first-child{border-top:0}
+.players .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag{font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mute)}
+.tag.you{border-color:var(--accent);color:var(--accent)}
+.x{width:30px;height:30px;border-radius:8px;color:var(--mute);font-size:18px;line-height:1}
+.x:active{background:var(--line)}
+
+.cfg{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.cfg .r{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line)}
+.cfg .r:first-child{border-top:0}
+.sw{width:12px;height:12px;border-radius:3px;flex:none}
+.cfg .nm{flex:1;font-weight:600}
+.step{display:flex;align-items:center;gap:4px}
+.step button{width:40px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-size:22px;line-height:1}
+.step button:disabled{opacity:.3}
+.step b{width:34px;text-align:center;font-size:20px;font-variant-numeric:tabular-nums}
+.auto{color:var(--mute);font-size:13px;width:116px;text-align:right}
+.toggle{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);border-radius:14px;margin-top:10px}
+.toggle .t{flex:1}
+.toggle .t small{display:block;color:var(--mute);font-size:13px}
+.switch{width:50px;height:30px;border-radius:999px;background:var(--line);position:relative;flex:none;transition:background .2s}
+.switch:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--ink);transition:transform .2s}
+.switch.on{background:var(--accent)}
+.switch.on:after{transform:translateX(20px);background:var(--bg)}
+.warn{color:#ff8a7a;font-size:14px;margin-top:10px;min-height:20px}
+.sticky{position:sticky;bottom:0;padding:14px 0 calc(6px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 30%)}
+
+/* role card */
+.round{text-align:center;color:var(--mute);font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin:18px 0 12px}
+.card{position:relative;aspect-ratio:3/4;max-height:62vh;margin:0 auto;border-radius:22px;touch-action:none;-webkit-touch-callout:none}
+.face,.back-c{position:absolute;inset:0;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;transition:opacity .12s}
+.back-c{background:var(--panel);border:1px solid var(--line);
+  background-image:repeating-linear-gradient(45deg,transparent 0 14px,rgba(255,255,255,.025) 14px 28px)}
+.back-c .display{font-size:40px;font-weight:900;letter-spacing:.1em}
+.back-c p{color:var(--mute);margin:10px 0 0;font-size:15px}
+.ring{width:84px;height:84px;border-radius:50%;border:2px dashed var(--line);margin-bottom:20px;display:grid;place-items:center;color:var(--mute)}
+.face{opacity:0;color:#fff}
+.card.show .face{opacity:1}
+.card.show .back-c{opacity:0}
+.face svg{width:96px;height:96px;margin-bottom:10px}
+.face .display{font-size:58px;font-weight:900;line-height:1}
+.face .team{font-size:12px;letter-spacing:.16em;text-transform:uppercase;opacity:.8;margin-top:6px}
+.face p{margin:14px 0 0;font-size:15px;max-width:26ch;opacity:.92}
+.face .mates{margin-top:14px;font-size:14px;background:rgba(0,0,0,.22);padding:8px 12px;border-radius:10px}
+.r-mafia{background:var(--mafia)} .r-doctor{background:var(--doctor)} .r-police{background:var(--police)} .r-villager{background:var(--villager);color:#2a1f10}
+.hint{text-align:center;color:var(--mute);font-size:13px;margin-top:12px}
+
+.wait{padding:60px 16px;text-align:center}
+.wait .display{font-size:40px;font-weight:900}
+
+.table{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.table li{display:flex;align-items:center;gap:10px;padding:11px 14px;border-top:1px solid var(--line)}
+.table li:first-child{border-top:0}
+.table .nm{flex:1}
+.pill{font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;color:#fff}
+.pill.r-villager{color:#2a1f10}
+.blur .pill{filter:blur(7px)}
+.count{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.count span{font-size:13px;padding:4px 10px;border-radius:999px;border:1px solid var(--line)}
+
+.hostgone{display:flex;align-items:center;gap:10px;margin:6px 0 4px;padding:10px 12px;border-radius:12px;background:rgba(233,196,106,.12);color:#f1dca8;font-size:14px}
+.hostgone button{margin-left:auto;padding:8px 12px;border-radius:10px;background:var(--accent);color:var(--bg);font-weight:700;font-size:14px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="l"><button class="back" id="homeBtn" aria-label="Kthehu te lojërat" title="Kthehu te lojërat"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <div class="brand">MAFIA <span>·</span> <span class="mute" style="color:var(--mute)">VITOWEB</span></div></div>
+  <div class="net hidden" id="net"><i class="dot" id="netDot"></i><span id="netTxt"></span></div>
+</div>
+
+<div class="hostgone hidden" id="hostGone"><span>Hosti nuk është lidhur.</span><button id="claimBtn">Bëhu host</button></div>
+
+<!-- HOME -->
+<section id="home">
+  <div class="hero">
+    <h1>MAFI<span>A</span></h1>
+    <p>Secili merr rolin në telefonin e vet. Pjesa tjetër luhet në tavolinë.</p>
+  </div>
+  <div class="stack">
+    <input id="nameIn" maxlength="20" placeholder="Emri yt" autocomplete="off">
+    <button class="btn" id="createBtn">Krijo dhomë</button>
+  </div>
+  <div class="or">ose hyr me kod</div>
+  <div class="row">
+    <input id="codeIn" maxlength="4" placeholder="KODI" autocomplete="off" autocapitalize="characters">
+    <button class="btn ghost" id="joinBtn" style="width:auto;padding:15px 22px">Hyr</button>
+  </div>
+  <p class="warn" id="homeErr"></p>
+</section>
+
+<!-- LOBBY -->
+<section id="lobby" class="hidden">
+  <div class="codebox">
+    <div class="label" style="margin:0">Kodi i dhomës</div>
+    <div class="code" id="codeTxt">----</div>
+    <div class="share">
+      <button class="btn ghost" id="copyBtn">Kopjo linkun</button>
+      <button class="btn ghost" id="waBtn">WhatsApp</button>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="label" id="plLabel">Lojtarët</div>
+    <ul class="players" id="plList"></ul>
+  </div>
+
+  <div class="sec" id="hostCfg">
+    <div class="label">Rolet</div>
+    <div class="cfg" id="cfg"></div>
+    <div class="toggle" id="narrToggle">
+      <div class="t">Unë jam narratori<small>Narratori nuk merr rol dhe sheh rolet e të gjithëve.</small></div>
+      <div class="switch" id="narrSwitch"></div>
+    </div>
+  </div>
+
+  <div class="sec hidden" id="guestCfg">
+    <div class="label">Rolet në këtë lojë</div>
+    <div class="count" id="guestCount"></div>
+    <p class="mute small" id="guestWait">Prit derisa hosti të shpërndajë rolet.</p>
+  </div>
+
+  <div class="sticky" id="lobbyActions">
+    <p class="warn" id="cfgErr"></p>
+    <button class="btn red" id="dealBtn">Shpërndaj rolet</button>
+    <button class="btn ghost hidden" id="leaveBtn" style="margin-top:10px">Dil nga dhoma</button>
+  </div>
+</section>
+
+<!-- GAME -->
+<section id="game" class="hidden">
+  <div class="round" id="roundTxt"></div>
+
+  <div id="myCardWrap">
+    <div class="card" id="card">
+      <div class="back-c">
+        <div class="ring"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5c-5 0-9 7-9 7s4 7 9 7 9-7 9-7-4-7-9-7z"/><circle cx="12" cy="12" r="3"/></svg></div>
+        <div class="display">ROLI YT</div>
+        <p>Mbaje shtypur për ta parë.<br>Mos lër të tjerët të shohin.</p>
+      </div>
+      <div class="face" id="face"></div>
+    </div>
+    <div class="hint">Lëshoje dhe roli fshihet.</div>
+  </div>
+
+  <div class="wait hidden" id="lateWait">
+    <div class="display">PRIT</div>
+    <p class="mute">Ke hyrë pasi u shpërndanë rolet. Do marrësh rol në raundin tjetër.</p>
+  </div>
+
+  <div class="sec hidden" id="narrBox">
+    <div class="label" id="narrLabel">Rolet (vetëm për narratorin)</div>
+    <div class="count" id="narrCount"></div>
+    <ul class="table blur" id="narrTable"></ul>
+    <p class="hint" id="narrHint">Mbaje shtypur listën për t'i parë.</p>
+  </div>
+
+  <div class="sec hidden" id="hostGame">
+    <button class="btn ghost" id="revealBtn">Fund loje: zbulo të gjitha rolet</button>
+    <button class="btn ghost" id="redealBtn" style="margin-top:10px">Raund i ri: shpërndaj përsëri</button>
+    <button class="btn ghost" id="backBtn" style="margin-top:10px">Kthehu te dhoma</button>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ROLES = {
+  mafia:   { n:"Mafioz",  team:"Mafia",  pl:"Mafia",    d:"Natën hap sytë me mafian dhe zgjidhni kë të vrisni. Ditën mos u zbulo." },
+  doctor:  { n:"Doktor",  team:"Fshati", pl:"Doktorë",  d:"Çdo natë zgjidh kë do të shpëtosh. Mund të shpëtosh edhe veten." },
+  police:  { n:"Polic",   team:"Fshati", pl:"Policë",   d:"Çdo natë zgjidh për kë dyshon. Narratori të tregon nëse është mafia. Mos thuaj që je polic." },
+  villager:{ n:"Fshatar", team:"Fshati", pl:"Fshatarë", d:"Nuk ke fuqi nate. Gjeje mafian me votë gjatë ditës." },
+};
+const ICON = {
+  mafia:'<svg viewBox="0 0 64 64" fill="currentColor"><path d="M10 40c0-3 6-5 12-5.6L24 18c.4-3 3-5 6-4.2l2 .6 2-.6c3-.8 5.6 1.2 6 4.2l2 16.4c6 .6 12 2.6 12 5.6 0 4-9.8 7-22 7s-22-3-22-7z"/><rect x="22" y="31" width="20" height="4" rx="1" fill="rgba(0,0,0,.35)"/></svg>',
+  doctor:'<svg viewBox="0 0 64 64" fill="currentColor"><path d="M25 8h14v17h17v14H39v17H25V39H8V25h17z"/></svg>',
+  police:'<svg viewBox="0 0 64 64" fill="currentColor"><path d="M32 6l22 8v16c0 14-9.5 24-22 28C19.5 54 10 44 10 30V14z"/><path d="M32 20l3.5 7.2 7.9 1.1-5.7 5.5 1.4 7.8L32 37.9l-7.1 3.7 1.4-7.8-5.7-5.5 7.9-1.1z" fill="rgba(0,0,0,.35)"/></svg>',
+  villager:'<svg viewBox="0 0 64 64" fill="currentColor"><path d="M32 8l26 22h-7v24H38V40H26v14H13V30H6z"/></svg>',
+};
+const ERR = {
+  need_3:"Duhen të paktën 3 lojtarë që marrin rol.",
+  need_mafia:"Duhet të paktën 1 mafioz.",
+  too_many_roles:"Ka më shumë role speciale se lojtarë.",
+  mafia_majority:"Mafia duhet të jetë më pak se gjysma e lojtarëve, përndryshe fiton menjëherë.",
+  host_cant_leave:"Hosti nuk mund të dalë. Bëje dikë tjetër host fillimisht.",
+  host_online:"Hosti është i lidhur.",
+  host_wait:"Prit pak: hosti mund të kthehet brenda një minute.",
+};
+const CREATE_ERR = {
+  paused:"Dhomat e reja janë mbyllur përkohësisht. Provo më vonë.",
+  busy:"Shumë dhoma sot. Provo më vonë.",
+  slow_down:"Shumë kërkesa. Prit një minutë dhe provo përsëri.",
+};
+
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("mafia."+k); return v==null?d:JSON.parse(v);}catch{return d} },
+  set(k, v){ try{ localStorage.setItem("mafia."+k, JSON.stringify(v)); }catch{} },
+  del(k){ try{ localStorage.removeItem("mafia."+k);}catch{} },
+};
+// Secret key for this phone. The server also sets an HttpOnly cookie; this key is the fallback when
+// cookies are blocked. It is never shown to other players (they only see a public seat id).
+const KEY = (() => {
+  let k = null;
+  try { k = localStorage.getItem("vw.key") || JSON.parse(localStorage.getItem("mafia.pid") || "null"); } catch {}
+  if (!k || !/^[a-z0-9-]{16,64}$/i.test(k)) k = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).slice(2) + Date.now().toString(36) + Math.random().toString(36).slice(2)).slice(0, 32);
+  try { localStorage.setItem("vw.key", k); } catch {}
+  return k;
+})();
+$("nameIn").value = store.get("name", "");
+
+$("homeBtn").onclick = () => { if (window.parent !== window) { try { parent.postMessage({vw:"home"}, "*"); } catch {} } else location.href = "./"; };
+
+let ws = null, S = null, room = null, retry = 0, pingT = null, wantOpen = false;
+
+function toast(t){ const el=$("toast"); el.textContent=t; el.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("on"),2600); }
+function show(sec){ for (const id of ["home","lobby","game"]) $(id).classList.toggle("hidden", id!==sec); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function setNet(state){
+  $("net").classList.toggle("hidden", !room);
+  $("netDot").classList.toggle("on", state==="on");
+  $("netTxt").textContent = state==="on" ? "lidhur" : "po lidhet…";
+}
+
+/* ---------- connection ---------- */
+function connect(){
+  if (!room) return;
+  wantOpen = true;
+  if (ws && (ws.readyState===0 || ws.readyState===1)) return;
+  const name = store.get("name","");
+  const host = store.get("host."+room, "");
+  const proto = location.protocol==="https:" ? "wss" : "ws";
+  const q = new URLSearchParams({ name, k: KEY }); if (host) q.set("host", host);
+  setNet("off");
+  const sock = new WebSocket(`${proto}://${location.host}/ws/${room}?${q}`);
+  ws = sock;
+  sock.onopen = () => { retry = 0; setNet("on"); clearInterval(pingT); pingT = setInterval(()=>send({t:"ping"}), 25000); };
+  sock.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.t==="state") { S = m; render(); }
+    else if (m.t==="error") toast(ERR[m.e] || m.e);
+    else if (m.t==="kicked") { leaveLocal("Hosti të nxori nga dhoma."); }
+    else if (m.t==="closed") { leaveLocal("Kjo dhomë u mbyll."); }
+    else if (m.t==="refused") { sock.onclose({ code: m.code }); sock.onclose = null; try { sock.close(); } catch {} }
+    else if (m.t==="replaced") { sock.onclose({ code: 4002 }); sock.onclose = null; try { sock.close(); } catch {} }
+  };
+  sock.onclose = (e) => {
+    clearInterval(pingT);
+    if (ws!==sock) return;
+    if (e.code===4000 || e.code===4001 || !wantOpen) return;
+    if (e.code===4004) return leaveLocal("Kjo dhomë nuk ekziston më.");
+    if (e.code===4003) return leaveLocal("Dhoma është plot.");
+    if (e.code===4400 || e.code===4401) return leaveLocal("Shkruaj emrin dhe hyr përsëri.");
+    if (e.code===4002) { setNet("off"); $("netTxt").textContent = "hapur diku tjetër"; return; }
+    setNet("off");
+    const d = Math.min(5000, 600 * 2**retry++);
+    setTimeout(connect, d);
+  };
+}
+function send(o){ if (ws && ws.readyState===1) ws.send(JSON.stringify(o)); }
+document.addEventListener("visibilitychange", ()=>{ if (document.visibilityState==="visible" && room) { retry=0; connect(); } });
+window.addEventListener("online", ()=>{ if (room) { retry=0; connect(); } });
+
+function enter(code){
+  room = code; store.set("room", code);
+  const u = new URL(location.href); u.search = "?r="+code; history.replaceState(null,"",u);
+  show("lobby"); $("codeTxt").textContent = code; connect();
+}
+function leaveLocal(msg){
+  wantOpen = false; if (ws) ws.close(); ws=null; S=null;
+  store.del("room"); room=null;
+  history.replaceState(null,"",location.pathname);
+  $("hostGone").classList.add("hidden");
+  show("home"); setNet("off"); if (msg) toast(msg);
+}
+
+/* ---------- home ---------- */
+function needName(){
+  const n = $("nameIn").value.trim();
+  if (!n) { $("homeErr").textContent = "Shkruaj emrin fillimisht."; $("nameIn").focus(); return null; }
+  store.set("name", n); $("homeErr").textContent = ""; return n;
+}
+$("createBtn").onclick = async () => {
+  if (!needName()) return;
+  $("createBtn").disabled = true;
+  try {
+    const r = await fetch("/api/create", { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify({ game:"mafia" }) });
+    const j = await r.json();
+    if (!j.code) throw (CREATE_ERR[j.error] || 0);
+    store.set("host."+j.code, j.hostToken);
+    enter(j.code);
+  } catch (e) { $("homeErr").textContent = typeof e === "string" ? e : "Nuk u krijua dhoma. Provo përsëri."; }
+  $("createBtn").disabled = false;
+};
+async function join(){
+  if (!needName()) return;
+  const code = $("codeIn").value.trim().toUpperCase();
+  if (!/^[A-Z]{4}$/.test(code)) { $("homeErr").textContent = "Kodi ka 4 shkronja."; return; }
+  try {
+    const r = await fetch("/api/room/"+code); const j = await r.json();
+    if (!j.ok) { $("homeErr").textContent = "Kjo dhomë nuk ekziston."; return; }
+    if (j.game && j.game !== "mafia") { location.href = j.game + "?r=" + code; return; }
+  } catch { $("homeErr").textContent = "S'ka lidhje. Provo përsëri."; return; }
+  enter(code);
+}
+$("joinBtn").onclick = join;
+$("codeIn").addEventListener("keydown", e=>{ if (e.key==="Enter") join(); });
+$("codeIn").addEventListener("input", e=>{ e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g,""); });
+
+/* ---------- lobby ---------- */
+const link = () => `${location.origin}${location.pathname}?r=${room}`;
+$("copyBtn").onclick = async () => {
+  try { if (navigator.share) { await navigator.share({ title:"Mafia", text:`Hyr në lojë: ${room}`, url:link() }); return; } } catch { return; }
+  try { await navigator.clipboard.writeText(link()); toast("Linku u kopjua"); } catch { toast(link()); }
+};
+$("waBtn").onclick = () => window.open("https://wa.me/?text="+encodeURIComponent(`Hyr në lojën Mafia: ${link()}`), "_blank");
+$("narrToggle").onclick = () => S && S.hostPid===S.me && send({ t:"hostPlays", v: S.hostPlays ? false : true });
+$("dealBtn").onclick = () => send({ t:"deal" });
+$("leaveBtn").onclick = () => { if (confirm("Të dalësh nga dhoma?")) { send({t:"leave"}); leaveLocal(); } };
+
+function stepper(key){
+  const v = S.config[key];
+  return `<div class="r"><i class="sw r-${key}"></i><div class="nm">${ROLES[key].pl}</div>
+    <div class="step"><button data-k="${key}" data-d="-1" ${v<=0?"disabled":""}>−</button><b>${v}</b><button data-k="${key}" data-d="1">+</button></div></div>`;
+}
+$("cfg").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-k]"); if (!b || !S) return;
+  const c = { ...S.config }; c[b.dataset.k] = Math.max(0, c[b.dataset.k] + Number(b.dataset.d));
+  S.config = c; renderLobby(); send({ t:"config", config:c });
+});
+$("plList").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const p = S.players.find(x=>x.pid===b.dataset.pid); if (!p) return;
+  if (b.dataset.act==="kick" && confirm(`Ta nxjerrësh ${p.name} nga dhoma?`)) send({ t:"kick", pid:p.pid });
+  if (b.dataset.act==="host" && confirm(`Ta bësh ${p.name} host?`)) send({ t:"makeHost", pid:p.pid });
+});
+
+function villagers(){ return S.seatCount - S.config.mafia - S.config.doctor - S.config.police; }
+
+function renderLobby(){
+  const isHost = S.me===S.hostPid;
+  $("plLabel").textContent = `Lojtarët · ${S.players.length}`;
+  $("plList").innerHTML = S.players.map(p=>{
+    const tags = [];
+    if (p.pid===S.me) tags.push('<span class="tag you">ti</span>');
+    if (p.pid===S.hostPid) tags.push(`<span class="tag">${S.hostPlays?"host":"narrator"}</span>`);
+    const acts = isHost && p.pid!==S.me ? `<button class="x" data-act="host" data-pid="${p.pid}" title="Bëje host">★</button><button class="x" data-act="kick" data-pid="${p.pid}" title="Nxirre">×</button>` : "";
+    return `<li><i class="dot ${p.online?"on":""}"></i><span class="nm">${esc(p.name)}</span>${tags.join("")}${acts}</li>`;
+  }).join("");
+
+  $("hostCfg").classList.toggle("hidden", !isHost);
+  $("guestCfg").classList.toggle("hidden", isHost);
+  $("dealBtn").classList.toggle("hidden", !isHost);
+  $("leaveBtn").classList.toggle("hidden", isHost);
+
+  const v = villagers();
+  if (isHost) {
+    $("cfg").innerHTML = stepper("mafia") + stepper("doctor") + stepper("police") +
+      `<div class="r"><i class="sw r-villager"></i><div class="nm">Fshatarë</div><div class="auto">${Math.max(0,v)} · automatikisht</div></div>`;
+    $("narrSwitch").classList.toggle("on", !S.hostPlays);
+    $("cfgErr").textContent = S.configError ? ERR[S.configError] : "";
+    $("dealBtn").disabled = !!S.configError;
+    $("dealBtn").textContent = S.round ? "Shpërndaj rolet (raund i ri)" : "Shpërndaj rolet";
+  } else {
+    $("cfgErr").textContent = "";
+    $("guestCount").innerHTML = countPills({ ...S.config, villager: Math.max(0,v) });
+  }
+}
+function countPills(c){
+  return ["mafia","doctor","police","villager"].filter(k=>c[k]>0)
+    .map(k=>`<span><i class="sw r-${k}" style="display:inline-block;vertical-align:-1px;margin-right:6px"></i>${c[k]} ${c[k]===1?ROLES[k].n:ROLES[k].pl}</span>`).join("");
+}
+
+/* ---------- game ---------- */
+let lastRound = 0;
+function renderGame(){
+  const isHost = S.me===S.hostPid;
+  const narrator = isHost && !S.hostPlays;
+  const revealed = S.phase==="revealed";
+
+  $("roundTxt").textContent = revealed ? `Raundi ${S.round} · rolet u zbuluan` : `Raundi ${S.round}`;
+
+  const hasCard = !!S.role && !revealed;
+  $("myCardWrap").classList.toggle("hidden", !hasCard);
+  $("lateWait").classList.toggle("hidden", !(!S.role && !narrator && !revealed));
+
+  if (S.role) {
+    const R = ROLES[S.role];
+    const mates = S.mates.map(id => (S.players.find(p=>p.pid===id)||{}).name).filter(Boolean);
+    $("face").className = "face r-"+S.role;
+    $("face").innerHTML = `${ICON[S.role]}<div class="display">${R.n.toUpperCase()}</div><div class="team">Ekipi: ${R.team}</div><p>${R.d}</p>` +
+      (S.role==="mafia" ? `<div class="mates">${mates.length ? "Mafia me ty: <b>"+mates.map(esc).join(", ")+"</b>" : "Je i vetmi mafioz."}</div>` : "");
+  }
+  if (S.round!==lastRound) { lastRound = S.round; $("card").classList.remove("show"); if (S.round>1 && S.role) toast("Raund i ri: ke rol të ri."); }
+
+  const table = S.allRoles;
+  $("narrBox").classList.toggle("hidden", !table);
+  if (table) {
+    $("narrLabel").textContent = revealed ? "Kush ishte kush" : "Rolet (vetëm për narratorin)";
+    $("narrTable").classList.toggle("blur", !revealed);
+    $("narrHint").classList.toggle("hidden", revealed);
+    const order = { mafia:0, police:1, doctor:2, villager:3 };
+    const rows = Object.entries(table).map(([id,r])=>({ r, name:(S.players.find(p=>p.pid===id)||{name:"(doli)"}).name }))
+      .sort((a,b)=>order[a.r]-order[b.r] || a.name.localeCompare(b.name));
+    const c = {}; rows.forEach(x=>c[x.r]=(c[x.r]||0)+1);
+    $("narrCount").innerHTML = countPills(c);
+    $("narrTable").innerHTML = rows.map(x=>`<li><span class="nm">${esc(x.name)}</span><span class="pill r-${x.r}">${ROLES[x.r].n}</span></li>`).join("");
+  }
+  $("hostGame").classList.toggle("hidden", !isHost);
+  $("revealBtn").classList.toggle("hidden", revealed);
+}
+
+$("revealBtn").onclick = () => { if (confirm("Të zbulohen rolet e të gjithëve? Kjo e mbyll lojën.")) send({ t:"reveal" }); };
+$("redealBtn").onclick = () => { if (confirm("Të shpërndahen role të reja për të gjithë?")) send({ t:"deal" }); };
+$("backBtn").onclick = () => send({ t:"lobby" });
+
+/* press-and-hold reveal (card and narrator list) */
+function holdable(el, on, off){
+  const start = (e)=>{ e.preventDefault(); on(); };
+  const end = ()=>off();
+  el.addEventListener("pointerdown", start);
+  ["pointerup","pointercancel","pointerleave"].forEach(ev=>el.addEventListener(ev, end));
+  el.addEventListener("contextmenu", e=>e.preventDefault());
+}
+holdable($("card"), ()=>$("card").classList.add("show"), ()=>$("card").classList.remove("show"));
+holdable($("narrTable"), ()=>{ if (S && S.phase==="dealt") $("narrTable").classList.remove("blur"); },
+                         ()=>{ if (S && S.phase==="dealt") $("narrTable").classList.add("blur"); });
+document.addEventListener("visibilitychange", ()=>{ $("card").classList.remove("show"); if (S && S.phase==="dealt") $("narrTable").classList.add("blur"); });
+
+$("claimBtn").onclick = () => send({ t:"claimHost" });
+function render(){
+  if (!S) return;
+  if (!S.players.some(p=>p.pid===S.me)) return leaveLocal();
+  $("hostGone").classList.toggle("hidden", S.me===S.hostPid || S.hostOnline !== false);
+  $("codeTxt").textContent = S.code;
+  if (S.phase==="lobby") { show("lobby"); renderLobby(); }
+  else { show("game"); renderGame(); }
+}
+
+/* ---------- boot ---------- */
+(function boot(){
+  const q = new URLSearchParams(location.search).get("r");
+  const code = (q || store.get("room","") || "").toUpperCase();
+  if (/^[A-Z]{4}$/.test(code)) {
+    fetch("/api/room/"+code).then(r=>r.json()).then(j=>{
+      if (j.ok && j.game && j.game !== "mafia") { store.del("room"); if (q) { location.href = j.game + "?r=" + code; return; } show("home"); return; }
+      if (j.ok && q && !store.get("name","")) { $("codeIn").value = code; show("home"); $("nameIn").focus(); return; }
+      if (j.ok) enter(code); else { store.del("room"); show("home"); if (q) $("homeErr").textContent="Kjo dhomë nuk ekziston më."; } })
+      .catch(()=>{ if (q && !store.get("name","")) { $("codeIn").value = code; show("home"); } else enter(code); });
+  } else show("home");
+})();
+</script>
+</body>
+</html>

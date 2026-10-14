@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="sq">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a1020">
+<meta name="description" content="Lojëra shqiptare me letra, domino dhe lojëra për grupin. Murlan, Spathi, Derri në dorë, Domino, Imposter, Mafia. Pa shkarkim.">
+<title>VitoWeb Loja</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Barlow+Condensed:wght@600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: café-counter hub. Desktop: left rail + main column (featured table, then the game shelf, then rooms).
+   Phone: top bar + bottom tabs, tiles stack. Games open full-screen over the hub, like a cabinet door.
+   One committed dark look: the room around the card table, VitoWeb navy with the logo's pink. */
+:root{
+  color-scheme:dark;
+  --bg:#0a1020;          /* room */
+  --shelf:#101a2c;       /* surfaces */
+  --shelf2:#16223a;
+  --ink:#eef1f6;
+  --sub:#93a0b4;
+  --line:rgba(255,255,255,.08);
+  --pink:#ef5a86; --pink-dk:#b02a63;
+  --gold:#f3c76a;        /* "new" and highlights, the card-table brass */
+  --felt:#1f4a63; --felt-e:#0d2232;
+  --f-sign:"Big Shoulders Display","Barlow Condensed","Arial Narrow",sans-serif;
+  --f-d:"Barlow Condensed","Arial Narrow",sans-serif;
+  --f-ui:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --r:18px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:17px;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+
+/* ---------- frame ---------- */
+.shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100%}
+.rail{position:sticky;top:env(safe-area-inset-top,0px);height:100vh;padding:22px 14px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:22px;background:linear-gradient(180deg,#0d1526,var(--bg))}
+.mark{display:flex;align-items:center;gap:10px;padding:0 8px}
+.mark img{width:34px;height:34px}
+.mark b{font:900 26px/1 var(--f-sign);letter-spacing:.06em}
+.mark small{display:block;font:600 11px var(--f-ui);letter-spacing:.22em;color:var(--sub);margin-top:3px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav p{margin:14px 10px 6px;font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--sub)}
+.nav button{display:flex;align-items:center;gap:12px;height:42px;padding:0 12px;border:0;border-radius:12px;background:transparent;color:var(--sub);font-weight:600;font-size:17px;cursor:pointer;text-align:left}
+.nav button svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.nav button:hover{background:rgba(255,255,255,.05);color:var(--ink)}
+.nav button.on{background:var(--shelf2);color:var(--ink)}
+.nav button .n{margin-left:auto;font:700 14px var(--f-d);color:var(--sub);font-variant-numeric:tabular-nums}
+.rail .foot{margin-top:auto;padding:0 10px;font-size:13px;color:var(--sub);line-height:1.4}
+
+main{min-width:0;padding:22px 28px 60px}
+.topbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.phoneMark{display:none}
+.search{flex:1;max-width:420px;position:relative}
+.search input{width:100%;height:44px;border:0;border-radius:14px;background:var(--shelf);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);font:500 17px var(--f-ui);padding:0 14px 0 42px}
+.search svg{position:absolute;left:13px;top:12px;width:20px;height:20px;stroke:var(--sub);fill:none;stroke-width:2;stroke-linecap:round}
+.spacer{flex:1}
+.pill{height:44px;padding:0 18px;border:0;border-radius:14px;background:var(--shelf2);box-shadow:inset 0 0 0 1px var(--line);font-weight:700;letter-spacing:.04em;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.pill.hot{background:linear-gradient(#f06a92,var(--pink) 45%,var(--pink-dk));box-shadow:0 6px 18px rgba(176,42,99,.3);color:#fff}
+.pill svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- featured table ---------- */
+.stagewrap{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:16px}
+.feature{position:relative;min-height:330px;border-radius:26px;overflow:hidden;cursor:pointer;border:0;padding:0;text-align:left;display:block;width:100%;
+  background:radial-gradient(ellipse 80% 90% at 70% 55%,var(--felt) 0%,var(--felt-e) 75%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 24px 50px rgba(0,0,0,.35)}
+.feature::before{content:"";position:absolute;inset:14px;border-radius:18px;border:1.5px solid rgba(255,255,255,.07);pointer-events:none}
+.feature canvas{position:absolute;right:-2%;top:50%;transform:translateY(-46%);width:54%;max-width:540px;height:auto}
+.feature .copy{position:relative;z-index:1;padding:34px 34px 30px;max-width:46%;display:flex;flex-direction:column;gap:12px;height:100%;min-height:330px}
+.eyebrow{font:700 12px var(--f-ui);letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+.feature h2{margin:0;font:900 clamp(56px,6vw,84px)/.86 var(--f-sign);letter-spacing:.01em;text-transform:uppercase}
+.feature p{margin:0;color:#c9d3e2;font-size:18px;line-height:1.35;max-width:32ch}
+.facts{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.facts span{padding:5px 10px;border-radius:9px;background:rgba(7,11,20,.45);font-size:14px;font-weight:600;color:#d5dde9}
+.playbtn{display:inline-flex;align-items:center;gap:10px;height:52px;padding:0 24px;border-radius:16px;background:#f4f1ea;color:#141e30;font:700 20px var(--f-ui);letter-spacing:.06em;width:max-content}
+.playbtn svg{width:16px;height:16px;fill:currentColor}
+.feature:hover .playbtn{background:#fff}
+
+.side{position:relative;border-radius:26px;overflow:hidden;cursor:pointer;border:0;padding:0;text-align:left;width:100%;background:#1b1426;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 24px 50px rgba(0,0,0,.35);display:flex;flex-direction:column}
+.side .art{flex:1;min-height:170px;display:grid;background:radial-gradient(circle at 50% 60%,#2a1c35,#140f1f 70%)}
+.side .art svg{width:100%;height:100%;display:block}
+.side .copy{padding:18px 22px 22px;display:flex;flex-direction:column;gap:8px}
+.side h2{margin:0;font:900 44px/.9 var(--f-sign);text-transform:uppercase;letter-spacing:.01em}
+.side p{margin:0;color:#c4bfd0;font-size:16px;line-height:1.35}
+.side .facts span{background:rgba(255,255,255,.07)}
+
+/* ---------- shelf ---------- */
+.sec{margin-top:36px}
+.sechead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;margin-bottom:14px}
+.sechead h3{margin:0;font:800 28px var(--f-sign);letter-spacing:.03em;text-transform:uppercase}
+.sechead span{color:var(--sub);font-size:15px}
+.filters{display:none;gap:6px;overflow-x:auto;margin:0 -16px 14px;padding:0 16px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.filters button{flex:none;height:36px;padding:0 14px;border:0;border-radius:999px;background:var(--shelf);box-shadow:inset 0 0 0 1px var(--line);color:var(--sub);font-weight:600;cursor:pointer}
+.filters button.on{background:var(--ink);color:var(--bg)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.tile{position:relative;border:0;padding:0;text-align:left;background:var(--shelf);border-radius:var(--r);overflow:hidden;cursor:pointer;box-shadow:inset 0 0 0 1px var(--line);display:flex;flex-direction:column;transition:transform .18s,box-shadow .18s}
+.tile:hover{transform:translateY(-3px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 16px 30px rgba(0,0,0,.35)}
+.tile .art{aspect-ratio:16/10;display:grid;place-items:center;overflow:hidden;max-width:100%}
+.tile .art canvas,.tile .art svg{width:100%;height:100%;display:block}
+.tile .info{padding:12px 14px 14px;display:flex;flex-direction:column;gap:4px}
+.tile h4{margin:0;font:800 24px/1 var(--f-sign);text-transform:uppercase;letter-spacing:.02em}
+.tile p{margin:0;color:var(--sub);font-size:15px;line-height:1.3}
+.badge{position:absolute;top:10px;left:10px;padding:4px 9px;border-radius:8px;font:700 12px var(--f-ui);letter-spacing:.12em;text-transform:uppercase;background:var(--gold);color:#1a2233}
+.badge.soon{background:rgba(7,11,20,.75);color:var(--sub)}
+.badge.last{background:var(--ink);color:var(--bg)}
+.tile.soon{cursor:default}
+.tile.soon:hover{transform:none;box-shadow:inset 0 0 0 1px var(--line)}
+.tile.soon .art{filter:saturate(.35) brightness(.7)}
+.empty{grid-column:1/-1;padding:28px;text-align:center;color:var(--sub);background:var(--shelf);border-radius:var(--r)}
+
+/* ---------- rooms ---------- */
+.rooms{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.rcard{background:var(--shelf);border-radius:22px;padding:22px;box-shadow:inset 0 0 0 1px var(--line);display:flex;flex-direction:column;gap:12px;min-width:0}
+.rcard h4{margin:0;font:800 28px/1 var(--f-sign);text-transform:uppercase}
+.rcard p{margin:0;color:var(--sub);line-height:1.4}
+.codeIn{display:flex;gap:8px}
+.codeIn input{flex:1;min-width:0;height:52px;border:0;border-radius:14px;background:var(--shelf2);color:var(--ink);font:700 26px var(--f-d);letter-spacing:.4em;text-transform:uppercase;padding:0 14px;text-align:center}
+.notice{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:14px;background:rgba(243,199,106,.1);color:#f1dca8;font-size:15px;line-height:1.4}
+.notice svg{width:20px;height:20px;flex:none;stroke:currentColor;fill:none;stroke-width:2;margin-top:1px}
+.msg{min-height:20px;font-size:15px;color:#ffb3a6}
+
+.lobby{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}
+.code{font:900 72px/1 var(--f-sign);letter-spacing:.14em;color:var(--gold)}
+.share{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.share code{font:600 16px var(--f-ui);padding:10px 12px;border-radius:12px;background:var(--shelf2);color:#d5dde9;user-select:all;overflow-wrap:anywhere}
+.seats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seat{display:flex;align-items:center;gap:10px;padding:10px;border-radius:14px;background:var(--shelf2);min-width:0}
+.seat .av{width:38px;height:38px;border-radius:50%;flex:none;display:grid;place-items:center;font:700 18px var(--f-d);color:#fff}
+.seat b{display:block;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat small{color:var(--sub)}
+.seat.wait{background:transparent;border:1.5px dashed rgba(255,255,255,.12)}
+.seat.wait .av{background:transparent;border:1.5px dashed rgba(255,255,255,.2)}
+.pick{display:flex;gap:8px;flex-wrap:wrap}
+.pick button{height:40px;padding:0 14px;border:0;border-radius:12px;background:var(--shelf2);color:var(--sub);font-weight:700;cursor:pointer}
+.pick button.on{background:var(--pink);color:#fff}
+
+/* ---------- settings ---------- */
+.set{display:flex;flex-direction:column;gap:12px;max-width:560px}
+.set label{font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--sub)}
+.set input{height:48px;border:0;border-radius:14px;background:var(--shelf2);color:var(--ink);font:600 19px var(--f-ui);padding:0 14px}
+
+/* ---------- tabs (phone) ---------- */
+.tabs{display:none}
+
+/* ---------- game cabinet ---------- */
+.cab{position:fixed;inset:0;z-index:50;background:#070b14;display:grid;place-items:center}
+.cab iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#070b14}
+.cab .load{position:relative;text-align:center;display:grid;gap:14px;justify-items:center;color:var(--sub);font:700 14px var(--f-ui);letter-spacing:.2em}
+.cab .load b{font:900 54px var(--f-sign);color:var(--ink);letter-spacing:.04em}
+.bar{width:160px;height:4px;border-radius:2px;background:var(--shelf2);overflow:hidden}
+.bar i{display:block;height:100%;width:40%;background:var(--pink);border-radius:2px;animation:slide 1s ease-in-out infinite alternate}
+@keyframes slide{to{transform:translateX(150%)}}
+
+.view[hidden]{display:none!important}
+
+@media (max-width:1100px){
+  .stagewrap{grid-template-columns:1fr}
+  .side{flex-direction:row;min-height:180px}
+  .side .art{flex:0 0 42%;min-height:0}
+  .side .copy{justify-content:center}
+}
+@media (max-width:860px){
+  .shell{grid-template-columns:1fr}
+  .rail{display:none}
+  main{padding:12px 16px calc(28px + env(safe-area-inset-bottom,0px))}
+  .topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);margin:-12px -16px 14px;padding:10px 16px;flex-wrap:wrap}
+  .phoneMark{display:flex;align-items:center;gap:8px}
+  .phoneMark img{width:28px;height:28px}
+  .phoneMark b{font:900 22px var(--f-sign);letter-spacing:.06em}
+  .search{order:3;flex-basis:100%;max-width:none}
+  .pill .lbl{display:none}
+  .pill{padding:0 13px}
+  .filters{display:flex}
+  .feature{min-height:380px}
+  .feature .copy{max-width:none;padding:22px;min-height:380px}
+  .feature .facts{display:none}
+  .feature canvas{width:96%;right:-20%;top:auto;bottom:-10%;transform:none}
+  .feature h2{font-size:64px}
+  .feature p{max-width:22ch;font-size:16px}
+  .side{flex-direction:column}
+  .side .art{min-height:150px;height:170px}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .tile h4{font-size:20px}
+  .tile p{font-size:14px}
+  .rooms,.lobby{grid-template-columns:1fr}
+  .code{font-size:60px}
+  .tabs{display:grid;grid-template-columns:repeat(3,1fr);position:fixed;left:0;right:0;bottom:0;z-index:20;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));background:rgba(10,16,32,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+  .tabs button{border:0;background:transparent;color:var(--sub);display:grid;justify-items:center;gap:3px;padding:6px 0;font:600 13px var(--f-ui);letter-spacing:.04em;cursor:pointer}
+  .tabs svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .tabs button.on{color:var(--ink)}
+  .tabs button.on svg{stroke:var(--pink)}
+}
+@media (max-width:420px){
+  .seats{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){.tile{transition:none}.bar i{animation:none}}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="mark"><img class="logoImg" alt=""><div><b>LOJA</b><small>NGA VITOWEB</small></div></div>
+    <nav class="nav" id="railNav">
+      <button class="on" data-view="games" data-filter="all"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Të gjitha<span class="n" id="cAll"></span></button>
+      <button data-view="games" data-filter="letra"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="11" height="16" rx="2"/><path d="M15 6l4 1.2-3.4 13"/></svg>Me letra</button>
+      <button data-view="games" data-filter="shoke"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 14.5c3 0 6 2 6 5.5"/></svg>Me shokët</button>
+      <button data-view="games" data-filter="bote"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01"/></svg>Kundër botëve</button>
+    </nav>
+    <div class="foot">Lojëra shqiptare për kafene, shtëpi dhe telefon. Pa shkarkim.</div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div class="phoneMark"><img class="logoImg" alt=""><b>LOJA</b></div>
+      <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" type="search" placeholder="Kërko një lojë" aria-label="Kërko një lojë" autocomplete="off"></label>
+      <div class="spacer"></div>
+    </div>
+
+    <!-- games -->
+    <section class="view" id="vGames">
+      <div class="stagewrap">
+        <button class="feature" data-play="murlan" aria-label="Luaj Murlan">
+          <canvas id="featCards" width="1120" height="760" aria-hidden="true"></canvas>
+          <div class="copy">
+            <span class="eyebrow">Tavolina e sotme</span>
+            <h2>Murlan</h2>
+            <p>Ti dhe tre lojtarë që nuk falin. Kolor, bombë, flush, deri në 21 pikë.</p>
+            <span class="playbtn"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>LUAJ</span>
+            <div class="facts"><span>4 lojtarë</span><span>Kundër botëve</span><span>Horizontalisht</span></div>
+          </div>
+        </button>
+        <button class="side" data-play="imposter" aria-label="Luaj Imposter">
+          <div class="art" id="impArt"></div>
+          <div class="copy">
+            <span class="eyebrow" style="color:var(--pink)">Për grupin</span>
+            <h2>Imposter</h2>
+            <p>Të gjithë e dinë fjalën. Njëri jo. Gjejeni para se ta gjejë ai.</p>
+            <div class="facts"><span>3–12 veta</span><span>Një telefon ose secili me të vetin</span></div>
+          </div>
+        </button>
+      </div>
+
+      <div class="sec">
+        <div class="sechead"><h3 id="shelfTitle">Të gjitha lojërat</h3><span id="shelfCount"></span></div>
+        <div class="filters" id="chipNav">
+          <button class="on" data-filter="all">Të gjitha</button>
+          <button data-filter="letra">Me letra</button>
+          <button data-filter="shoke">Me shokët</button>
+          <button data-filter="bote">Kundër botëve</button>
+        </div>
+        <div class="grid" id="grid"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="cab" id="cab" hidden>
+  <div class="load" id="cabLoad"><b id="cabName"></b><div class="bar"><i></i></div>DUKE HAPUR TAVOLINËN</div>
+</div>
+
+<script src="cards.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const ART = window.VWCards;
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch(e) { return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+};
+
+/* ---------- catalogue ---------- */
+const GAMES = [
+  { id:'murlan',   name:'Murlan',        line:'Kolor, bombë, flush. Kush del i pari?', tags:['letra','bote'], file:'murlan', art:'murlan', meta:'4 lojtarë' },
+  { id:'spathi',   name:'Spathi',        line:'Merr me shuma, mblidh spathitë dhe 10♦.', tags:['letra','bote'], file:'spathi', art:'spathi', meta:'1 kundër 1' },
+  { id:'derri',    name:'Derri në dorë', line:'Hidh çiftet dhe mos mbet me K♠ në dorë.', tags:['letra','bote'], file:'derri', art:'derri', meta:'4 lojtarë' },
+  { id:'domino',   name:'Domino',        line:'2 kundër 2 ose 1 kundër 1, deri në 100.', tags:['bote'], file:'domino', art:'domino', meta:'2 ose 4 lojtarë' },
+  { id:'imposter', name:'Imposter',      line:'Një fjalë, një gënjeshtar.', tags:['shoke'], file:'imposter', art:'imposter', meta:'Një telefon ose secili me të vetin' },
+  { id:'mafia',    name:'Mafia',         line:'Rolet në telefon, loja në tavolinë.', tags:['shoke'], file:'mafia', art:'mafia', meta:'Secili me telefonin e vet' }
+];
+const FILTER_NAMES = { all:'Të gjitha lojërat', letra:'Me letra', shoke:'Me shokët', bote:'Kundër botëve' };
+let filter = 'all';
+const recent = () => store.get('vw-recent', []);
+
+/* ---------- art ---------- */
+const faces = {};   // id -> canvas
+const face = id => faces[id] || (faces[id] = ART.drawFace(id, '2'));
+let backC = null; const back = () => backC || (backC = ART.drawBack());
+function drawCard(ctx, img, x, y, w, rot){
+  const h = w * 1.4;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = w * .12; ctx.shadowOffsetY = w * .05;
+  ctx.drawImage(img, -w / 2, -h / 2, w, h); ctx.restore();
+}
+function feltBg(ctx, W, H, a, b){
+  const g = ctx.createRadialGradient(W * .5, H * .55, 10, W * .5, H * .55, W * .7);
+  g.addColorStop(0, a); g.addColorStop(1, b); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+const ID = (rank, suit) => (rank - 3) * 4 + suit;
+// Royal flush of hearts, fanned — the hand that beats everything
+function fan(ctx, ids, cx, cy, w, spread, lift){
+  const n = ids.length;
+  ids.forEach((id, i) => { const t = n > 1 ? i / (n - 1) - .5 : 0; drawCard(ctx, face(id), cx + t * spread, cy + Math.abs(t) * lift, w, t * .55); });
+}
+function artCanvas(kind){
+  const c = document.createElement('canvas'); c.width = 640; c.height = 400; const x = c.getContext('2d');
+  if (kind === 'murlan') { feltBg(x, 640, 400, '#235470', '#0d2232'); fan(x, [ID(10,1),ID(11,1),ID(12,1),ID(13,1),ID(14,1)], 330, 230, 150, 300, 40); }
+  else if (kind === 'spathi') { feltBg(x, 640, 400, '#2a5a3f', '#0b2a1f'); drawCard(x, face(ID(10,2)), 240, 215, 140, -.26); drawCard(x, face(ID(15,3)), 330, 200, 150, -.04); drawCard(x, face(ID(7,3)), 425, 215, 140, .24); }
+  else if (kind === 'derri') { feltBg(x, 640, 400, '#5a2338', '#260f19'); drawCard(x, back(), 235, 220, 135, -.3); drawCard(x, back(), 425, 220, 135, .3); drawCard(x, face(ID(13,0)), 330, 200, 160, 0); }
+  return c;
+}
+function svgArt(kind){
+  if (kind === 'tavell') {
+    let tri = '';
+    for (let i = 0; i < 6; i++) { const x = 60 + i * 44; tri += `<path d="M${x} 40 L${x + 40} 40 L${x + 20} 170 Z" fill="${i % 2 ? '#c89b62' : '#7a2a35'}"/><path d="M${x} 360 L${x + 40} 360 L${x + 20} 230 Z" fill="${i % 2 ? '#7a2a35' : '#c89b62'}"/>`; }
+    for (let i = 0; i < 6; i++) { const x = 344 + i * 40; tri += `<path d="M${x} 40 L${x + 36} 40 L${x + 18} 170 Z" fill="${i % 2 ? '#c89b62' : '#7a2a35'}"/><path d="M${x} 360 L${x + 36} 360 L${x + 18} 230 Z" fill="${i % 2 ? '#7a2a35' : '#c89b62'}"/>`; }
+    const chk = [[80,60,'#f4f1ea'],[80,96,'#f4f1ea'],[80,132,'#f4f1ea'],[364,340,'#1b1f27'],[364,304,'#1b1f27'],[452,60,'#f4f1ea'],[230,340,'#1b1f27']].map(([cx,cy,f]) => `<circle cx="${cx}" cy="${cy}" r="17" fill="${f}" stroke="rgba(0,0,0,.35)" stroke-width="2"/>`).join('');
+    return `<svg viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice"><rect width="640" height="400" fill="#3b2416"/><rect x="40" y="24" width="560" height="352" rx="10" fill="#e6d3b0"/><rect x="316" y="24" width="12" height="352" fill="#3b2416"/>${tri}${chk}
+      <g transform="translate(190 186) rotate(-12)"><rect width="44" height="44" rx="8" fill="#fbfaf6"/><circle cx="12" cy="12" r="4.5" fill="#1b1f27"/><circle cx="32" cy="32" r="4.5" fill="#1b1f27"/><circle cx="22" cy="22" r="4.5" fill="#1b1f27"/></g>
+      <g transform="translate(244 192) rotate(14)"><rect width="44" height="44" rx="8" fill="#fbfaf6"/><circle cx="12" cy="12" r="4.5" fill="#c3263b"/><circle cx="32" cy="32" r="4.5" fill="#c3263b"/></g></svg>`;
+  }
+  if (kind === 'domino') {
+    const pip = (cx, cy) => `<circle cx="${cx}" cy="${cy}" r="7" fill="#1b1f27"/>`;
+    const face6 = (ox, oy) => [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]].map(([a,b]) => pip(ox + a * 30, oy + b * 24)).join('');
+    const tile = (x, y, r, top, bot) => `<g transform="translate(${x} ${y}) rotate(${r})"><rect x="-45" y="-90" width="90" height="180" rx="14" fill="#fbfaf6" stroke="rgba(0,0,0,.25)" stroke-width="2"/><line x1="-34" y1="0" x2="34" y2="0" stroke="#1b1f27" stroke-width="3"/>${top}${bot}</g>`;
+    return `<svg viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice"><rect width="640" height="400" fill="#1d3a4f"/>
+      ${tile(220, 205, -18, face6(-15, -76), pip(0, 45))}
+      ${tile(330, 195, 6, pip(-15, -60) + pip(15, -30), pip(-15, 30) + pip(0, 45) + pip(15, 60))}
+      ${tile(440, 210, 24, pip(0, -45), face6(-15, 14))}</svg>`;
+  }
+  if (kind === 'mafia') {
+    // four face-down role cards, one turned: the mafioso
+    const card = (x, y, r, fill, mark) => `<g transform="translate(${x} ${y}) rotate(${r})"><rect x="-58" y="-80" width="116" height="160" rx="14" fill="${fill}" stroke="rgba(0,0,0,.35)" stroke-width="2"/>${mark}</g>`;
+    const back = 'url(#mfB)', dots = '<rect x="-46" y="-68" width="92" height="136" rx="9" fill="none" stroke="rgba(241,233,220,.12)" stroke-width="2"/>';
+    const hat = '<path d="M-36 22c0-6 12-10 24-11l4-30c1-6 6-9 12-8l4 1 4-1c6-1 11 2 12 8l4 30c12 1 24 5 24 11 0 8-20 14-44 14s-44-6-44-14z" fill="#fff"/><rect x="-20" y="4" width="40" height="7" rx="2" fill="rgba(0,0,0,.35)"/>';
+    return `<svg viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice"><defs><pattern id="mfB" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="14" height="14" fill="#1d1a17"/><rect width="7" height="14" fill="#211d1a"/></pattern></defs><rect width="640" height="400" fill="#13110f"/>${card(170, 215, -14, back, dots)}${card(270, 200, -5, back, dots)}${card(470, 215, 14, back, dots)}${card(370, 196, 5, '#c4382f', hat)}</svg>`;
+  }
+  if (kind === 'imposter') {
+    // five coffee cups from above; one of them is not like the others
+    const cup = (cx, cy, odd) => `<g transform="translate(${cx} ${cy})"><ellipse cx="0" cy="6" rx="58" ry="58" fill="rgba(0,0,0,.35)"/><circle r="56" fill="#f4f1ea"/><circle r="40" fill="${odd ? '#ef5a86' : '#f4f1ea'}" stroke="rgba(0,0,0,.12)" stroke-width="2"/><circle r="30" fill="${odd ? '#b02a63' : '#5a3a22'}"/>${odd ? '<text y="12" text-anchor="middle" font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" font-size="36" fill="#fff">?</text>' : '<ellipse cx="-8" cy="-8" rx="12" ry="6" fill="rgba(255,255,255,.18)"/>'}<rect x="44" y="-10" width="30" height="20" rx="10" fill="#f4f1ea"/></g>`;
+    return `<svg viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice"><rect width="640" height="400" fill="#1b1426"/>${cup(130, 130, 0)}${cup(320, 110, 0)}${cup(510, 140, 0)}${cup(220, 290, 1)}${cup(420, 290, 0)}</svg>`;
+  }
+  return '';
+}
+function featureArt(){
+  const c = $('#featCards'), x = c.getContext('2d');
+  x.clearRect(0, 0, c.width, c.height);
+  // a played pile of cards on the felt: the royal flush on top of a beaten bomb
+  [ID(9,0),ID(9,1),ID(9,2),ID(9,3)].forEach((id, i) => drawCard(x, face(id), 300 + i * 46, 300, 170, -.22 + i * .02));
+  fan(x, [ID(10,1),ID(11,1),ID(12,1),ID(13,1),ID(14,1)], 640, 430, 230, 440, 60);
+  drawCard(x, back(), 990, 600, 170, .4);
+}
+
+/* ---------- shelf ---------- */
+function renderGrid(){
+  const q = $('#q').value.trim().toLowerCase();
+  const rec = recent()[0];
+  const list = GAMES.filter(g => (filter === 'all' || g.tags.includes(filter)) && (!q || g.name.toLowerCase().includes(q) || g.line.toLowerCase().includes(q)));
+  const grid = $('#grid'); grid.textContent = '';
+  if (!list.length) { grid.innerHTML = `<div class="empty">Asnjë lojë nuk përputhet me “${q.replace(/[<>&"]/g, '')}”.</div>`; }
+  list.forEach(g => {
+    const b = document.createElement('button');
+    b.className = 'tile' + (g.soon ? ' soon' : '');
+    if (g.soon) b.setAttribute('aria-disabled', 'true'); else b.dataset.play = g.id;
+    b.setAttribute('aria-label', g.soon ? `${g.name}, së shpejti` : `Luaj ${g.name}`);
+    const art = document.createElement('div'); art.className = 'art';
+    if (['murlan','spathi','derri'].includes(g.art)) art.appendChild(artCanvas(g.art)); else art.innerHTML = svgArt(g.art);
+    b.appendChild(art);
+    const tagTxt = g.tags.map(t => ({letra:'Me letra', shoke:'Me shokët', bote:'Kundër botëve'})[t]).join(' · ');
+    b.insertAdjacentHTML('beforeend', `<div class="info"><h4>${g.name}</h4><p>${g.line}</p><p style="font-size:13px;letter-spacing:.04em">${g.meta} · ${tagTxt}</p></div>`);
+    if (g.soon) b.insertAdjacentHTML('beforeend', '<span class="badge soon">Së shpejti</span>');
+    else if (g.id === rec) b.insertAdjacentHTML('beforeend', '<span class="badge last">Luajte së fundi</span>');
+    grid.appendChild(b);
+  });
+  $('#shelfTitle').textContent = FILTER_NAMES[filter];
+  $('#shelfCount').textContent = list.length === 1 ? '1 lojë' : `${list.length} lojëra`;
+  $('#cAll').textContent = GAMES.length;
+}
+function setFilter(f){
+  filter = f;
+  $$('#chipNav button').forEach(b => b.classList.toggle('on', b.dataset.filter === f));
+  renderGrid();
+}
+$('#chipNav').onclick = e => { const b = e.target.closest('[data-filter]'); if (b) showView('games', b.dataset.filter); };
+$('#q').addEventListener('input', renderGrid);
+
+/* ---------- views ---------- */
+function showView(v, f){
+  $$('#railNav button').forEach(b => b.classList.toggle('on', b.dataset.filter === (f || filter)));
+  if (f) setFilter(f);
+  scrollTo(0, 0);
+}
+$('#railNav').onclick = e => { const b = e.target.closest('button'); if (b) showView(b.dataset.view, b.dataset.filter); };
+
+/* ---------- game cabinet ---------- */
+const cab = $('#cab');
+function openGame(id){
+  const g = GAMES.find(x => x.id === id); if (!g || g.soon) return;
+  store.set('vw-recent', [id, ...recent().filter(x => x !== id)].slice(0, 5));
+  $('#cabName').textContent = g.name.toUpperCase(); $('#cabLoad').hidden = false;
+  cab.querySelector('iframe')?.remove();
+  const f = document.createElement('iframe');
+  f.src = g.file; f.title = g.name; f.allow = 'fullscreen; autoplay'; f.allowFullscreen = true;
+  f.style.opacity = '0';
+  f.onload = () => { f.style.opacity = '1'; $('#cabLoad').hidden = true; try { f.contentWindow.focus(); } catch(e) {} };
+  cab.appendChild(f); cab.hidden = false; document.body.style.overflow = 'hidden';
+  try { history.pushState({ game: id }, ''); } catch(e) {}
+}
+function closeGame(fromPop){
+  if (cab.hidden) return;
+  cab.querySelector('iframe')?.remove(); cab.hidden = true; document.body.style.overflow = '';
+  renderGrid();
+  if (!fromPop) { try { if (history.state && history.state.game) history.back(); } catch(e) {} }
+}
+addEventListener('popstate', () => closeGame(true));
+addEventListener('message', e => { if (e.data && e.data.vw === 'home') closeGame(false); });
+document.addEventListener('click', e => { const b = e.target.closest('[data-play]'); if (b) openGame(b.dataset.play); });
+
+/* ---------- start ---------- */
+async function start(){
+  try { await Promise.race([document.fonts.load(`700 70px ${ART.FONT}`), new Promise(r => setTimeout(r, 1500))]); } catch(e) {}
+  const lu = await ART.logoURL(120);
+  $$('.logoImg').forEach(i => i.src = lu);
+  $('#impArt').innerHTML = svgArt('imposter');
+  featureArt();
+  renderGrid();
+}
+start();
+})();
+</script>
+</body>
+</html>

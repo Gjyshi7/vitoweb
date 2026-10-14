@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="sq">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Murlan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: one fixed 1280x720 stage (16:9), scaled to fit the screen; turned 90° when the phone is held upright.
+   Single dark look on purpose: a lit card table in a dark room. */
+:root{
+  color-scheme:dark;
+  --room:#0b1120; --ink:#eef1f6; --sub:#9aa6b8; --pink:#ef5a86; --pink-dk:#b02a63; --gold:#f3c76a;
+  --plate:rgba(10,16,28,.86); --line:rgba(255,255,255,.09);
+  --felt-c:#1f4a63; --felt-e:#0d2232;
+  --f-ui:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --t:.36s;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--room);color:var(--ink);overflow:hidden}
+body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+#app{position:fixed;inset:0;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);background:var(--room)}
+#fit{position:relative;width:100%;height:100%;overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:50% 50%;overflow:hidden;background:radial-gradient(1200px 700px at 50% 45%,#16223a 0%,var(--room) 70%)}
+.rail{position:absolute;left:18px;top:52px;width:1244px;height:664px;border-radius:330px/300px;background:linear-gradient(#4a2e1d,#2a180e 55%,#1d110a);box-shadow:0 30px 60px rgba(0,0,0,.55),inset 0 2px 0 rgba(255,255,255,.12),inset 0 -3px 0 rgba(0,0,0,.4)}
+.felt{position:absolute;left:34px;top:68px;width:1212px;height:632px;border-radius:316px/286px;background:radial-gradient(ellipse at 50% 46%,var(--felt-c) 0%,var(--felt-e) 82%);box-shadow:inset 0 0 0 2px rgba(0,0,0,.25),inset 0 18px 40px rgba(0,0,0,.45)}
+.felt::after{content:"";position:absolute;left:50%;top:50%;width:470px;height:300px;transform:translate(-50%,-56%);border:1.5px solid rgba(255,255,255,.07);border-radius:150px}
+.mark{position:absolute;left:50%;top:50%;transform:translate(-50%,-62%);width:150px;opacity:.10;pointer-events:none}
+.top{position:absolute;left:0;right:0;top:0;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:rgba(7,11,20,.78);border-bottom:1px solid var(--line);z-index:300}
+.top .l,.top .r{display:flex;gap:6px;align-items:center;min-width:260px}
+.top .l{gap:12px}
+.top .r{justify-content:flex-end}
+.status{font-size:19px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.status em{font-style:normal;color:var(--pink)}
+.status.err{color:#ffb3a6}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;letter-spacing:.16em;color:var(--sub)}
+.brand img{width:26px}
+.meta{font-size:16px;font-weight:600;letter-spacing:.08em;color:var(--sub);white-space:nowrap}
+.meta b{color:var(--ink)}
+.ib{width:38px;height:34px;border:0;border-radius:9px;background:transparent;color:var(--sub);display:grid;place-items:center;cursor:pointer}
+.ib:hover{background:rgba(255,255,255,.07);color:var(--ink)}
+.ib svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ib.off{opacity:.45}
+.plate{position:absolute;display:flex;align-items:center;gap:12px;padding:8px 16px 8px 8px;border-radius:16px;background:var(--plate);box-shadow:inset 0 0 0 1px var(--line),0 10px 24px rgba(0,0,0,.35);z-index:200;transition:box-shadow .25s}
+.plate .av{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:22px;color:#fff;flex:none}
+.plate b{display:block;font-size:22px;font-weight:600;line-height:1.05}
+.plate span{display:block;font-size:16px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+.plate span.low{color:var(--pink);font-weight:700}
+.plate.turn{box-shadow:inset 0 0 0 2px var(--pink),0 0 26px rgba(239,90,134,.35),0 10px 24px rgba(0,0,0,.35)}
+.plate.out{opacity:.72}
+.bubble{position:absolute;z-index:250;padding:6px 14px;border-radius:14px;background:#f4f1ea;color:#1a2233;font-weight:700;font-size:19px;letter-spacing:.06em;opacity:0;transform:translate(-50%,-50%) scale(.8);transition:opacity .18s,transform .18s;pointer-events:none}
+.bubble.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.bubble.gold{background:var(--gold)}
+.card{position:absolute;left:0;top:0;width:120px;height:168px;border-radius:9px;transition:transform var(--t) cubic-bezier(.2,.75,.25,1),box-shadow .15s,filter .2s;box-shadow:0 1px 1px rgba(0,0,0,.3),0 4px 10px rgba(0,0,0,.28);will-change:transform;contain:layout paint}
+.card img{width:100%;height:100%;display:block;border-radius:9px;pointer-events:none;-webkit-user-drag:none}
+.card.mine{cursor:pointer}
+.card.sel{box-shadow:0 0 0 3px var(--pink),0 10px 22px rgba(0,0,0,.4)}
+.card.last{box-shadow:0 0 0 2.5px rgba(255,255,255,.85),0 6px 16px rgba(0,0,0,.35)}
+.card.dim{filter:brightness(.5) saturate(.6)}
+.card.old{filter:brightness(.62) saturate(.85)}
+#cap{position:absolute;left:640px;top:424px;transform:translateX(-50%);z-index:240;padding:5px 14px;border-radius:12px;background:rgba(7,11,20,.72);font-size:18px;font-weight:600;letter-spacing:.03em;white-space:nowrap;pointer-events:none;transition:opacity .2s}
+#cap:empty{opacity:0}
+#cap.flush{background:var(--gold);color:#1a2233}
+.acts{position:absolute;right:28px;bottom:20px;width:224px;display:grid;grid-template-columns:1fr 1fr;gap:10px;z-index:220}
+.btn{height:62px;border:0;border-radius:16px;font:700 21px var(--f-ui);letter-spacing:.08em;color:var(--ink);cursor:pointer;background:rgba(14,22,38,.9);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.14);transition:transform .08s,opacity .2s}
+.btn.main{grid-column:1/-1;height:74px;font-size:26px;color:#fff;background:linear-gradient(#f06a92,var(--pink) 45%,var(--pink-dk));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 18px rgba(176,42,99,.35)}
+.btn:active:not(:disabled){transform:translateY(2px)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn:focus-visible,.ib:focus-visible,.pbtn:focus-visible,.seg button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.ov{position:absolute;inset:0;z-index:400;display:grid;place-items:center;background:rgba(5,8,15,.6)}
+.panel{background:#111a2b;border-radius:22px;box-shadow:inset 0 0 0 1px var(--line),0 30px 70px rgba(0,0,0,.6);padding:28px 32px;width:600px;max-height:650px;overflow:auto}
+.panel h2{margin:0 0 6px;font-size:32px;font-weight:700}
+.panel p{margin:0 0 18px;font-size:19px;color:var(--sub);line-height:1.35}
+.set{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 0;border-top:1px solid var(--line);font-size:20px}
+.seg{display:flex;gap:4px;padding:4px;border-radius:14px;background:rgba(255,255,255,.06)}
+.seg button{border:0;border-radius:11px;padding:9px 16px;font:600 17px var(--f-ui);color:var(--sub);background:transparent;cursor:pointer}
+.seg button.on{background:var(--pink);color:#fff}
+.pbtn{display:block;width:100%;height:58px;margin-top:14px;border:0;border-radius:16px;font:700 21px var(--f-ui);letter-spacing:.06em;cursor:pointer;color:#fff;background:linear-gradient(#f06a92,var(--pink) 45%,var(--pink-dk))}
+.pbtn.ghost{background:rgba(255,255,255,.07);color:var(--ink)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.deckp{width:1120px;max-height:660px}
+.grid{display:grid;grid-template-columns:repeat(13,1fr);gap:8px}
+.grid img{width:100%;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.res{width:100%;border-collapse:collapse;margin-bottom:8px}
+.res th{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--sub);font-weight:600;text-align:left;padding:0 6px 8px}
+.res th.n{text-align:right}
+.res td{padding:9px 6px;font-size:21px;border-top:1px solid var(--line)}
+.res td.n{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.res tr.me td{color:var(--pink)}
+.note{margin:-4px 0 14px;font-size:18px;color:var(--gold);font-weight:600}
+.start{text-align:center;width:620px}
+.start img{width:96px;margin:2px auto 6px;display:block}
+.start h2{font-size:64px;margin:0}
+.start .pbtn{width:320px;margin:16px auto 0}
+.linkb{background:none;border:0;margin-top:14px;color:var(--sub);font:600 18px var(--f-ui);letter-spacing:.06em;cursor:pointer;text-decoration:underline;text-underline-offset:4px}
+.rules{width:760px}
+.rules ul{margin:0 0 10px;padding-left:22px;font-size:18px;line-height:1.42;color:#d9dfea}
+.rules li{margin-bottom:7px}
+.rules li b{color:#fff}
+.ladder{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 16px}
+.ladder div{padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.05);font-size:16px;color:var(--sub);line-height:1.25}
+.ladder div b{display:block;font-size:19px;color:var(--ink)}
+.ladder div:last-child{background:rgba(243,199,106,.12)}
+.ladder div:last-child b{color:var(--gold)}
+.rot{text-align:center;width:460px}
+.rot svg{width:64px;height:64px;stroke:var(--pink);fill:none;stroke-width:1.6;margin-bottom:8px}
+#loading{position:absolute;inset:0;z-index:500;display:grid;place-items:center;background:var(--room);color:var(--sub);font-size:20px;letter-spacing:.1em}
+@media (prefers-reduced-motion:reduce){.card{transition-duration:.12s}}
+
+/* top bar stays usable over the panels, so you can always go back to the games */
+.top{z-index:450}
+</style>
+</head>
+<body>
+<style>
+/* hand drag (house rule: the player can always rearrange their hand) */
+.card.mine{touch-action:none}
+.card.drag{transition:box-shadow .15s,filter .2s!important;cursor:grabbing;box-shadow:0 0 0 3px rgba(255,255,255,.8),0 18px 34px rgba(0,0,0,.5)!important}
+</style>
+<div id="app"><div id="fit">
+<div id="stage">
+  <div class="rail"></div>
+  <div class="felt"></div>
+  <img class="mark" id="feltMark" alt="">
+
+  <div class="top">
+    <div class="l">
+      <button class="ib" id="bHome" aria-label="Kthehu te lojërat" title="Kthehu te lojërat"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="brand"><img id="brandImg" alt="">MURLAN</div><div class="meta" id="meta"></div>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="r">
+      <button class="ib" id="bSort" aria-label="Rendit letrat" title="Rendit letrat"><svg viewBox="0 0 24 24"><path d="M4 6h9M4 12h6M4 18h3M17 5v14M14 16l3 3 3-3"/></svg></button>
+      <button class="ib" id="bRules" aria-label="Rregullat" title="Rregullat"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 8h6M9 12h6"/></svg></button>
+      <button class="ib" id="bDeck" aria-label="Shiko letrat" title="Shiko letrat"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="11" height="15" rx="2"/><path d="M8 5V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-5"/></svg></button>
+      <button class="ib" id="bSound" aria-label="Zëri" title="Zëri"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg></button>
+      <button class="ib" id="bFull" aria-label="Ekran i plotë" title="Ekran i plotë"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      <button class="ib" id="bSet" aria-label="Cilësimet" title="Cilësimet"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+    </div>
+  </div>
+
+  <div class="plate" id="pl2" style="left:640px;top:56px;transform:translateX(-50%)"></div>
+  <div class="plate" id="pl1" style="left:46px;top:214px"></div>
+  <div class="plate" id="pl3" style="right:46px;top:214px"></div>
+  <div class="plate" id="pl0" style="left:34px;top:620px"></div>
+  <div class="bubble" id="bb0" style="left:150px;top:590px"></div>
+  <div class="bubble" id="bb1" style="left:330px;top:250px"></div>
+  <div class="bubble" id="bb2" style="left:830px;top:92px"></div>
+  <div class="bubble" id="bb3" style="left:950px;top:250px"></div>
+
+  <div id="cards"></div>
+  <div id="cap"></div>
+
+  <div class="acts">
+    <button class="btn main" id="bPlay" disabled>LUAJ</button>
+    <button class="btn" id="bPass" disabled>PAS</button>
+    <button class="btn" id="bHint" disabled>NDIHMË</button>
+  </div>
+
+  <div class="ov" id="ovStart"><div class="panel start">
+    <img id="startLogo" alt="">
+    <h2>Murlan</h2>
+    <p>Ti kundër Arbenit, Dritës dhe Gëzimit. Fiton kush arrin i pari 21 pikë.</p>
+    <button class="pbtn" id="bStart">Fillo lojën</button>
+    <button class="linkb" id="bRules0">Rregullat</button>
+  </div></div>
+
+  <div class="ov" id="ovRules" hidden><div class="panel rules">
+    <h2>Rregullat</h2>
+    <p>Nga më i dobëti te më i forti. Secili mund vetëm atë që ka sipër, përveç kur thuhet ndryshe.</p>
+    <div class="ladder">
+      <div><b>Letër, çift, treshe</b>Mundet me të njëjtin lloj, më të lartë.</div>
+      <div><b>Kolor</b>5 ose më shumë radhazi. Mundet vetëm me kolor me po aq letra që mbaron më lart.</div>
+      <div><b>Bombë</b>4 letra të njëjta. Mund çdo gjë përveç bombës më të lartë dhe flush-it.</div>
+      <div><b>Flush</b>Kolor me të njëjtën shenjë. Mund edhe bombën. E mund vetëm flush më i lartë.</div>
+    </div>
+    <ul>
+      <li><b>Renditja:</b> 3, 4 … 10, J, Q, K, A, 2, xhokeri i zi, xhokeri me ngjyra.</li>
+      <li><b>Në kolor</b> A mund të jetë lart (10-J-Q-K-A) ose poshtë (A-2-3-4-5). 2-shi vlen si 2. Xhokerët nuk hyjnë.</li>
+      <li><b>Kolor 7-8-9-10-J-Q</b> ka 6 letra, ndaj nuk e mund asnjë kolor me 5. E mund 8-9-10-J-Q-K, një bombë ose një flush.</li>
+      <li><b>Flush-i</b> krahasohet nga letra e fundit. Royal flush (10 deri A me një shenjë) është më i larti me 5 letra.</li>
+      <li>Kush pason mund të luajë sërish në të njëjtin raund. Kur pasojnë të gjithë, hap ai që luajti i fundit.</li>
+      <li><b>Dora e parë</b> hapet me 3♠. Pas saj, i fundit i jep të parit letrën më të lartë dhe merr mbrapsht një letër nga 3 te 10. Kush ka të dy xhokerët nuk e bën shkëmbimin.</li>
+      <li><b>Pikët:</b> 3, 2, 1, 0 për dorë. Loja shkon deri në 21. Nëse dy e kalojnë njëkohësisht, caku bëhet 31, 41, pastaj 51.</li>
+    </ul>
+    <button class="pbtn ghost" id="bRulesClose">Mbyll</button>
+  </div></div>
+
+  <div class="ov" id="ovSet" hidden><div class="panel">
+    <h2>Cilësimet</h2>
+    <p>Ruhen në këtë shfletues.</p>
+    <div class="set">Tavolina<div class="seg" data-k="felt"><button data-v="blu">Blu</button><button data-v="jeshile">Jeshile</button><button data-v="bordo">Bordo</button></div></div>
+    <div class="set">Ngjyrat e letrave<div class="seg" data-k="colors"><button data-v="2">2 ngjyra</button><button data-v="4">4 ngjyra</button></div></div>
+    <div class="set">Shpejtësia e lojtarëve<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
+    <div class="set">Zëri<div class="seg" data-k="sound"><button data-v="on">Po</button><button data-v="off">Jo</button></div></div>
+    <div class="row2"><button class="pbtn ghost" id="bNew">Lojë e re</button><button class="pbtn" id="bSetClose">Mbyll</button></div>
+  </div></div>
+
+  <div class="ov" id="ovDeck" hidden><div class="panel deckp">
+    <h2>Kuverta, sipas renditjes së Murlanit</h2>
+    <p>Nga më e ulëta te më e larta: 3 deri te 2-shi, pastaj xhokeri i zi dhe xhokeri me ngjyra.</p>
+    <div class="grid" id="deckGrid"></div>
+    <button class="pbtn ghost" id="bDeckClose">Mbyll</button>
+  </div></div>
+
+  <div class="ov" id="ovEnd" hidden><div class="panel">
+    <h2 id="endTitle">Dora mbaroi</h2>
+    <p id="endLead"></p>
+    <div class="note" id="endNote" hidden></div>
+    <table class="res" id="resTable"></table>
+    <button class="pbtn" id="bNext">Dora tjetër</button>
+  </div></div>
+
+  <div class="ov" id="ovRot" hidden><div class="panel rot">
+    <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M17 11v2"/></svg>
+    <h2>Ktheje telefonin anash</h2>
+    <p>Tavolina luhet horizontalisht. Nuk ka nevojë të ndezësh rrotullimin automatik: loja kthehet vetë.</p>
+    <button class="pbtn" id="bRotOk">Në rregull</button>
+  </div></div>
+
+  <div id="loading">Duke përgatitur letrat…</div>
+</div>
+</div></div>
+
+<script src="cards.js"></script>
+<script src="engine.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const stage = $('#stage'), fit = $('#fit');
+const ART = window.VWCards;
+
+/* ---------- settings ---------- */
+const DEF = {felt:'blu', colors:'2', speed:'normal', sound:'on'};
+let ST = {...DEF};
+try { Object.assign(ST, JSON.parse(localStorage.getItem('vw-tavolina') || '{}')); } catch(e) {}
+const save = () => { try { localStorage.setItem('vw-tavolina', JSON.stringify(ST)); } catch(e) {} };
+const FELTS = {blu:['#1f4a63','#0d2232'], jeshile:['#1d5a44','#0b2a1f'], bordo:['#5a2338','#260f19']};
+
+/* ---------- fit: 16:9 stage, turned 90° when the screen is upright ---------- */
+let rotated = false, fitScale = 1;
+function doFit(){
+  const r = fit.getBoundingClientRect();
+  rotated = r.height > r.width * 1.05;
+  const W = rotated ? r.height : r.width, H = rotated ? r.width : r.height;
+  const s = Math.min(W / 1280, H / 720); fitScale = s;
+  stage.style.transform = `translate(-50%,-50%) rotate(${rotated ? 90 : 0}deg) scale(${s})`;
+}
+addEventListener('resize', doFit);
+if (window.visualViewport) visualViewport.addEventListener('resize', doFit);
+addEventListener('orientationchange', () => setTimeout(doFit, 150));
+doFit();
+
+/* ---------- card bitmaps ---------- */
+const CW = 120, CH = 168;
+let FACE = [], BACK = '';
+async function buildArt(){
+  const urls = await Promise.all(Array.from({length: 54}, (_, i) => ART.toURL(ART.drawFace(i, ST.colors))));
+  FACE.forEach(u => URL.revokeObjectURL(u)); FACE = urls;
+  if (!BACK) BACK = await ART.toURL(ART.drawBack());
+}
+
+/* ---------- seats & geometry ---------- */
+const NAMES = ['Ti','Arben','Drita','Gëzim'];
+const FEM = [false, false, true, false];
+const AVC = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62'];
+const PILE = [640, 330], DISCARD = [330, 338], DECK = [640, 338];
+const els = [];
+let mt = null, H = null, gen = 0, dealt = null, reveal = -1, discardN = 0;
+let mode = 'idle', sel = new Set(), playable = null, giftOpts = [], humanResolve = null, giftResolve = null, fast = false;
+let pile = [];
+const D = ms => ms * (ST.speed === 'fast' ? .55 : 1) * (fast ? .5 : 1);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function mkCards(){
+  const box = $('#cards'); box.textContent = '';
+  for (let i = 0; i < 54; i++) {
+    const d = document.createElement('div'); d.className = 'card'; d.dataset.id = i;
+    const im = document.createElement('img'); im.alt = ''; im.draggable = false; d.appendChild(im);
+    box.appendChild(d); els[i] = {el: d, img: im, up: null};
+  }
+}
+function put(id, x, y, rot = 0, sc = 1, z = 1, up = false){
+  const c = els[id];
+  if (c.up !== up) { c.img.src = up ? FACE[id] : BACK; c.up = up; }
+  c.el.style.transform = `translate3d(${x - CW / 2}px,${y - CH / 2}px,0) rotate(${rot}deg) scale(${sc})`;
+  c.el.style.zIndex = z;
+}
+const handOf = p => dealt ? dealt[p] : H ? H.hands[p] : [];
+const byRank = (a, b) => M.rankOf(a) - M.rankOf(b) || a - b;
+
+function layoutSeat(p){
+  const h = handOf(p), n = h.length;
+  if (p === 0) {
+    const ids = orderHand(h, byRank, !!dealt);
+    const step = n > 1 ? Math.min(74, (680 - CW) / (n - 1)) : 0;
+    ids.forEach((id, i) => {
+      const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
+      const x = 640 + (i - (n - 1) / 2) * step, y = 632 + t * t * 10 - (sel.has(id) ? 34 : 0);
+      const e = els[id].el;
+      e.classList.add('mine'); e.classList.remove('old','last');
+      e.classList.toggle('sel', sel.has(id));
+      e.classList.toggle('dim', (mode === 'gift' && !giftOpts.includes(id)) || (mode === 'play' && !!playable && !playable.has(id)));
+      if (!isDragged(id)) put(id, x, y, t * 4, 1, 100 + i, true);
+    });
+  } else {
+    const up = reveal === p;
+    const ids = up ? h.slice().sort(byRank) : h;
+    ids.forEach((id, i) => {
+      const o = (i - (ids.length - 1) / 2);
+      els[id].el.classList.remove('mine','sel','dim','old','last');
+      if (up) put(id, 640 + o * 34, 330, 0, .72, 300 + i, true);
+      else if (p === 2) put(id, 640 + o * 12, 180, 180, .5, 10 + i, false);
+      else if (p === 1) put(id, 140, 400 + o * 11, 90, .5, 10 + i, false);
+      else put(id, 1140, 400 + o * 11, -90, .5, 10 + i, false);
+    });
+  }
+  renderPlate(p);
+}
+function renderPlate(p){
+  const el = $('#pl' + p);
+  const n = handOf(p).length, pts = mt ? mt.scores[p] : 0;
+  const placeIdx = H && !dealt ? H.order.indexOf(p) : -1;
+  let sub;
+  if (placeIdx >= 0 && H.active.some(Boolean)) sub = `<span>Vendi ${placeIdx + 1} · ${pts} pikë</span>`;
+  else sub = `<span class="${n > 0 && n <= 2 && !dealt ? 'low' : ''}">${n === 1 ? '1 letër' : n + ' letra'} · ${pts} pikë</span>`;
+  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0]}</div><div><b>${NAMES[p]}</b>${sub}</div>`;
+  el.classList.toggle('out', placeIdx >= 0 && H.active.some(Boolean));
+}
+const renderPlates = () => { for (let p = 0; p < 4; p++) renderPlate(p); };
+function setTurn(p){ for (let i = 0; i < 4; i++) $('#pl' + i).classList.toggle('turn', i === p); }
+function status(txt, err){ const s = $('#status'); s.innerHTML = txt; s.classList.toggle('err', !!err); }
+function meta(){ $('#meta').innerHTML = mt ? `<b>Dora ${mt.handNo}</b> · deri në ${mt.target}` : ''; }
+function bubble(p, txt, gold){
+  const b = $('#bb' + p); b.textContent = txt; b.classList.toggle('gold', !!gold); b.classList.add('on');
+  clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('on'), D(1150));
+}
+
+/* ---------- sound ---------- */
+let actx = null;
+function audio(){ if (actx || ST.sound !== 'on') return; try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} }
+function snap(vol = .45, freq = 1900, dur = .06){
+  if (ST.sound !== 'on' || !actx) return;
+  try {
+    if (actx.state === 'suspended') actx.resume();
+    const a = actx, len = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    f.type = 'bandpass'; f.frequency.value = freq * (.85 + Math.random() * .3); f.Q.value = .8; g.gain.value = vol;
+    src.buffer = buf; src.connect(f).connect(g).connect(a.destination); src.start();
+  } catch(e) {}
+}
+function thump(){ snap(.7, 600, .12); setTimeout(() => snap(.5, 1200, .08), 30); }
+function chime(){
+  if (ST.sound !== 'on' || !actx) return;
+  try { const t = actx.currentTime; [523, 659, 784].forEach((f, i) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'triangle'; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t + i * .09); g.gain.linearRampToValueAtTime(.12, t + i * .09 + .02); g.gain.exponentialRampToValueAtTime(.001, t + i * .09 + .5);
+    o.connect(g).connect(actx.destination); o.start(t + i * .09); o.stop(t + i * .09 + .55); }); } catch(e) {}
+}
+
+/* ---------- pile ---------- */
+function showOrder(ids, m){
+  if (m && m.t >= 5) { const k = id => { const r = M.rankOf(id); return r === 15 ? 2 : r === 14 ? (m.s === 1 ? 1 : 14) : r; }; return ids.slice().sort((a, b) => k(a) - k(b)); }
+  return ids.slice().sort((a, b) => M.suitOf(a) - M.suitOf(b));
+}
+function renderPile(){
+  const n = pile.length;
+  pile.forEach((g, k) => {
+    const age = Math.min(n - 1 - k, 3);
+    const ids = showOrder(g.ids, g.m), step = ids.length > 8 ? 20 : ids.length > 6 ? 24 : 30;
+    const cx = PILE[0] + (age ? (k % 2 ? 1 : -1) * age * 10 : 0), cy = PILE[1] - age * 16, sc = .82 - age * .03;
+    ids.forEach((id, i) => {
+      const e = els[id].el; e.classList.remove('mine','sel','dim');
+      e.classList.toggle('old', age > 0); e.classList.toggle('last', age === 0);
+      put(id, cx + (i - (ids.length - 1) / 2) * step, cy, g.rot, sc, 60 + k * 16 + i, true);
+    });
+  });
+  const top = pile[n - 1];
+  const cap = $('#cap');
+  cap.textContent = top ? `${NAMES[top.p]} · ${M.name(top.m)}` : '';
+  cap.classList.toggle('flush', !!top && top.m.t === 6);
+}
+async function clearPile(){
+  pile.forEach(g => g.ids.forEach(id => {
+    const e = els[id].el; e.classList.remove('old','last');
+    put(id, DISCARD[0] + (Math.random() * 8 - 4), DISCARD[1] - discardN * .35, Math.random() * 16 - 8, .62, 5 + discardN++, false);
+  }));
+  pile = []; $('#cap').textContent = ''; $('#cap').classList.remove('flush');
+  snap(.18, 3800, .14);
+  await sleep(D(300));
+}
+
+/* ---------- human input ---------- */
+function computePlayable(){
+  if (mode !== 'play') { playable = null; return; }
+  const hand = H.hands[0];
+  const ms = M.allMoves(hand, H.top, H.must3);
+  playable = new Set();
+  for (const m of ms) {
+    if (m.t === 6) { (M.cardsFor(hand, m) || []).forEach(id => playable.add(id)); continue; }
+    const ranks = new Set();
+    if (m.t <= 4) ranks.add(m.r); else for (let s = m.s; s <= m.r; s++) ranks.add(M.idxRank(s));
+    hand.forEach(id => { if (ranks.has(M.rankOf(id))) playable.add(id); });
+  }
+}
+function refresh(){
+  const mine = mode === 'play', gift = mode === 'gift';
+  let ok = false;
+  if (mine) {
+    if (sel.size) {
+      const chk = G.checkPlay(H, 0, [...sel]);
+      ok = chk.ok;
+      status(chk.ok ? `Gati: <em>${M.name(chk.m)}</em>` : chk.why, !chk.ok);
+    } else if (playable && !playable.size) status('Nuk ke me çfarë ta mundësh · shtyp PAS');
+    else if (H.must3) status('Radha jote · hap me <em>3♠</em>');
+    else if (!H.top) status('Radha jote · hap çfarë të duash');
+    else status(`Radha jote · mund <em>${M.name(H.top)}</em> ose pas`);
+  }
+  if (gift) {
+    ok = sel.size === 1;
+    status(ok ? 'Shtyp JEP për ta dhënë' : `Zgjidh një letër nga 3 te 10 për ${NAMES[H.exchange.last]}`);
+  }
+  $('#bPlay').textContent = gift ? 'JEP' : 'LUAJ';
+  $('#bPlay').disabled = !ok;
+  $('#bPass').disabled = !(mine && H.top);
+  $('#bHint').disabled = !(mine || gift);
+}
+let lastTap = {id: -1, t: 0};
+$('#cards').addEventListener('click', e => {
+  audio();
+  const c = e.target.closest('.card.mine'); if (!c || !H) return;
+  const id = +c.dataset.id;
+  if (!H.hands[0].includes(id)) return;
+  if (mode === 'gift') {
+    if (!giftOpts.includes(id)) return;
+    sel = new Set(sel.has(id) ? [] : [id]); snap(.15, 2600, .04); layoutSeat(0); refresh(); return;
+  }
+  if (mode !== 'play') return;
+  const now = performance.now();
+  if (lastTap.id === id && now - lastTap.t < 330) {
+    lastTap = {id: -1, t: 0};
+    if (!sel.has(id)) sel.add(id);
+    const chk = G.checkPlay(H, 0, [...sel]); if (chk.ok) return submitPlay();
+    layoutSeat(0); refresh(); return;
+  }
+  lastTap = {id, t: now};
+  if (sel.has(id)) sel.delete(id);
+  else {
+    const t = H.top && (H.top.t === 2 || H.top.t === 3) ? H.top.t : 0;
+    const same = H.hands[0].filter(x => M.rankOf(x) === M.rankOf(id));
+    if (t && !sel.size && same.length >= t) { sel.add(id); same.filter(x => x !== id).slice(0, t - 1).forEach(x => sel.add(x)); }
+    else sel.add(id);
+  }
+  snap(.15, 2600, .04); layoutSeat(0); refresh();
+});
+function submitPlay(){
+  if (mode === 'gift' && sel.size === 1 && giftResolve) { const g = [...sel][0]; mode = 'idle'; sel.clear(); refresh(); return giftResolve(g); }
+  if (mode !== 'play' || !humanResolve) return;
+  const ids = [...sel]; if (!G.checkPlay(H, 0, ids).ok) return;
+  mode = 'idle'; sel.clear(); playable = null; refresh(); humanResolve(ids);
+}
+$('#bPlay').onclick = () => { audio(); submitPlay(); };
+$('#bPass').onclick = () => { audio(); if (mode === 'play' && H.top && humanResolve) { mode = 'idle'; sel.clear(); playable = null; refresh(); humanResolve(null); } };
+$('#bHint').onclick = () => {
+  audio();
+  if (mode === 'gift') { let g = M.chooseGift(H.hands[0]); if (!giftOpts.includes(g)) g = giftOpts[0]; sel = new Set([g]); layoutSeat(0); refresh(); return; }
+  if (mode !== 'play') return;
+  const v = G.viewFor(mt, 0); v.budgetMs = 300;
+  const m = M.decide(v);
+  if (!m) { sel.clear(); layoutSeat(0); refresh(); status('Këshilla: <em>pas</em> këtë herë'); return; }
+  sel = new Set(M.cardsFor(H.hands[0], m, H.must3)); layoutSeat(0); refresh();
+};
+addEventListener('keydown', e => {
+  if (!$('#ovStart').hidden) return;
+  if (e.key === 'Enter') $('#bPlay').click();
+  else if (e.key === ' ') { e.preventDefault(); $('#bPass').click(); }
+  else if (e.key === 'h' || e.key === 'H') $('#bHint').click();
+  else if (e.key === 'Escape') ['#ovSet','#ovDeck','#ovRules'].forEach(s => $(s).hidden = true);
+});
+const HAND_GEOM = (i, n) => { const step = n > 1 ? Math.min(74, (680 - CW) / (n - 1)) : 0, t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0; return {x: 640 + (i - (n - 1) / 2) * step, y: 632 + t * t * 10, rot: t * 4}; };
+const relayoutHand = () => { if (H) layoutSeat(0); };
+const canDragHand = () => !!H && !dealt;
+
+/* ---------- your hand: drag a card left/right to rearrange it ----------
+   House rule for every VitoWeb card game: the hand order is the player's. Never lock it, never re-sort it on its own.
+   New cards land at the right end; the sort button re-sorts on demand. A tap that doesn't move 8px stays a normal tap. */
+let handOrder = [], dragging = null, dragEndT = 0;
+function orderHand(hand, sortFn, fresh){
+  const set = new Set(hand);
+  if (dragging && !set.has(dragging.id)) { dragging.el.classList.remove('drag'); dragging = null; }
+  if (fresh || !handOrder.length) { handOrder = hand.slice().sort(sortFn); return handOrder; }
+  handOrder = handOrder.filter(id => set.has(id));
+  for (const id of hand) if (!handOrder.includes(id)) handOrder.push(id);
+  return handOrder;
+}
+const isDragged = id => !!dragging && dragging.on && dragging.id === id;
+function stagePoint(e){
+  const r = fit.getBoundingClientRect();
+  const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  return { x: 640 + (rotated ? dy : dx) / fitScale, y: 360 + (rotated ? -dx : dy) / fitScale };
+}
+function dragTo(p){
+  const d = dragging, n = handOrder.length, x = p.x + d.dx;
+  let best = 0, bd = 1e9;
+  for (let i = 0; i < n; i++) { const q = Math.abs(HAND_GEOM(i, n).x - x); if (q < bd) { bd = q; best = i; } }
+  const cur = handOrder.indexOf(d.id);
+  if (cur < 0) return;
+  if (best !== cur) { handOrder.splice(cur, 1); handOrder.splice(best, 0, d.id); relayoutHand(); snap(.08, 3200, .02); }
+  const g = HAND_GEOM(best, n);
+  put(d.id, Math.max(70, Math.min(1210, x)), g.y - 44, 0, 1.06, 390, true);
+}
+function endDrag(e){
+  const d = dragging; if (!d || (e && e.pointerId !== d.pid)) return;
+  dragging = null;
+  if (d.on) { d.el.classList.remove('drag'); dragEndT = performance.now(); relayoutHand(); snap(.12, 2600, .03); }
+}
+(() => {
+  const box = $('#cards');
+  box.addEventListener('pointerdown', e => {
+    if (e.button > 0 || dragging || !canDragHand()) return;
+    const c = e.target.closest('.card.mine'); if (!c) return;
+    const id = +c.dataset.id; if (!handOrder.includes(id)) return;
+    const p = stagePoint(e);
+    dragging = { id, pid: e.pointerId, x0: p.x, y0: p.y, on: false, el: c, dx: 0 };
+    try { c.setPointerCapture(e.pointerId); } catch(_) {}
+  });
+  box.addEventListener('pointermove', e => {
+    const d = dragging; if (!d || e.pointerId !== d.pid) return;
+    if (!handOrder.includes(d.id)) return endDrag(e);
+    const p = stagePoint(e);
+    if (!d.on) {
+      if (Math.hypot(p.x - d.x0, p.y - d.y0) < 8) return;
+      d.on = true; d.el.classList.add('drag');
+      d.dx = HAND_GEOM(handOrder.indexOf(d.id), handOrder.length).x - d.x0;
+    }
+    e.preventDefault();
+    dragTo(p);
+  });
+  box.addEventListener('pointerup', endDrag);
+  box.addEventListener('pointercancel', endDrag);
+  box.addEventListener('lostpointercapture', endDrag);
+  // a drag must not also count as a tap on the card
+  box.addEventListener('click', e => { if (performance.now() - dragEndT < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
+})();
+$('#bSort').onclick = () => { audio(); handOrder = []; relayoutHand(); snap(.2, 2400, .05); };
+function humanTurn(){ mode = 'play'; sel.clear(); computePlayable(); layoutSeat(0); refresh(); return new Promise(r => humanResolve = r); }
+
+/* ---------- a hand ---------- */
+function resetCards(){
+  for (let i = 0; i < 54; i++) { const e = els[i].el; e.className = 'card'; e.style.transition = 'none'; put(i, DECK[0] - i * .25, DECK[1] - i * .5, 0, 1, i, false); }
+  $('#cards').offsetWidth; els.forEach(c => c.el.style.transition = '');
+  pile = []; discardN = 0; reveal = -1; handOrder = []; $('#cap').textContent = '';
+}
+async function dealAnim(my){
+  dealt = [[], [], [], []]; renderPlates();
+  status('Duke shpërndarë…');
+  await sleep(300);
+  for (let i = 0; i < 54; i++) {
+    if (my !== gen) return;
+    const p = (mt.dealer + 1 + i) % 4;
+    dealt[p].push(H.dealOrder[i]); layoutSeat(p);
+    if (i % 2 === 0) snap(.18, 2400, .04);
+    await sleep(D(34));
+  }
+  dealt = null; await sleep(D(350)); renderPlates();
+}
+async function flyCard(id, show){ put(id, PILE[0], PILE[1], 0, .9, 400, show); await sleep(D(900)); }
+async function exchange(my){
+  const ex = H.exchange; if (!ex) return;
+  const { first, last } = ex;
+  if (ex.jokers) { status(`${NAMES[last]} ka të dy xhokerët · pa shkëmbim`); bubble(last, 'Dy xhokerë!', true); await sleep(D(2000)); return; }
+  const up = G.exchangeGive(mt);
+  status(last === 0 ? `Ishe i fundit · letra jote më e lartë shkon te ${NAMES[first]}` : first === 0 ? `${NAMES[last]} ishte i fundit · të jep letrën më të lartë` : `${NAMES[last]} i jep ${NAMES[first]} letrën më të lartë`);
+  await flyCard(up, last === 0 || first === 0); if (my !== gen) return;
+  layoutSeat(first); layoutSeat(last); snap(.3); await sleep(D(450));
+  let gift;
+  if (first === 0) {
+    giftOpts = G.giftOptions(H.hands[0]); mode = 'gift'; sel.clear(); layoutSeat(0); refresh();
+    gift = await new Promise(r => giftResolve = r); giftResolve = null; giftOpts = []; if (my !== gen) return;
+  } else await sleep(D(500));
+  gift = G.exchangeReturn(mt, gift);
+  status(first === 0 ? `I kthen ${NAMES[last]} një letër` : last === 0 ? `${NAMES[first]} të kthen një letër` : `${NAMES[first]} i kthen ${NAMES[last]} një letër`);
+  await flyCard(gift, last === 0 || first === 0); if (my !== gen) return;
+  layoutSeat(first); layoutSeat(last); snap(.3); await sleep(D(450));
+}
+async function runHand(){
+  const my = ++gen;
+  fast = false; mode = 'idle'; sel.clear(); refresh();
+  H = G.deal(mt); meta(); setTurn(-1);
+  resetCards(); renderPlates();
+  await dealAnim(my); if (my !== gen) return;
+  await exchange(my); if (my !== gen) return;
+  while (true) {
+    const p = H.cur; setTurn(p);
+    let ids;
+    if (p === 0) ids = await humanTurn();
+    else {
+      status(H.must3 ? `${NAMES[p]} ka 3♠ dhe hap` : `Luan ${NAMES[p]}…`);
+      await sleep(D(520 + Math.random() * 480)); if (my !== gen) return;
+      ids = G.botMove(mt, p, { budgetMs: fast ? 120 : 220 });
+    }
+    if (my !== gen) return;
+    const ev = G.act(mt, p, ids);
+    if (ev.type === 'pass') {
+      bubble(p, 'Pas'); snap(.08, 900, .04); renderPlate(p);
+      await sleep(D(p === 0 ? 260 : 520));
+      if (ev.cleared) {
+        await sleep(D(350)); await clearPile();
+        status(`<em>${NAMES[ev.winner]}</em> e mori radhën`);
+        await sleep(D(500));
+      }
+      continue;
+    }
+    pile.push({p, ids, m: ev.m, rot: Math.random() * 8 - 4});
+    renderPile(); layoutSeat(p);
+    if (ev.m.t === 6) { thump(); setTimeout(chime, 120); bubble(p, ev.m.r === 14 && ev.m.s === 10 ? 'Royal flush!' : 'Flush!', true); await sleep(D(500)); }
+    else if (ev.m.t === 4) { thump(); bubble(p, 'Bombë!', true); }
+    else snap(.55);
+    if (ev.out) {
+      const first = ev.place === 1;
+      bubble(p, p === 0 ? (first ? 'Dole i pari!' : 'Dole!') : first ? (FEM[p] ? 'Doli e para!' : 'Doli i pari!') : 'Doli!', first);
+      if (p === 0) { chime(); fast = true; }
+      renderPlates(); await sleep(D(850));
+    } else if (H.hands[p].length === 1) { bubble(p, 'Një letër!', true); await sleep(D(550)); }
+    else await sleep(D(260));
+    if (ev.handOver) return endHand(ev.result, my);
+  }
+}
+async function endHand(res, my){
+  setTurn(-1); mode = 'idle'; refresh();
+  const lp = res.order[3];
+  await sleep(D(500)); if (my !== gen) return;
+  await clearPile();
+  if (H.hands[lp].length) { reveal = lp; layoutSeat(lp); $('#cap').textContent = `I mbetën ${NAMES[lp]}`; }
+  status(`${NAMES[res.order[0]]} doli ${FEM[res.order[0]] ? 'e para' : 'i pari'}`);
+  renderPlates(); meta();
+  await sleep(D(1800)); if (my !== gen) return;
+  showResult(res);
+}
+function showResult(res){
+  const done = res.winner !== null || res.tie;
+  $('#endTitle').textContent = res.winner !== null ? (res.winner === 0 ? 'Fitove lojën!' : `Fitoi ${NAMES[res.winner]}`) : res.tie ? 'Barazim në 51' : `Dora ${mt.handNo} mbaroi`;
+  $('#endLead').textContent = done ? `Rezultati përfundimtar pas ${mt.handNo} duarsh.` : `Caku është ${res.target} pikë.`;
+  const note = $('#endNote');
+  note.hidden = !res.raised; note.textContent = res.raised ? `Dy lojtarë e kaluan cakun njëkohësisht, ndaj tani loja shkon deri në ${res.target}.` : '';
+  $('#resTable').innerHTML = '<tr><th>Lojtari</th><th>Vendi</th><th class="n">Kjo dorë</th><th class="n">Gjithsej</th></tr>' +
+    res.order.map((p, i) => `<tr class="${p === 0 ? 'me' : ''}"><td>${NAMES[p]}</td><td>${i + 1}</td><td class="n">+${res.pts[p]}</td><td class="n">${res.scores[p]}</td></tr>`).join('');
+  $('#bNext').textContent = done ? 'Lojë e re' : 'Dora tjetër';
+  $('#bNext').onclick = () => { $('#ovEnd').hidden = true; if (done) newMatch(); else runHand(); };
+  $('#ovEnd').hidden = false;
+  if (res.winner === 0) chime();
+}
+function newMatch(){ mt = G.newMatch(); renderPlates(); meta(); humanResolve = null; runHand(); }
+
+/* ---------- settings & panels ---------- */
+function applySettings(){
+  const f = FELTS[ST.felt] || FELTS.blu;
+  stage.style.setProperty('--felt-c', f[0]); stage.style.setProperty('--felt-e', f[1]);
+  stage.style.setProperty('--t', ST.speed === 'fast' ? '.24s' : '.36s');
+  $('#bSound').classList.toggle('off', ST.sound !== 'on');
+  document.querySelectorAll('.seg').forEach(sg => sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', ST[sg.dataset.k] === b.dataset.v)));
+}
+document.querySelectorAll('.seg').forEach(sg => sg.addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const k = sg.dataset.k, old = ST[k]; ST[k] = b.dataset.v; save(); applySettings(); audio();
+  if (k === 'colors' && old !== ST.colors) { await buildArt(); els.forEach((c, id) => { if (c.up) c.img.src = FACE[id]; }); fillDeck(); }
+}));
+$('#bSet').onclick = () => { $('#ovSet').hidden = false; };
+$('#bSetClose').onclick = () => { $('#ovSet').hidden = true; };
+$('#bNew').onclick = () => { $('#ovSet').hidden = true; $('#ovEnd').hidden = true; newMatch(); };
+$('#bSound').onclick = () => { ST.sound = ST.sound === 'on' ? 'off' : 'on'; save(); applySettings(); audio(); snap(.4); };
+$('#bRules').onclick = $('#bRules0').onclick = () => { $('#ovRules').hidden = false; };
+$('#bRulesClose').onclick = () => { $('#ovRules').hidden = true; };
+$('#bHome').onclick = () => { gen++; if (window.parent !== window) { try { parent.postMessage({vw: 'home'}, '*'); } catch(e) {} } else location.href = './'; };
+function fillDeck(){
+  const order = [0,1,2,3].flatMap(s => [...Array(13)].map((_, r) => r * 4 + s));
+  $('#deckGrid').innerHTML = order.map(id => `<img src="${FACE[id]}" alt="">`).join('') +
+    `<img src="${FACE[52]}" alt="Xhokeri i zi"><img src="${FACE[53]}" alt="Xhokeri me ngjyra"><img src="${BACK}" alt="Pas e letrës">`;
+}
+$('#bDeck').onclick = () => { $('#ovDeck').hidden = false; };
+$('#bDeckClose').onclick = () => { $('#ovDeck').hidden = true; };
+const fsOK = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+if (!fsOK) $('#bFull').hidden = true;
+$('#bFull').onclick = async () => {
+  try {
+    if (document.fullscreenElement) { await document.exitFullscreen(); return; }
+    await (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen).call(document.documentElement);
+    try { await screen.orientation.lock('landscape'); } catch(e) {}
+  } catch(e) {}
+  setTimeout(doFit, 200);
+};
+$('#bRotOk').onclick = () => { $('#ovRot').hidden = true; try { localStorage.setItem('vw-rot-seen', '1'); } catch(e) {} };
+$('#bStart').onclick = () => { audio(); $('#ovStart').hidden = true; newMatch(); };
+
+async function start(){
+  applySettings();
+  try { await Promise.race([document.fonts.load(`700 70px ${ART.FONT}`), sleep(1500)]); } catch(e) {}
+  await buildArt();
+  const mu = await ART.logoURL(300); $('#brandImg').src = mu; $('#feltMark').src = mu; $('#startLogo').src = mu;
+  mkCards(); fillDeck(); resetCards();
+  renderPlates();
+  status('Gati për lojë');
+  $('#loading').hidden = true;
+  let seen = false; try { seen = localStorage.getItem('vw-rot-seen') === '1'; } catch(e) {}
+  if (rotated && !seen) $('#ovRot').hidden = false;
+}
+start();
+})();
+</script>
+</body>
+</html>

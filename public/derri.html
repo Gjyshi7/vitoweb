@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="sq">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Derri në dorë</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: one fixed 1280x720 stage (16:9), scaled to fit the screen. Held upright, the stage turns 90° so the phone can be turned sideways without relying on the browser.
+   Single dark look on purpose: a lit card table in a dark room. */
+:root{
+  color-scheme:dark;
+  --room:#0b1120;          /* room around the table, VitoWeb navy */
+  --navy:#141e30;          /* logo ground */
+  --ink:#eef1f6;           /* UI text */
+  --sub:#9aa6b8;           /* secondary text */
+  --pink:#ef5a86;          /* brand accent, from the logo gradient */
+  --pink-dk:#b02a63;
+  --plate:rgba(10,16,28,.86);
+  --line:rgba(255,255,255,.09);
+  --felt-c:#1f4a63; --felt-e:#0d2232;  /* felt centre / edge, changed in settings */
+  --f-ui:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --t:.36s;                /* card move time, changed by speed setting */
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--room);color:var(--ink);overflow:hidden}
+body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+#app{position:fixed;inset:0;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);background:var(--room)}
+#fit{position:relative;width:100%;height:100%;overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:50% 50%;overflow:hidden;
+  background:radial-gradient(1200px 700px at 50% 45%,#16223a 0%,var(--room) 70%)}
+
+/* table */
+.rail{position:absolute;left:18px;top:52px;width:1244px;height:664px;border-radius:330px/300px;
+  background:linear-gradient(#4a2e1d,#2a180e 55%,#1d110a);box-shadow:0 30px 60px rgba(0,0,0,.55),inset 0 2px 0 rgba(255,255,255,.12),inset 0 -3px 0 rgba(0,0,0,.4)}
+.felt{position:absolute;left:34px;top:68px;width:1212px;height:632px;border-radius:316px/286px;
+  background:radial-gradient(ellipse at 50% 46%,var(--felt-c) 0%,var(--felt-e) 82%);
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.25),inset 0 18px 40px rgba(0,0,0,.45)}
+.felt::after{content:"";position:absolute;left:50%;top:50%;width:470px;height:300px;transform:translate(-50%,-56%);
+  border:1.5px solid rgba(255,255,255,.07);border-radius:150px}
+.mark{position:absolute;left:50%;top:50%;transform:translate(-50%,-62%);width:150px;opacity:.10;pointer-events:none}
+
+/* top bar */
+.top{position:absolute;left:0;right:0;top:0;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;
+  background:rgba(7,11,20,.78);border-bottom:1px solid var(--line);z-index:300}
+.top .l,.top .r{display:flex;gap:6px;align-items:center;min-width:240px}
+.top .r{justify-content:flex-end}
+.status{font-size:19px;font-weight:600;letter-spacing:.02em;color:var(--ink);white-space:nowrap}
+.status em{font-style:normal;color:var(--pink)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;letter-spacing:.16em;color:var(--sub)}
+.brand img{width:26px}
+.ib{width:38px;height:34px;border:0;border-radius:9px;background:transparent;color:var(--sub);display:grid;place-items:center;cursor:pointer}
+.ib:hover{background:rgba(255,255,255,.07);color:var(--ink)}
+.ib svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ib.off{opacity:.45}
+
+/* player plates */
+.plate{position:absolute;display:flex;align-items:center;gap:12px;padding:8px 16px 8px 8px;border-radius:16px;background:var(--plate);
+  box-shadow:inset 0 0 0 1px var(--line),0 10px 24px rgba(0,0,0,.35);z-index:200;transition:box-shadow .25s}
+.plate .av{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:22px;color:#fff;flex:none}
+.plate b{display:block;font-size:22px;font-weight:600;line-height:1.05}
+.plate span{display:block;font-size:16px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+.plate.turn{box-shadow:inset 0 0 0 2px var(--pink),0 0 26px rgba(239,90,134,.35),0 10px 24px rgba(0,0,0,.35)}
+.plate.win{box-shadow:inset 0 0 0 2px #f3c76a,0 0 30px rgba(243,199,106,.45)}
+.bubble{position:absolute;z-index:250;padding:6px 14px;border-radius:14px;background:#f4f1ea;color:#1a2233;font-weight:700;font-size:19px;letter-spacing:.06em;
+  opacity:0;transform:translate(-50%,-50%) scale(.8);transition:opacity .18s,transform .18s;pointer-events:none}
+.bubble.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+
+/* cards */
+.card{position:absolute;left:0;top:0;width:120px;height:168px;border-radius:9px;transition:transform var(--t) cubic-bezier(.2,.75,.25,1),box-shadow .15s,filter .2s;
+  box-shadow:0 1px 1px rgba(0,0,0,.3),0 4px 10px rgba(0,0,0,.28);will-change:transform;contain:layout paint}
+.card img{width:100%;height:100%;display:block;border-radius:9px;pointer-events:none;-webkit-user-drag:none}
+.card.mine{cursor:pointer}
+.card.sel{box-shadow:0 0 0 3px var(--pink),0 10px 22px rgba(0,0,0,.4)}
+.card.last{box-shadow:0 0 0 2.5px rgba(255,255,255,.85),0 6px 16px rgba(0,0,0,.35)}
+.card.gone{opacity:0;transition:transform var(--t) ease-in,opacity var(--t) ease-in}
+.cnt{position:absolute;z-index:150;min-width:30px;height:30px;padding:0 8px;border-radius:15px;background:#f4f1ea;color:#1a2233;font-weight:700;font-size:18px;
+  display:grid;place-items:center;transform:translate(-50%,-50%);font-variant-numeric:tabular-nums;pointer-events:none}
+
+/* actions */
+.acts{position:absolute;right:28px;bottom:20px;width:224px;display:grid;grid-template-columns:1fr 1fr;gap:10px;z-index:220}
+.btn{height:62px;border:0;border-radius:16px;font:700 21px var(--f-ui);letter-spacing:.08em;color:var(--ink);cursor:pointer;
+  background:rgba(14,22,38,.9);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.14);transition:transform .08s,opacity .2s,filter .15s}
+.btn.main{grid-column:1/-1;height:74px;font-size:26px;color:#fff;background:linear-gradient(#f06a92,var(--pink) 45%,var(--pink-dk));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 18px rgba(176,42,99,.35)}
+.btn:active:not(:disabled){transform:translateY(2px)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn:focus-visible,.ib:focus-visible,.pbtn:focus-visible,.seg button:focus-visible{outline:2px solid #f3c76a;outline-offset:3px}
+
+/* overlays */
+.ov{position:absolute;inset:0;z-index:400;display:grid;place-items:center;background:rgba(5,8,15,.6)}
+.panel{background:#111a2b;border-radius:22px;box-shadow:inset 0 0 0 1px var(--line),0 30px 70px rgba(0,0,0,.6);padding:28px 32px;width:560px;max-height:640px;overflow:auto}
+.panel h2{margin:0 0 6px;font-size:32px;font-weight:700;letter-spacing:.01em}
+.panel p{margin:0 0 18px;font-size:19px;color:var(--sub);line-height:1.35}
+.set{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 0;border-top:1px solid var(--line);font-size:20px}
+.seg{display:flex;gap:4px;padding:4px;border-radius:14px;background:rgba(255,255,255,.06)}
+.seg button{border:0;border-radius:11px;padding:9px 16px;font:600 17px var(--f-ui);color:var(--sub);background:transparent;cursor:pointer}
+.seg button.on{background:var(--pink);color:#fff}
+.pbtn{display:block;width:100%;height:58px;margin-top:14px;border:0;border-radius:16px;font:700 21px var(--f-ui);letter-spacing:.06em;cursor:pointer;color:#fff;
+  background:linear-gradient(#f06a92,var(--pink) 45%,var(--pink-dk))}
+.pbtn.ghost{background:rgba(255,255,255,.07);color:var(--ink)}
+.deckp{width:1120px;max-height:660px}
+.grid{display:grid;grid-template-columns:repeat(13,1fr);gap:8px}
+.grid img{width:100%;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.grid .jk{grid-column:span 2}
+.res td{padding:9px 6px;font-size:21px;border-top:1px solid var(--line)}
+.res td.n{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.res tr.me td{color:var(--pink)}
+.res{width:100%;border-collapse:collapse;margin-bottom:8px}
+.rot{text-align:center;width:460px}
+.rot svg{width:64px;height:64px;stroke:var(--pink);fill:none;stroke-width:1.6;margin-bottom:8px}
+#loading{position:absolute;inset:0;z-index:500;display:grid;place-items:center;background:var(--room);color:var(--sub);font-size:20px;letter-spacing:.1em}
+@media (prefers-reduced-motion:reduce){.card{transition-duration:.12s}}
+
+/* top bar stays usable over the panels, so you can always go back to the games */
+.top{z-index:450}
+</style>
+<style>
+.card.dim{filter:brightness(.5) saturate(.6)}
+.card.old{filter:brightness(.62) saturate(.85)}
+.plate.out{opacity:.72}
+.plate span.low{color:var(--pink);font-weight:700}
+.top .l{gap:14px}
+.meta{font-size:16px;font-weight:600;letter-spacing:.08em;color:var(--sub);white-space:nowrap}
+.meta b{color:var(--ink);font-weight:700}
+.status.err{color:#ffb3a6}
+#cap{position:absolute;left:640px;top:424px;transform:translateX(-50%);z-index:240;padding:5px 14px;border-radius:12px;background:rgba(7,11,20,.72);
+  font-size:18px;font-weight:600;letter-spacing:.03em;color:var(--ink);white-space:nowrap;pointer-events:none;transition:opacity .2s}
+#cap:empty{opacity:0}
+.bubble.gold{background:#f3c76a}
+.start{text-align:center;width:600px}
+.start img{width:96px;margin:2px auto 6px;display:block}
+.start h2{font-size:64px;letter-spacing:-.01em;margin:0}
+.start .pbtn{width:320px;margin:16px auto 0}
+.linkb{background:none;border:0;margin-top:14px;color:var(--sub);font:600 18px var(--f-ui);letter-spacing:.06em;cursor:pointer;text-decoration:underline;text-underline-offset:4px}
+.rules ul{margin:0 0 6px;padding-left:22px;font-size:18px;line-height:1.42;color:#d9dfea}
+.rules li{margin-bottom:6px}
+.rules li b{color:#fff}
+.res th{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--sub);font-weight:600;text-align:left;padding:0 6px 8px}
+.res th.n{text-align:right}
+.note{margin:-4px 0 14px;font-size:18px;color:#f3c76a;font-weight:600}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+</style>
+<style>
+/* Derri në dorë: same lit table as Murlan; the only new object is the centre "pick row",
+   where the hand you draw from is spread face-down at full size so a thumb can hit one card. */
+.card.pickable{cursor:pointer}
+.card.pickable:hover{box-shadow:0 0 0 3px var(--pink),0 10px 22px rgba(0,0,0,.4)}
+.card.hov{box-shadow:0 0 0 3px var(--pink),0 10px 22px rgba(0,0,0,.45)}
+.card.pair{box-shadow:0 0 0 3px #f3c76a,0 10px 22px rgba(0,0,0,.45)}
+.card.pigshow{box-shadow:0 0 0 4px var(--pink),0 0 40px rgba(239,90,134,.55),0 14px 30px rgba(0,0,0,.5)}
+.plate.src{box-shadow:inset 0 0 0 2px rgba(255,255,255,.55),0 10px 24px rgba(0,0,0,.35)}
+.plate span.pig{display:inline;color:var(--pink);font-weight:700}
+.acts{grid-template-columns:1fr}
+.btn.on{box-shadow:inset 0 0 0 2px var(--pink);color:#fff}
+#pickTag{position:absolute;left:640px;top:208px;transform:translateX(-50%);z-index:395;padding:6px 16px;border-radius:12px;background:rgba(7,11,20,.8);
+  font-size:20px;font-weight:600;letter-spacing:.03em;white-space:nowrap;pointer-events:none}
+#pickTag em{font-style:normal;color:var(--pink)}
+</style>
+
+<style>
+/* hand drag (house rule: the player can always rearrange their hand) */
+.card.mine{touch-action:none}
+.card.drag{transition:box-shadow .15s,filter .2s!important;cursor:grabbing;box-shadow:0 0 0 3px rgba(255,255,255,.8),0 18px 34px rgba(0,0,0,.5)!important}
+</style>
+</head>
+<body>
+<div id="app"><div id="fit">
+<div id="stage">
+  <div class="rail"></div>
+  <div class="felt"></div>
+  <img class="mark" id="feltMark" alt="">
+
+  <div class="top">
+    <div class="l"><button class="ib" id="bHome" aria-label="Kthehu te lojërat" title="Kthehu te lojërat"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><div class="brand"><img id="brandImg" alt="">DERRI NË DORË</div><div class="meta" id="meta"></div></div>
+    <div class="status" id="status"></div>
+    <div class="r">
+      <button class="ib" id="bSort" aria-label="Rendit letrat" title="Rendit letrat"><svg viewBox="0 0 24 24"><path d="M4 6h9M4 12h6M4 18h3M17 5v14M14 16l3 3 3-3"/></svg></button>
+      <button class="ib" id="bRules" aria-label="Rregullat" title="Rregullat"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 8h6M9 12h6"/></svg></button>
+      <button class="ib" id="bSound" aria-label="Zëri" title="Zëri"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg></button>
+      <button class="ib" id="bFull" aria-label="Ekran i plotë" title="Ekran i plotë"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      <button class="ib" id="bSet" aria-label="Cilësimet" title="Cilësimet"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+    </div>
+  </div>
+
+  <div class="plate" id="pl2" style="left:640px;top:56px;transform:translateX(-50%)"></div>
+  <div class="plate" id="pl1" style="left:46px;top:214px"></div>
+  <div class="plate" id="pl3" style="right:46px;top:214px"></div>
+  <div class="plate" id="pl0" style="left:34px;top:620px"></div>
+  <div class="bubble" id="bb0" style="left:150px;top:590px"></div>
+  <div class="bubble" id="bb1" style="left:330px;top:250px"></div>
+  <div class="bubble" id="bb2" style="left:830px;top:92px"></div>
+  <div class="bubble" id="bb3" style="left:950px;top:250px"></div>
+
+  <div id="cards"></div>
+  <div id="cap"></div>
+  <div id="pickTag" hidden></div>
+
+  <div class="acts">
+    <button class="btn main" id="bRand" disabled>RASTËSISHT</button>
+    <button class="btn" id="bFast">SHPEJTO</button>
+  </div>
+
+  <div class="ov" id="ovStart"><div class="panel start">
+    <img id="startLogo" alt="">
+    <h2>Derri në dorë</h2>
+    <p>Ti kundër Arbenit, Dritës dhe Gëzimit. Bëj çifte, hidhi, dhe mos mbet me K♠ në dorë.</p>
+    <button class="pbtn" id="bStart">Fillo lojën</button>
+    <button class="linkb" id="bRules0">Rregullat</button>
+  </div></div>
+
+  <div class="ov" id="ovRules" hidden><div class="panel rules">
+    <h2>Rregullat</h2>
+    <ul>
+      <li><b>49 letra.</b> Hiqen tre mbretër dhe mbetet vetëm <b>K♠, derri</b>. Ai nuk bën dot çift me asgjë.</li>
+      <li>Letrat ndahen njësoj: një lojtar merr 13, të tjerët 12. Secili hedh menjëherë <b>çiftet</b>: dy letra me të njëjtin numër ose figurë.</li>
+      <li>Në radhën tënde <b>merr një letër pa e parë</b> nga lojtari në të majtë. Lojtari në të djathtë merr nga ti.</li>
+      <li>Nëse letra që more bën çift, të dyja hidhen vetë. Përndryshe mbetet në dorë.</li>
+      <li>Kush mbaron letrat <b>del</b> dhe shpëton. Kur dikush del, merr nga i radhës që ka ende letra.</li>
+      <li>Në fund mbetet vetëm një lojtar me derrin në dorë. Ai <b>humbet</b> dorën.</li>
+    </ul>
+    <p>Prek një letër në mes për ta marrë, ose shtyp RASTËSISHT.</p>
+    <button class="pbtn ghost" id="bRulesClose">Mbyll</button>
+  </div></div>
+
+  <div class="ov" id="ovSet" hidden><div class="panel">
+    <h2>Cilësimet</h2>
+    <p>Ruhen në këtë shfletues, njësoj për të gjitha lojërat e tavolinës.</p>
+    <div class="set">Tavolina<div class="seg" data-k="felt"><button data-v="blu">Blu</button><button data-v="jeshile">Jeshile</button><button data-v="bordo">Bordo</button></div></div>
+    <div class="set">Ngjyrat e letrave<div class="seg" data-k="colors"><button data-v="2">2 ngjyra</button><button data-v="4">4 ngjyra</button></div></div>
+    <div class="set">Shpejtësia e lojtarëve<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
+    <div class="set">Zëri<div class="seg" data-k="sound"><button data-v="on">Po</button><button data-v="off">Jo</button></div></div>
+    <div class="row2"><button class="pbtn ghost" id="bNew">Lojë e re</button><button class="pbtn" id="bSetClose">Mbyll</button></div>
+  </div></div>
+
+  <div class="ov" id="ovEnd" hidden><div class="panel">
+    <h2 id="endTitle">Dora mbaroi</h2>
+    <p id="endLead"></p>
+    <table class="res" id="resTable"></table>
+    <button class="pbtn" id="bNext">Dora tjetër</button>
+  </div></div>
+
+  <div class="ov" id="ovRot" hidden><div class="panel rot">
+    <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M17 11v2"/></svg>
+    <h2>Ktheje telefonin anash</h2>
+    <p>Tavolina luhet horizontalisht. Nuk ka nevojë të ndezësh rrotullimin automatik: loja kthehet vetë.</p>
+    <button class="pbtn" id="bRotOk">Në rregull</button>
+  </div></div>
+
+  <div id="loading">Duke përgatitur letrat…</div>
+</div>
+</div></div>
+
+<script>
+/* ===== Derri në dorë engine (pure, no DOM) =====
+   Same card ids as Murlan: 0..51 -> rank = 3 + (id>>2) (3..15, 11 J, 12 Q, 13 K, 14 A, 15 = 2), suit = id&3 (0 ♠,1 ♥,2 ♦,3 ♣).
+   K♠ = 40 is the pig ("derri"). K♥ 41, K♦ 42, K♣ 43 are removed: 49 cards.
+   Turn rule: the player in turn draws one hidden card from the next player still holding cards (seat p+1, p+2, …).
+   A drawn card that matches a rank in hand is discarded with it at once. Empty hand = out (safe).
+   The last player holding cards holds only the pig and loses. */
+const E = (() => {
+  const PIG = 40, DROP = [41, 42, 43];
+  const rankOf = id => 3 + (id >> 2);
+  const natural = id => { const r = rankOf(id); return r === 14 ? 1 : r === 15 ? 2 : r; };
+  const label = id => ({ 11: 'J', 12: 'Q', 13: 'K', 14: 'A', 15: '2' })[rankOf(id)] || String(rankOf(id));
+  function shuffle(a, rand) { rand = rand || Math.random; for (let i = a.length - 1; i > 0; i--) { const j = (rand() * (i + 1)) | 0; const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function newMatch(rand) { return { rand: rand || Math.random, losses: [0, 0, 0, 0], round: 0, dealer: ((rand || Math.random)() * 4) | 0, hand: null }; }
+  function deal(mt) {
+    mt.round++;
+    if (mt.round > 1) mt.dealer = (mt.dealer + 1) % 4;
+    const deck = shuffle(Array.from({ length: 52 }, (_, i) => i).filter(i => !DROP.includes(i)), mt.rand);
+    const hands = [[], [], [], []];
+    deck.forEach((id, i) => hands[(mt.dealer + 1 + i) % 4].push(id));
+    const H = { hands, order: [], cur: (mt.dealer + 1) % 4, dealOrder: deck, over: false, loser: -1 };
+    mt.hand = H;
+    return H;
+  }
+  function pairsIn(hand) {
+    const open = new Map(), out = [];
+    for (const id of hand) { const r = rankOf(id); if (open.has(r)) { out.push([open.get(r), id]); open.delete(r); } else open.set(r, id); }
+    return out;
+  }
+  const live = (H, p) => H.hands[p].length > 0;
+  function nextLive(H, p) { for (let i = 1; i <= 3; i++) { const q = (p + i) % 4; if (live(H, q)) return q; } return -1; }
+  function checkOver(mt) {
+    const H = mt.hand, alive = [0, 1, 2, 3].filter(q => live(H, q));
+    if (alive.length > 1) return;
+    H.over = true; H.loser = alive.length ? alive[0] : -1;
+    if (H.loser >= 0) { H.order.push(H.loser); mt.losses[H.loser]++; }
+  }
+  function initialDiscard(mt) {
+    const H = mt.hand, pairs = [];
+    for (let p = 0; p < 4; p++) {
+      const pr = pairsIn(H.hands[p]), gone = new Set(pr.flat());
+      H.hands[p] = shuffle(H.hands[p].filter(id => !gone.has(id)), mt.rand);
+      pairs.push(pr);
+    }
+    const outs = [];
+    for (let k = 0; k < 4; k++) { const p = (mt.dealer + 1 + k) % 4; if (!live(H, p)) { H.order.push(p); outs.push(p); } }
+    checkOver(mt);
+    if (!H.over && !live(H, H.cur)) H.cur = nextLive(H, H.cur);
+    return { pairs, outs };
+  }
+  const source = (H, p) => nextLive(H, p);
+  function draw(mt, p, idx) {
+    const H = mt.hand;
+    if (H.over || p !== H.cur) throw new Error('not your turn');
+    const from = source(H, p);
+    if (idx < 0 || idx >= H.hands[from].length) throw new Error('bad index');
+    const card = H.hands[from].splice(idx, 1)[0];
+    const mi = H.hands[p].findIndex(id => rankOf(id) === rankOf(card));
+    let pair = null;
+    if (mi >= 0) { pair = [H.hands[p][mi], card]; H.hands[p].splice(mi, 1); }
+    else H.hands[p].splice((mt.rand() * (H.hands[p].length + 1)) | 0, 0, card);   // a held card lands anywhere: position tells nothing
+    const outs = [];
+    for (const q of [from, p]) if (!live(H, q) && !H.order.includes(q)) { H.order.push(q); outs.push(q); }
+    checkOver(mt);
+    if (!H.over) H.cur = nextLive(H, p);
+    return { p, from, card, pair, outs, over: H.over, loser: H.loser };
+  }
+  /* Picking is blind, so a uniform random index is the best any player can do. */
+  const botPick = (mt, p) => (mt.rand() * mt.hand.hands[source(mt.hand, p)].length) | 0;
+  return { PIG, rankOf, natural, label, shuffle, newMatch, deal, initialDiscard, source, draw, botPick, nextLive };
+})();
+if (typeof module !== 'undefined') module.exports = { E };
+
+</script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const stage = $('#stage'), fit = $('#fit');
+
+/* ---------- settings ---------- */
+const DEF = {felt:'blu', colors:'2', speed:'normal', sound:'on'};
+let ST = {...DEF};
+try { Object.assign(ST, JSON.parse(localStorage.getItem('vw-tavolina') || '{}')); } catch(e) {}
+const save = () => { try { localStorage.setItem('vw-tavolina', JSON.stringify(ST)); } catch(e) {} };
+const FELTS = {blu:['#1f4a63','#0d2232'], jeshile:['#1d5a44','#0b2a1f'], bordo:['#5a2338','#260f19']};
+
+/* ---------- fit: 16:9 stage, turned 90° when the screen is upright ---------- */
+let rotated = false, fitScale = 1;
+function doFit(){
+  const r = fit.getBoundingClientRect();
+  rotated = r.height > r.width * 1.05;
+  const W = rotated ? r.height : r.width, H = rotated ? r.width : r.height;
+  const s = Math.min(W / 1280, H / 720); fitScale = s;
+  stage.style.transform = `translate(-50%,-50%) rotate(${rotated ? 90 : 0}deg) scale(${s})`;
+}
+addEventListener('resize', doFit);
+if (window.visualViewport) visualViewport.addEventListener('resize', doFit);
+addEventListener('orientationchange', () => setTimeout(doFit, 150));
+doFit();
+
+/* ---------- card art (drawn once to bitmaps) ---------- */
+const CW = 120, CH = 168, PX = 300, PY = 420;
+const RANKS = {11:'J',12:'Q',13:'K',14:'A',15:'2'};
+const artRank = id => 3 + (id >> 2);   // engine ids: 3..15, 14 = A, 15 = 2
+const artSuit = id => id & 3;           // 0 ♠ 1 ♥ 2 ♦ 3 ♣
+const COL2 = ['#1b1f27','#c3263b','#c3263b','#1b1f27'];
+const COL4 = ['#1b1f27','#c3263b','#1d63c4','#17824a'];
+
+function suitPath(s){
+  const p = new Path2D();
+  if (s === 1) p.addPath(new Path2D('M50 90C22 68 4 52 4 31C4 15 16 5 29 5C39 5 46 11 50 20C54 11 61 5 71 5C84 5 96 15 96 31C96 52 78 68 50 90Z'));
+  else if (s === 2) p.addPath(new Path2D('M50 2L87 50L50 98L13 50Z'));
+  else if (s === 0) p.addPath(new Path2D('M50 3C41 20 6 38 6 61C6 75 16 83 28 83C37 83 44 79 47 73C46 84 41 91 33 96L67 96C59 91 54 84 53 73C56 79 63 83 72 83C84 83 94 75 94 61C94 38 59 20 50 3Z'));
+  else {
+    p.arc(50, 27, 20, 0, Math.PI * 2); p.moveTo(48, 57); p.arc(28, 57, 20, 0, Math.PI * 2); p.moveTo(92, 57); p.arc(72, 57, 20, 0, Math.PI * 2);
+    p.addPath(new Path2D('M46 50C46 76 42 88 32 96L68 96C58 88 54 76 54 50Z'));
+  }
+  return p;
+}
+const SUIT = [0,1,2,3].map(suitPath);
+function pip(ctx, s, x, y, size, col, flip){
+  ctx.save(); ctx.translate(x, y); if (flip) ctx.rotate(Math.PI); const k = size / 100; ctx.scale(k, k); ctx.translate(-50, -50);
+  ctx.fillStyle = col; ctx.fill(SUIT[s]); ctx.restore();
+}
+function rr(ctx, x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+/* VitoWeb mark, rebuilt as vector from the supplied logo (coords from the 1440px file) */
+const LOGO = new Path2D('M310 428L460 428L615 735L775 428L925 428L652 983Q615 1036 578 983Z M985 428L1140 428L864 983Q828 1036 793 983L752 900Z');
+function logo(ctx, cx, cy, h, mode){
+  const k = h / 600; ctx.save(); ctx.translate(cx, cy); ctx.scale(k, k); ctx.translate(-725, -725);
+  const g = ctx.createLinearGradient(0, 428, 0, 1020);
+  if (mode === 'mono') { g.addColorStop(0, '#9aa2b0'); g.addColorStop(.55, '#454c59'); g.addColorStop(1, '#14181f'); }
+  else if (mode === 'white') { g.addColorStop(0, 'rgba(255,255,255,.55)'); g.addColorStop(1, '#ffffff'); }
+  else { g.addColorStop(0, '#2c5361'); g.addColorStop(.33, '#7c2262'); g.addColorStop(.7, '#e9527f'); g.addColorStop(1, '#f8c6d0'); }
+  ctx.fillStyle = g; ctx.fill(LOGO); ctx.restore();
+}
+
+const PIPS = {
+  2:[[.5,0],[.5,1]], 3:[[.5,0],[.5,.5],[.5,1]], 4:[[0,0],[1,0],[0,1],[1,1]],
+  5:[[0,0],[1,0],[.5,.5],[0,1],[1,1]], 6:[[0,0],[1,0],[0,.5],[1,.5],[0,1],[1,1]],
+  7:[[0,0],[1,0],[.5,.25],[0,.5],[1,.5],[0,1],[1,1]], 8:[[0,0],[1,0],[.5,.25],[0,.5],[1,.5],[.5,.75],[0,1],[1,1]],
+  9:[[0,0],[1,0],[0,1/3],[1,1/3],[.5,.5],[0,2/3],[1,2/3],[0,1],[1,1]],
+  10:[[0,0],[1,0],[.5,1/6],[0,1/3],[1,1/3],[0,2/3],[1,2/3],[.5,5/6],[0,1],[1,1]]
+};
+const FONT = '"Barlow Condensed","Arial Narrow",Arial,sans-serif';
+
+function blank(ctx, fill){ rr(ctx, 1, 1, PX - 2, PY - 2, 24); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,.16)'; ctx.stroke(); }
+function indexCorner(ctx, label, s, col){
+  ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.font = `700 ${label.length > 1 ? 70 : 76}px ${FONT}`;
+  ctx.fillText(label, 42, 74);
+  pip(ctx, s, 42, 106, 40, col);
+}
+function crown(ctx, kind, col){
+  ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.lineJoin = 'round';
+  if (kind === 13) {
+    ctx.beginPath(); ctx.moveTo(116, 142); ctx.lineTo(116, 102); ctx.lineTo(133, 122); ctx.lineTo(150, 92); ctx.lineTo(167, 122); ctx.lineTo(184, 102); ctx.lineTo(184, 142); ctx.closePath(); ctx.fill();
+    ctx.fillRect(112, 146, 76, 9);
+    [[116,98],[150,88],[184,98]].forEach(([x,y]) => { ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fill(); });
+  } else if (kind === 12) {
+    ctx.beginPath(); ctx.moveTo(112, 150); ctx.quadraticCurveTo(150, 136, 188, 150); ctx.lineTo(186, 140); ctx.quadraticCurveTo(170, 98, 150, 96); ctx.quadraticCurveTo(130, 98, 114, 140); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fbfaf6'; [[150,118,8],[131,130,5],[169,130,5]].forEach(([x,y,r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); });
+  } else {
+    ctx.beginPath(); ctx.ellipse(150, 146, 42, 9, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(150, 142, 24, Math.PI, 0); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(166, 126); ctx.quadraticCurveTo(190, 112, 194, 86); ctx.quadraticCurveTo(178, 104, 160, 116); ctx.closePath(); ctx.fill();
+  }
+}
+function drawFace(id, colors){
+  const c = document.createElement('canvas'); c.width = PX; c.height = PY; const ctx = c.getContext('2d');
+  if (id >= 52) return drawJoker(c, ctx, id === 53);
+  const r = artRank(id), s = artSuit(id), col = (colors === '4' ? COL4 : COL2)[s];
+  const label = RANKS[r] || String(r);
+  blank(ctx, '#fbfaf6');
+  indexCorner(ctx, label, s, col);
+  ctx.save(); ctx.translate(PX, PY); ctx.rotate(Math.PI); indexCorner(ctx, label, s, col); ctx.restore();
+  if (r === 14) {
+    pip(ctx, s, 150, 210, s === 0 ? 150 : 120, col);
+    if (s === 0) logo(ctx, 150, 206, 30, 'white');
+  } else if (r >= 11 && r <= 13) {
+    rr(ctx, 82, 34, 136, 352, 12); ctx.fillStyle = col + '14'; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = col; ctx.stroke();
+    const half = () => { crown(ctx, r, col); pip(ctx, s, 150, 185, 44, col); };
+    half(); ctx.save(); ctx.translate(PX, PY); ctx.rotate(Math.PI); half(); ctx.restore();
+    ctx.strokeStyle = col + '55'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(96, 210); ctx.lineTo(204, 210); ctx.stroke();
+    ctx.fillStyle = col; ctx.font = `700 26px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(label, 112, 222 + 4);
+  } else {
+    const x0 = 106, x1 = 194, y0 = 70, y1 = 350;
+    for (const [px, py] of PIPS[r === 15 ? 2 : r]) pip(ctx, s, x0 + px * (x1 - x0), y0 + py * (y1 - y0), r === 10 ? 50 : 54, col, py > .5);
+  }
+  return c;
+}
+function drawJoker(c, ctx, color){
+  const bg = color ? '#141e30' : '#fbfaf6', ink = color ? '#f07a9c' : '#1b1f27';
+  blank(ctx, bg);
+  if (color) { rr(ctx, 14, 14, PX - 28, PY - 28, 16); ctx.strokeStyle = 'rgba(240,122,156,.35)'; ctx.lineWidth = 2; ctx.stroke(); }
+  logo(ctx, 150, 205, 150, color ? 'color' : 'mono');
+  ctx.fillStyle = color ? '#e9b3c4' : '#5a6170'; ctx.textAlign = 'center'; ctx.font = `600 22px ${FONT}`;
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '6px';
+  ctx.fillText('VITOWEB', 153, 318);
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+  const corner = () => { ctx.fillStyle = ink; ctx.font = `700 30px ${FONT}`; ctx.textAlign = 'center'; 'JOKER'.split('').forEach((ch, i) => ctx.fillText(ch, 38, 52 + i * 30)); };
+  corner(); ctx.save(); ctx.translate(PX, PY); ctx.rotate(Math.PI); corner(); ctx.restore();
+  return c;
+}
+function drawBack(){
+  const c = document.createElement('canvas'); c.width = PX; c.height = PY; const ctx = c.getContext('2d');
+  blank(ctx, '#fbfaf6');
+  rr(ctx, 13, 13, PX - 26, PY - 26, 16); ctx.fillStyle = '#141e30'; ctx.fill();
+  ctx.save(); rr(ctx, 13, 13, PX - 26, PY - 26, 16); ctx.clip();
+  ctx.strokeStyle = 'rgba(239,90,134,.13)'; ctx.lineWidth = 2;
+  for (let i = -PY; i < PX + PY; i += 16) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i - PY, PY); ctx.stroke(); ctx.beginPath(); ctx.moveTo(i - PY, 0); ctx.lineTo(i, PY); ctx.stroke(); }
+  ctx.restore();
+  rr(ctx, 26, 26, PX - 52, PY - 52, 10); ctx.strokeStyle = 'rgba(248,198,208,.35)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.arc(150, 210, 62, 0, 7); ctx.fillStyle = '#141e30'; ctx.fill(); ctx.strokeStyle = 'rgba(248,198,208,.35)'; ctx.stroke();
+  logo(ctx, 150, 206, 62, 'color');
+  return c;
+}
+const toURL = c => new Promise(res => c.toBlob(b => res(URL.createObjectURL(b)), 'image/png'));
+let FACE = [], BACK = '';
+async function buildArt(){
+  const urls = await Promise.all(Array.from({length: 54}, (_, i) => toURL(drawFace(i, ST.colors))));
+  FACE.forEach(u => URL.revokeObjectURL(u)); FACE = urls;
+  if (!BACK) BACK = await toURL(drawBack());
+}
+/* ---------- sound ---------- */
+let actx = null;
+function audio(){ if (actx || ST.sound !== 'on') return; try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} }
+function snap(vol = .45, freq = 1900, dur = .06){
+  if (ST.sound !== 'on' || !actx) return;
+  try {
+    if (actx.state === 'suspended') actx.resume();
+    const a = actx, len = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    f.type = 'bandpass'; f.frequency.value = freq * (.85 + Math.random() * .3); f.Q.value = .8; g.gain.value = vol;
+    src.buffer = buf; src.connect(f).connect(g).connect(a.destination); src.start();
+  } catch(e) {}
+}
+function thump(){ snap(.7, 600, .12); setTimeout(() => snap(.5, 1200, .08), 30); }
+function chime(){
+  if (ST.sound !== 'on' || !actx) return;
+  try { const t = actx.currentTime; [523, 659, 784].forEach((f, i) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = 'triangle'; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t + i * .09); g.gain.linearRampToValueAtTime(.12, t + i * .09 + .02); g.gain.exponentialRampToValueAtTime(.001, t + i * .09 + .5);
+    o.connect(g).connect(actx.destination); o.start(t + i * .09); o.stop(t + i * .09 + .55); }); } catch(e) {}
+}
+
+/* ---------- seats & geometry ---------- */
+const NAMES = ['Ti','Arben','Drita','Gëzim'];
+const ND = ['ti','Arbeni','Drita','Gëzimi'];          // definite form, used inside sentences
+const AVC = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62'];
+const PILE = [640, 345], DECK = [640, 338];
+const NEAR = [[640, 470], [330, 400], [640, 250], [950, 400]];   // where a seat shows a pair before throwing it
+const els = [];
+let mt = null, H = null, gen = 0, dealt = null, pileN = 0;
+let mode = 'idle', pickSrc = -1, hov = -1, humanResolve = null, fast = false;
+const D = ms => ms * (ST.speed === 'fast' ? .55 : 1) * (fast ? .45 : 1);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const PIG = E.PIG;
+
+function mkCards(){
+  const box = $('#cards'); box.textContent = '';
+  for (let i = 0; i < 52; i++) {
+    const d = document.createElement('div'); d.className = 'card'; d.dataset.id = i;
+    if (i === 41 || i === 42 || i === 43) d.hidden = true;
+    const im = document.createElement('img'); im.alt = ''; im.draggable = false; d.appendChild(im);
+    box.appendChild(d); els[i] = {el: d, img: im, up: null};
+  }
+}
+function put(id, x, y, rot = 0, sc = 1, z = 1, up = false){
+  const c = els[id];
+  if (c.up !== up) { c.img.src = up ? FACE[id] : BACK; c.up = up; }
+  c.el.style.transform = `translate3d(${x - CW / 2}px,${y - CH / 2}px,0) rotate(${rot}deg) scale(${sc})`;
+  c.el.style.zIndex = z;
+}
+const handOf = p => dealt ? dealt[p] : H ? H.hands[p] : [];
+const byNat = (a, b) => E.natural(a) - E.natural(b) || (a & 3) - (b & 3);
+const clean = e => e.classList.remove('pickable','hov','pair','pigshow','mine');
+
+function seatSlot(p, i, n){
+  const o = i - (n - 1) / 2;
+  if (p === 2) return {x: 640 + o * 13, y: 180, rot: 180, sc: .5};
+  if (p === 1) return {x: 140, y: 400 + o * 12, rot: 90, sc: .5};
+  return {x: 1140, y: 400 + o * 12, rot: -90, sc: .5};
+}
+function layoutSeat(p){
+  const h = handOf(p), n = h.length;
+  if (p === 0) {
+    const ids = orderHand(h, byNat, !!dealt);
+    const step = n > 1 ? Math.min(80, (720 - CW) / (n - 1)) : 0;
+    ids.forEach((id, i) => {
+      const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
+      const x = 640 + (i - (n - 1) / 2) * step, y = 632 + t * t * 10 - (hov === id ? 38 : 0);
+      const e = els[id].el; clean(e); e.classList.add('mine'); e.classList.toggle('hov', hov === id);
+      if (!isDragged(id)) put(id, x, y, t * 4, 1, 100 + i, true);
+    });
+  } else if (pickSrc === p) {
+    // the hand you draw from, spread face-down across the middle of the table
+    const step = n > 1 ? Math.min(118, (920 - CW * .92) / (n - 1)) : 0;
+    h.forEach((id, i) => {
+      const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
+      const x = 640 + (i - (n - 1) / 2) * step, y = 322 + t * t * 16 - (hov === id ? 30 : 0);
+      const e = els[id].el; clean(e); e.classList.add('pickable'); e.classList.toggle('hov', hov === id);
+      put(id, x, y, t * 6, .92, 300 + i, false);
+    });
+  } else {
+    h.forEach((id, i) => {
+      const s = seatSlot(p, i, n);
+      let {x, y} = s;
+      if (hov === id) { const dx = 640 - x, dy = 360 - y, L = Math.hypot(dx, dy) || 1; x += dx / L * 46; y += dy / L * 46; }
+      const e = els[id].el; clean(e); e.classList.toggle('hov', hov === id);
+      put(id, x, y, s.rot, hov === id ? .6 : s.sc, hov === id ? 320 : 10 + i, false);
+    });
+  }
+  renderPlate(p);
+}
+const layoutAll = () => { for (let p = 0; p < 4; p++) layoutSeat(p); };
+
+function renderPlate(p){
+  const el = $('#pl' + p);
+  const n = handOf(p).length, derr = mt ? mt.losses[p] : 0;
+  const place = H && !dealt ? H.order.indexOf(p) : -1;
+  const out = place >= 0 && !(H.over && p === H.loser);
+  const first = out ? `Doli` : `${n === 1 ? '1 letër' : n + ' letra'}`;
+  const tally = derr ? ` · <span class="pig">${derr === 1 ? '1 herë derr' : derr + ' herë derr'}</span>` : '';
+  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0]}</div><div><b>${NAMES[p]}</b><span>${first}${tally}</span></div>`;
+  el.classList.toggle('out', out);
+}
+const renderPlates = () => { for (let p = 0; p < 4; p++) renderPlate(p); };
+function setTurn(p, src){ for (let i = 0; i < 4; i++) { $('#pl' + i).classList.toggle('turn', i === p); $('#pl' + i).classList.toggle('src', i === src); } }
+function status(txt){ $('#status').innerHTML = txt; }
+function meta(){ $('#meta').innerHTML = mt ? `<b>Dora ${mt.round}</b>` : ''; }
+function bubble(p, txt, gold){
+  const b = $('#bb' + p); b.textContent = txt; b.classList.toggle('gold', !!gold); b.classList.add('on');
+  clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('on'), D(1300));
+}
+const from0 = q => q === 0 ? 'ti' : ND[q];
+
+/* ---------- discard pile (pairs are thrown face up, like at a real table) ---------- */
+function throwPair(ids){
+  const cx = PILE[0] + (Math.random() * 90 - 45), cy = PILE[1] + (Math.random() * 40 - 20), rot = Math.random() * 30 - 15;
+  ids.forEach((id, k) => {
+    const e = els[id].el; clean(e);
+    put(id, cx + (k ? 20 : -20), cy, rot + (k ? 5 : -5), .62, 5 + pileN++, true);
+  });
+}
+async function showPair(p, ids, my){
+  const [x, y] = NEAR[p];
+  ids.forEach((id, k) => { const e = els[id].el; clean(e); e.classList.add('pair'); put(id, x + (k ? 44 : -44), y, k ? 4 : -4, p === 0 ? 1 : .8, 340 + k, true); });
+  $('#cap').textContent = `${NAMES[p]} · çift ${E.label(ids[0])}`;
+  snap(.3, 2600, .05);
+  await sleep(D(p === 0 ? 650 : 480)); if (my !== gen) return;
+  throwPair(ids); snap(.4); await sleep(D(220));
+}
+
+/* ---------- human pick ---------- */
+function refresh(){
+  $('#bRand').disabled = mode !== 'pick';
+  $('#bFast').classList.toggle('on', fast);
+}
+$('#cards').addEventListener('click', e => {
+  audio();
+  if (mode !== 'pick') return;
+  const c = e.target.closest('.card.pickable'); if (!c) return;
+  const id = +c.dataset.id, idx = H.hands[pickSrc].indexOf(id);
+  if (idx >= 0) choose(idx);
+});
+function choose(idx){
+  if (mode !== 'pick' || !humanResolve) return;
+  mode = 'idle'; refresh(); const r = humanResolve; humanResolve = null; r(idx);
+}
+$('#bRand').onclick = () => { audio(); if (mode === 'pick') choose((Math.random() * H.hands[pickSrc].length) | 0); };
+$('#bFast').onclick = () => { audio(); fast = !fast; refresh(); };
+addEventListener('keydown', e => {
+  if (!$('#ovStart').hidden) return;
+  if (e.key === 'Enter') $('#bRand').click();
+  else if (e.key === 'Escape') ['#ovSet','#ovRules'].forEach(s => $(s).hidden = true);
+});
+const HAND_GEOM = (i, n) => { const step = n > 1 ? Math.min(80, (720 - CW) / (n - 1)) : 0, t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0; return {x: 640 + (i - (n - 1) / 2) * step, y: 632 + t * t * 10, rot: t * 4}; };
+const relayoutHand = () => { if (H) layoutSeat(0); };
+const canDragHand = () => !!H && !dealt;
+
+/* ---------- your hand: drag a card left/right to rearrange it ----------
+   House rule for every VitoWeb card game: the hand order is the player's. Never lock it, never re-sort it on its own.
+   New cards land at the right end; the sort button re-sorts on demand. A tap that doesn't move 8px stays a normal tap. */
+let handOrder = [], dragging = null, dragEndT = 0;
+function orderHand(hand, sortFn, fresh){
+  const set = new Set(hand);
+  if (dragging && !set.has(dragging.id)) { dragging.el.classList.remove('drag'); dragging = null; }
+  if (fresh || !handOrder.length) { handOrder = hand.slice().sort(sortFn); return handOrder; }
+  handOrder = handOrder.filter(id => set.has(id));
+  for (const id of hand) if (!handOrder.includes(id)) handOrder.push(id);
+  return handOrder;
+}
+const isDragged = id => !!dragging && dragging.on && dragging.id === id;
+function stagePoint(e){
+  const r = fit.getBoundingClientRect();
+  const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  return { x: 640 + (rotated ? dy : dx) / fitScale, y: 360 + (rotated ? -dx : dy) / fitScale };
+}
+function dragTo(p){
+  const d = dragging, n = handOrder.length, x = p.x + d.dx;
+  let best = 0, bd = 1e9;
+  for (let i = 0; i < n; i++) { const q = Math.abs(HAND_GEOM(i, n).x - x); if (q < bd) { bd = q; best = i; } }
+  const cur = handOrder.indexOf(d.id);
+  if (cur < 0) return;
+  if (best !== cur) { handOrder.splice(cur, 1); handOrder.splice(best, 0, d.id); relayoutHand(); snap(.08, 3200, .02); }
+  const g = HAND_GEOM(best, n);
+  put(d.id, Math.max(70, Math.min(1210, x)), g.y - 44, 0, 1.06, 390, true);
+}
+function endDrag(e){
+  const d = dragging; if (!d || (e && e.pointerId !== d.pid)) return;
+  dragging = null;
+  if (d.on) { d.el.classList.remove('drag'); dragEndT = performance.now(); relayoutHand(); snap(.12, 2600, .03); }
+}
+(() => {
+  const box = $('#cards');
+  box.addEventListener('pointerdown', e => {
+    if (e.button > 0 || dragging || !canDragHand()) return;
+    const c = e.target.closest('.card.mine'); if (!c) return;
+    const id = +c.dataset.id; if (!handOrder.includes(id)) return;
+    const p = stagePoint(e);
+    dragging = { id, pid: e.pointerId, x0: p.x, y0: p.y, on: false, el: c, dx: 0 };
+    try { c.setPointerCapture(e.pointerId); } catch(_) {}
+  });
+  box.addEventListener('pointermove', e => {
+    const d = dragging; if (!d || e.pointerId !== d.pid) return;
+    if (!handOrder.includes(d.id)) return endDrag(e);
+    const p = stagePoint(e);
+    if (!d.on) {
+      if (Math.hypot(p.x - d.x0, p.y - d.y0) < 8) return;
+      d.on = true; d.el.classList.add('drag');
+      d.dx = HAND_GEOM(handOrder.indexOf(d.id), handOrder.length).x - d.x0;
+    }
+    e.preventDefault();
+    dragTo(p);
+  });
+  box.addEventListener('pointerup', endDrag);
+  box.addEventListener('pointercancel', endDrag);
+  box.addEventListener('lostpointercapture', endDrag);
+  // a drag must not also count as a tap on the card
+  box.addEventListener('click', e => { if (performance.now() - dragEndT < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
+})();
+$('#bSort').onclick = () => { audio(); handOrder = []; relayoutHand(); snap(.2, 2400, .05); };
+async function humanPick(src, my){
+  pickSrc = src; layoutSeat(src);
+  const tag = $('#pickTag'); tag.innerHTML = `Zgjidh një letër nga <em>${ND[src]}</em>`; tag.hidden = false;
+  status(H.hands[0].includes(PIG) ? 'Radha jote · derri është te ti' : 'Radha jote');
+  snap(.2, 2000, .08);
+  mode = 'pick'; refresh();
+  const idx = await new Promise(r => humanResolve = r);
+  tag.hidden = true;
+  if (my !== gen) return -1;
+  hov = H.hands[src][idx]; layoutSeat(src); await sleep(D(260));
+  return idx;
+}
+
+/* ---------- bots ---------- */
+async function botPickFromMe(p, my){
+  // the bot's hand hovers over yours: a card or two lifts before it takes one
+  const hand = H.hands[0], tries = hand.length > 1 ? 1 + ((Math.random() * 2) | 0) : 0;
+  for (let k = 0; k < tries; k++) {
+    hov = hand[(Math.random() * hand.length) | 0]; layoutSeat(0); snap(.1, 3000, .03);
+    await sleep(D(420)); if (my !== gen) return -1;
+  }
+  const idx = E.botPick(mt, p);
+  hov = hand[idx]; layoutSeat(0); await sleep(D(380));
+  return idx;
+}
+async function botPickFromBot(p, src, my){
+  const idx = E.botPick(mt, p);
+  hov = H.hands[src][idx]; layoutSeat(src); snap(.12, 2800, .03);
+  await sleep(D(360)); if (my !== gen) return -1;
+  return idx;
+}
+
+/* ---------- one draw, animated ---------- */
+async function animateDraw(ev, my){
+  const {p, from, card, pair} = ev;
+  hov = -1; pickSrc = -1;
+  els[card].el.classList.remove('pickable','hov');
+  if (p === 0) {
+    // your new card turns face up in front of you
+    put(card, 640, 470, 0, 1.05, 350, true); snap(.35);
+    layoutSeat(from);
+    await sleep(D(560)); if (my !== gen) return;
+    if (card === PIG) { bubble(0, 'Ups, derri!', true); status('More derrin'); await sleep(D(700)); }
+  } else {
+    const n = H.hands[p].length, s = p === 0 ? null : seatSlot(p, n, n + 1);
+    put(card, s.x, s.y, s.rot, .5, 60, false);
+    layoutSeat(from); snap(.3);
+    if (from === 0 && card === PIG) { status(`${ND[p]} ta mori derrin!`); bubble(0, 'Hë!', true); }
+    await sleep(D(320)); if (my !== gen) return;
+  }
+  if (pair) { await showPair(p, pair, my); if (my !== gen) return; }
+  layoutSeat(p);
+  for (const q of ev.outs) {
+    bubble(q, q === 0 ? 'Dole! Je i shpëtuar' : 'Doli!', true);
+    if (q === 0) { chime(); fast = true; refresh(); }
+    renderPlates(); await sleep(D(700));
+  }
+}
+
+/* ---------- a round ---------- */
+function resetCards(){
+  for (let i = 0; i < 52; i++) { const e = els[i].el; e.className = 'card'; e.style.transition = 'none'; put(i, DECK[0] - i * .25, DECK[1] - i * .5, 0, 1, i, false); }
+  $('#cards').offsetWidth; els.forEach(c => c.el.style.transition = '');
+  pileN = 0; hov = -1; pickSrc = -1; handOrder = []; $('#cap').textContent = ''; $('#pickTag').hidden = true;
+}
+async function dealAnim(my){
+  dealt = [[], [], [], []]; renderPlates();
+  status('Duke shpërndarë…');
+  await sleep(300);
+  for (let i = 0; i < H.dealOrder.length; i++) {
+    if (my !== gen) return;
+    const p = (mt.dealer + 1 + i) % 4;
+    dealt[p].push(H.dealOrder[i]); layoutSeat(p);
+    if (i % 2 === 0) snap(.18, 2400, .04);
+    await sleep(D(34));
+  }
+  await sleep(D(450));
+}
+async function firstPairs(my){
+  status('Secili hedh çiftet që ka');
+  const keep = dealt; const res = E.initialDiscard(mt);
+  // show every player's pairs leaving the hand, in deal order
+  for (let k = 0; k < 4; k++) {
+    const p = (mt.dealer + 1 + k) % 4, prs = res.pairs[p];
+    if (!prs.length) continue;
+    const gone = new Set(prs.flat());
+    keep[p] = keep[p].filter(id => !gone.has(id));
+    const [x, y] = NEAR[p];
+    prs.forEach((pr, j) => pr.forEach((id, t) => put(id, x + (j - (prs.length - 1) / 2) * 34 + (t ? 12 : -12), y + (t ? 8 : 0), 0, p === 0 ? .75 : .6, 330 + j * 2 + t, true)));
+    layoutSeat(p); snap(.3);
+    $('#cap').textContent = `${NAMES[p]} · ${prs.length === 1 ? '1 çift' : prs.length + ' çifte'}`;
+    await sleep(D(p === 0 ? 900 : 650)); if (my !== gen) return;
+    prs.forEach(throwPair); snap(.4);
+    await sleep(D(260));
+  }
+  dealt = null; layoutAll(); $('#cap').textContent = '';
+  for (const q of res.outs) bubble(q, q === 0 ? 'Dole! Je i shpëtuar' : 'Doli!', true);
+  if (res.outs.includes(0)) { fast = true; refresh(); }
+  await sleep(D(500));
+}
+async function runRound(){
+  const my = ++gen;
+  fast = false; mode = 'idle'; humanResolve = null; refresh();
+  H = E.deal(mt); meta(); setTurn(-1, -1);
+  resetCards(); renderPlates();
+  await dealAnim(my); if (my !== gen) return;
+  await firstPairs(my); if (my !== gen) return;
+  while (!H.over) {
+    const p = H.cur, src = E.source(H, p);
+    setTurn(p, src);
+    let idx;
+    if (p === 0) idx = await humanPick(src, my);
+    else {
+      status(`${ND[p]} merr nga ${from0(src)}`);
+      await sleep(D(300 + Math.random() * 300)); if (my !== gen) return;
+      idx = src === 0 ? await botPickFromMe(p, my) : await botPickFromBot(p, src, my);
+    }
+    if (my !== gen || idx < 0) return;
+    const ev = E.draw(mt, p, idx);
+    await animateDraw(ev, my); if (my !== gen) return;
+    await sleep(D(140));
+  }
+  return endRound(my);
+}
+async function endRound(my){
+  setTurn(-1, -1); mode = 'idle'; refresh();
+  const L = H.loser;
+  await sleep(D(400)); if (my !== gen) return;
+  clean(els[PIG].el); els[PIG].el.classList.add('pigshow');
+  put(PIG, 640, 320, 0, 1.3, 360, true);
+  $('#cap').textContent = '';
+  bubble(L, L === 0 ? 'Mbeta me derrin!' : 'Derri!', true);
+  status(L === 0 ? 'Mbete me derrin në dorë' : `Derri mbeti te ${ND[L]}`);
+  renderPlates(); thump();
+  if (L !== 0) chime();
+  await sleep(2000); if (my !== gen) return;
+  showResult();
+}
+function showResult(){
+  const L = H.loser;
+  $('#endTitle').textContent = L === 0 ? 'Mbete me derrin' : `${NAMES[L]} mbeti me derrin`;
+  $('#endLead').textContent = L === 0 ? `Dora ${mt.round}: K♠ mbeti në dorën tënde.` : `Dora ${mt.round}: ti shpëtove.`;
+  $('#resTable').innerHTML = '<tr><th>Lojtari</th><th>Kjo dorë</th><th class="n">Herë derr</th></tr>' +
+    H.order.map((p, i) => `<tr class="${p === 0 ? 'me' : ''}"><td>${NAMES[p]}</td><td>${p === L ? 'Derri' : 'Doli ' + (p === 2 ? ['e para','e dyta','e treta'] : ['i pari','i dyti','i treti'])[i]}</td><td class="n">${mt.losses[p]}</td></tr>`).join('');
+  $('#bNext').onclick = () => { $('#ovEnd').hidden = true; runRound(); };
+  $('#ovEnd').hidden = false;
+}
+function newMatch(){ gen++; mt = E.newMatch(); renderPlates(); meta(); runRound(); }
+
+/* ---------- settings & panels ---------- */
+function applySettings(){
+  const f = FELTS[ST.felt] || FELTS.blu;
+  stage.style.setProperty('--felt-c', f[0]); stage.style.setProperty('--felt-e', f[1]);
+  stage.style.setProperty('--t', ST.speed === 'fast' ? '.24s' : '.36s');
+  $('#bSound').classList.toggle('off', ST.sound !== 'on');
+  document.querySelectorAll('.seg').forEach(sg => sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', ST[sg.dataset.k] === b.dataset.v)));
+}
+document.querySelectorAll('.seg').forEach(sg => sg.addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const k = sg.dataset.k, old = ST[k]; ST[k] = b.dataset.v; save(); applySettings(); audio();
+  if (k === 'colors' && old !== ST.colors) { await buildArt(); els.forEach((c, id) => { if (c.up) c.img.src = FACE[id]; }); }
+}));
+$('#bSet').onclick = () => { $('#ovSet').hidden = false; };
+$('#bSetClose').onclick = () => { $('#ovSet').hidden = true; };
+$('#bNew').onclick = () => { $('#ovSet').hidden = true; $('#ovEnd').hidden = true; newMatch(); };
+$('#bSound').onclick = () => { ST.sound = ST.sound === 'on' ? 'off' : 'on'; save(); applySettings(); audio(); snap(.4); };
+$('#bRules').onclick = $('#bRules0').onclick = () => { $('#ovRules').hidden = false; };
+$('#bRulesClose').onclick = () => { $('#ovRules').hidden = true; };
+$('#bHome').onclick = () => { gen++; if (window.parent !== window) { try { parent.postMessage({vw: 'home'}, '*'); } catch(e) {} } else location.href = './'; };
+const fsOK = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+if (!fsOK) $('#bFull').hidden = true;
+$('#bFull').onclick = async () => {
+  try {
+    if (document.fullscreenElement) { await document.exitFullscreen(); return; }
+    await (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen).call(document.documentElement);
+    try { await screen.orientation.lock('landscape'); } catch(e) {}
+  } catch(e) {}
+  setTimeout(doFit, 200);
+};
+$('#bRotOk').onclick = () => { $('#ovRot').hidden = true; try { localStorage.setItem('vw-rot-seen', '1'); } catch(e) {} };
+$('#bStart').onclick = () => { audio(); $('#ovStart').hidden = true; newMatch(); };
+
+/* ---------- start ---------- */
+async function start(){
+  applySettings();
+  try { await Promise.race([document.fonts.load(`700 70px ${FONT}`), sleep(1500)]); } catch(e) {}
+  await buildArt();
+  const mk = document.createElement('canvas'); mk.width = 300; mk.height = 300; logo(mk.getContext('2d'), 150, 150, 210, 'color');
+  const mu = await toURL(mk); $('#brandImg').src = mu; $('#feltMark').src = mu; $('#startLogo').src = mu;
+  mkCards(); resetCards();
+  renderPlates();
+  status('Gati për lojë');
+  $('#loading').hidden = true;
+  let seen = false; try { seen = localStorage.getItem('vw-rot-seen') === '1'; } catch(e) {}
+  if (rotated && !seen) $('#ovRot').hidden = false;
+}
+start();
+})();
+</script>
+</body>
+</html>

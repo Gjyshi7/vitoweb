@@ -1,0 +1,15 @@
+{
+  "name": "vitoweb-loja",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VitoWeb Loja: game hub + room servers on Cloudflare Workers",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node test/smoke.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.0"
+  }
+}

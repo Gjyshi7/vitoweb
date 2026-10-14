@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="sq">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Imposter · VitoWeb</title>
+<meta name="theme-color" content="#0b1120">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: one phone-width column, passed hand to hand. Portrait on purpose: the phone travels around the table.
+   Single dark look, same room as the card table. */
+:root{
+  color-scheme:dark;
+  --bg:#0b1120; --raise:#121b2d; --raise2:#18233a; --ink:#eef1f6; --sub:#9aa6b8; --line:rgba(255,255,255,.09);
+  --pink:#ef5a86; --pink-dk:#b02a63; --gold:#f3c76a; --mint:#5fd0a8;
+  --f-d:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-ui:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:var(--f-ui);font-size:18px;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.app{min-height:100%;max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 8px) 16px calc(env(safe-area-inset-bottom,0px) + 20px);display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;justify-content:space-between;height:48px}
+.bar h1{margin:0;font:800 22px var(--f-d);letter-spacing:.14em}
+.ib{width:42px;height:42px;border:0;border-radius:12px;background:transparent;color:var(--sub);display:grid;place-items:center;cursor:pointer}
+.ib:hover{background:rgba(255,255,255,.06);color:var(--ink)}
+.ib svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.screen{flex:1;display:flex;flex-direction:column;gap:18px;padding-top:8px}
+.lab{font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--sub);margin:0 0 8px}
+.box{background:var(--raise);border-radius:18px;padding:16px;box-shadow:inset 0 0 0 1px var(--line)}
+.players{display:flex;flex-direction:column;gap:8px}
+.pl{display:flex;gap:8px;align-items:center}
+.pl .dot{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;font:700 16px var(--f-d);color:#fff}
+.pl input{flex:1;min-width:0;height:44px;border:0;border-radius:12px;background:var(--raise2);color:var(--ink);font:600 18px var(--f-ui);padding:0 12px;user-select:text;-webkit-user-select:text}
+.pl input:focus{outline:2px solid var(--pink);outline-offset:0}
+.pl .ib{width:36px;height:36px}
+.add{height:44px;border:1.5px dashed rgba(255,255,255,.18);border-radius:12px;background:transparent;color:var(--sub);font:600 17px var(--f-ui);cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:0;border-radius:999px;padding:9px 14px;background:var(--raise2);color:var(--sub);font:600 16px var(--f-ui);cursor:pointer}
+.chip.on{background:var(--pink);color:#fff}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0;padding-top:0}
+.row small{display:block;color:var(--sub);font-size:15px;margin-top:2px}
+.step{display:flex;align-items:center;gap:4px;background:var(--raise2);border-radius:12px;padding:3px}
+.step button{width:38px;height:38px;border:0;border-radius:10px;background:transparent;color:var(--ink);font:700 22px var(--f-d);cursor:pointer}
+.step button:disabled{opacity:.3}
+.step b{min-width:26px;text-align:center;font:700 22px var(--f-d);font-variant-numeric:tabular-nums}
+.tog{width:52px;height:30px;border-radius:15px;border:0;background:var(--raise2);position:relative;cursor:pointer;flex:none}
+.tog::after{content:"";position:absolute;left:4px;top:4px;width:22px;height:22px;border-radius:50%;background:var(--sub);transition:transform .2s,background .2s}
+.tog.on{background:var(--pink-dk)}
+.tog.on::after{transform:translateX(22px);background:#fff}
+.go{margin-top:auto;height:62px;border:0;border-radius:18px;font:700 23px var(--f-ui);letter-spacing:.06em;color:#fff;cursor:pointer;background:linear-gradient(#f06a92,var(--pink) 45%,var(--pink-dk));box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 8px 20px rgba(176,42,99,.3)}
+.go.ghost{background:var(--raise2);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink)}
+.go:disabled{opacity:.35}
+button:focus-visible,.tog:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.err{color:#ffb3a6;font-size:16px;min-height:20px;margin:-8px 0 0}
+
+/* pass the phone */
+.pass{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px}
+.pass .who{font:800 52px/1 var(--f-d);letter-spacing:.01em;text-wrap:balance}
+.pass p{margin:0;color:var(--sub);font-size:19px;max-width:30ch}
+.count{font:700 15px var(--f-ui);letter-spacing:.14em;color:var(--sub)}
+.secret{position:relative;width:min(300px,78vw);aspect-ratio:3/4;border-radius:22px;margin:14px 0;cursor:pointer;touch-action:none;
+  background:var(--raise2);box-shadow:inset 0 0 0 1px var(--line),0 20px 40px rgba(0,0,0,.4);display:grid;place-items:center;overflow:hidden}
+.secret .cover{position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:10px;background:repeating-linear-gradient(135deg,#141e30 0 14px,#17233a 14px 28px);transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+.secret .cover img{width:84px;opacity:.9}
+.secret .cover span{font:700 16px var(--f-ui);letter-spacing:.14em;color:#e9b3c4}
+.secret.open .cover{transform:translateY(-100%)}
+.inside{padding:22px;display:grid;gap:8px}
+.inside .k{font:700 13px var(--f-ui);letter-spacing:.18em;text-transform:uppercase;color:var(--sub)}
+.inside .w{font:800 46px/1 var(--f-d);color:var(--gold);text-wrap:balance}
+.inside.imp .w{color:var(--pink);font-size:50px;letter-spacing:.04em}
+.inside .h{font-size:17px;color:var(--sub)}
+
+/* talk */
+.ring{position:relative;width:220px;height:220px;margin:6px auto 0}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:10}
+.ring .bgc{stroke:var(--raise2)}
+.ring .fg{stroke:var(--mint);stroke-linecap:round;transition:stroke-dashoffset 1s linear}
+.ring.low .fg{stroke:var(--pink)}
+.ring .t{position:absolute;inset:0;display:grid;place-items:center;font:800 54px var(--f-d);font-variant-numeric:tabular-nums}
+.order{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.order span{padding:6px 12px;border-radius:999px;background:var(--raise2);font-weight:600;font-size:16px}
+.order span:first-child{background:var(--gold);color:#1a2233}
+.center{text-align:center}
+.center h2{margin:0;font:800 34px var(--f-d)}
+.center p{margin:6px 0 0;color:var(--sub)}
+
+/* vote & result */
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vbtn{display:flex;align-items:center;gap:10px;padding:12px;border:0;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);font:600 19px var(--f-ui);cursor:pointer;text-align:left;min-width:0}
+.vbtn span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vbtn.on{box-shadow:inset 0 0 0 2px var(--pink);background:#2a1a28}
+.verdict{text-align:center;padding:10px 0 0}
+.verdict .big{font:800 46px/1.02 var(--f-d);text-wrap:balance}
+.verdict .big.bad{color:var(--pink)}
+.verdict .big.good{color:var(--mint)}
+.verdict p{color:var(--sub);margin:10px 0 0}
+.word{display:inline-block;margin-top:6px;padding:6px 14px;border-radius:12px;background:rgba(243,199,106,.14);color:var(--gold);font:700 24px var(--f-d)}
+.score{width:100%;border-collapse:collapse}
+.score td{padding:8px 4px;border-top:1px solid var(--line);font-size:18px}
+.score td.n{text-align:right;font:700 20px var(--f-d);font-variant-numeric:tabular-nums}
+.score td.n em{font-style:normal;color:var(--mint);font-size:16px;margin-right:6px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two .go{margin-top:0}
+.sheet{position:fixed;inset:0;background:rgba(5,8,15,.7);display:grid;place-items:end center;z-index:10;padding:16px}
+.sheet .box{width:100%;max-width:448px;margin-bottom:env(safe-area-inset-bottom,0px)}
+.sheet h3{margin:0 0 6px;font:800 28px var(--f-d)}
+.sheet p{margin:0 0 14px;color:var(--sub)}
+.sheet ul{margin:0 0 10px;padding-left:20px;color:#d9dfea;line-height:1.45;font-size:17px}
+/* mode switch + online rooms */
+.mode{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.mode button{min-height:46px;border:0;border-radius:12px;background:transparent;color:var(--sub);font:600 16px/1.15 var(--f-ui);cursor:pointer;padding:6px 8px}
+.mode button.on{background:var(--raise2);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.lead{margin:0;color:var(--sub);font-size:17px;line-height:1.4}
+.inp{width:100%;height:54px;border:0;border-radius:14px;background:var(--raise2);color:var(--ink);font:600 19px var(--f-ui);padding:0 14px;user-select:text;-webkit-user-select:text}
+.inp:focus{outline:2px solid var(--pink);outline-offset:0}
+.inp.code{text-transform:uppercase;letter-spacing:.4em;text-align:center;font:700 24px var(--f-d)}
+.joinrow{display:grid;grid-template-columns:1fr auto;gap:8px}
+.joinrow .go{margin-top:0;height:54px;padding:0 22px;font-size:19px}
+.or{display:flex;align-items:center;gap:12px;color:var(--sub);font-size:14px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.codebig{font:800 66px/1 var(--f-d);letter-spacing:.18em;padding-left:.18em;color:var(--gold);text-align:center;margin:4px 0 2px}
+.share{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.go.sm{height:48px;margin-top:0;font-size:18px}
+.plist{display:flex;flex-direction:column;gap:6px}
+.prow{display:flex;align-items:center;gap:10px;padding:8px 8px 8px 12px;border-radius:12px;background:var(--raise2);min-height:48px}
+.prow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow .st{width:9px;height:9px;border-radius:50%;background:#59606d;flex:none}
+.prow .st.on{background:var(--mint)}
+.tag{font-size:12px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--sub);white-space:nowrap}
+.tag.you{border-color:var(--gold);color:var(--gold)}
+.xb{width:36px;height:36px;border:0;border-radius:10px;background:transparent;color:var(--sub);font-size:18px;cursor:pointer;flex:none}
+.xb:hover{background:rgba(255,255,255,.06);color:var(--ink)}
+.netline{display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;color:var(--sub);margin-top:-2px}
+.nd{width:8px;height:8px;border-radius:50%;background:#59606d}
+.nd.on{background:var(--mint)}
+.banner{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(243,199,106,.12);color:#f1dca8;font-size:16px;margin-top:8px}
+.banner button{margin-left:auto;border:0;border-radius:10px;padding:9px 12px;background:var(--gold);color:#1a2233;font:700 15px var(--f-ui);cursor:pointer;flex:none}
+.summary{color:#d9dfea;font-size:17px;line-height:1.45}
+.progress{text-align:center;color:var(--sub);font-size:16px}
+.progress b{color:var(--ink)}
+.peek{position:relative;margin:4px auto 0;width:min(320px,84vw);min-height:58px;border-radius:16px;background:var(--raise2);box-shadow:inset 0 0 0 1px var(--line);display:grid;place-items:center;text-align:center;padding:10px 14px;cursor:pointer;touch-action:none;color:var(--sub);font:600 16px var(--f-ui)}
+.peek .pv{display:none;font:800 30px/1.05 var(--f-d);color:var(--gold)}
+.peek .pv.imp{color:var(--pink)}
+.peek.open .pv{display:block}
+.peek.open .pc{display:none}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:15px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center;z-index:20}
+.toast.on{opacity:1}
+.ghostline{background:none;border:0;color:var(--sub);font:600 16px var(--f-ui);text-decoration:underline;text-underline-offset:4px;cursor:pointer;padding:8px;align-self:center}
+@media (prefers-reduced-motion:reduce){.secret .cover,.ring .fg{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="bar">
+    <button class="ib" id="bHome" aria-label="Kthehu te lojërat"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h1>IMPOSTER</h1>
+    <button class="ib" id="bHelp" aria-label="Si luhet"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6M12 17h.01"/></svg></button>
+  </div>
+
+  <div class="netline" id="oNet" hidden><i class="nd" id="oNetDot"></i><span id="oNetTxt"></span></div>
+  <div class="banner" id="oHostGone" hidden><span>Hosti nuk është lidhur.</span><button id="oClaim">Bëhu host</button></div>
+
+  <!-- setup -->
+  <section class="screen" id="sSetup">
+    <div class="mode" role="tablist" aria-label="Si do luani">
+      <button data-mode="one" role="tab">Një telefon<br><small style="opacity:.75">kalon dorë më dorë</small></button>
+      <button data-mode="online" role="tab">Secili me telefonin e vet<br><small style="opacity:.75">dhomë me kod</small></button>
+    </div>
+    <div>
+      <p class="lab">Lojtarët · <span id="nPl"></span></p>
+      <div class="players" id="players"></div>
+      <button class="add" id="bAdd" style="margin-top:8px;width:100%">+ Shto lojtar</button>
+    </div>
+    <div>
+      <p class="lab">Kategoria</p>
+      <div class="chips" id="cats"></div>
+    </div>
+    <div class="box">
+      <div class="row"><div>Imposterë<small>Sa veta nuk e dinë fjalën</small></div>
+        <div class="step"><button id="impM" aria-label="Më pak">−</button><b id="impN">1</b><button id="impP" aria-label="Më shumë">+</button></div></div>
+      <div class="row"><div>Ndihmë për imposterin<small>I tregohet kategoria</small></div><button class="tog" id="tHint" aria-label="Ndihmë për imposterin"></button></div>
+      <div class="row"><div>Koha e bisedës</div><div class="chips" id="times"></div></div>
+    </div>
+    <p class="err" id="setErr"></p>
+    <button class="go" id="bBegin">Fillo raundin</button>
+  </section>
+
+  <!-- pass the phone -->
+  <section class="screen" id="sPass" hidden>
+    <div class="pass">
+      <div class="count" id="passCount"></div>
+      <p>Jepja telefonin</p>
+      <div class="who" id="passWho"></div>
+      <div class="secret" id="secret" tabindex="0" aria-label="Mbaje shtypur për ta parë">
+        <div class="inside" id="inside"></div>
+        <div class="cover"><img id="coverLogo" alt=""><span>MBAJE SHTYPUR</span></div>
+      </div>
+      <p id="passTip">Vetëm ti duhet ta shohësh. Lëshoje dhe kalo më tej.</p>
+    </div>
+    <button class="go" id="bSeen" disabled>E pashë · tjetri</button>
+  </section>
+
+  <!-- talk -->
+  <section class="screen" id="sTalk" hidden>
+    <div class="center"><h2>Bisedoni</h2><p>Secili thotë një fjalë për fjalën e fshehtë. Me radhë, duke filluar nga:</p></div>
+    <div class="order" id="order"></div>
+    <div class="ring" id="ring"><svg viewBox="0 0 120 120"><circle class="bgc" cx="60" cy="60" r="52"/><circle class="fg" id="arc" cx="60" cy="60" r="52"/></svg><div class="t" id="clock"></div></div>
+    <div class="two" style="margin-top:auto"><button class="go ghost" id="bPause">Ndalo</button><button class="go" id="bVote">Votoni</button></div>
+  </section>
+
+  <!-- vote -->
+  <section class="screen" id="sVote" hidden>
+    <div class="center"><h2>Kush është imposteri?</h2><p>Votoni me zë. Pastaj zgjidhni këtu atë që mori më shumë vota.</p></div>
+    <div class="vgrid" id="vgrid"></div>
+    <button class="go" id="bReveal" disabled>Zbulo</button>
+  </section>
+
+  <!-- result -->
+  <section class="screen" id="sResult" hidden>
+    <div class="verdict" id="verdict"></div>
+    <div id="guessBox" class="box" hidden>
+      <p style="margin:0 0 10px">Imposteri ka një shans: e thotë fjalën me zë. E gjeti?</p>
+      <div class="two"><button class="go ghost" id="gNo">Jo</button><button class="go" id="gYes">Po, e gjeti</button></div>
+    </div>
+    <div id="scoreBox" hidden>
+      <p class="lab">Pikët</p>
+      <table class="score" id="score"></table>
+    </div>
+    <div class="two" id="endBtns" hidden style="margin-top:auto"><button class="go ghost" id="bSetup">Ndrysho</button><button class="go" id="bAgain">Raund i ri</button></div>
+  </section>
+
+  <!-- ===== online: home ===== -->
+  <section class="screen" id="sOnHome" hidden>
+    <div class="mode" role="tablist" aria-label="Si do luani">
+      <button data-mode="one" role="tab">Një telefon<br><small style="opacity:.75">kalon dorë më dorë</small></button>
+      <button data-mode="online" role="tab">Secili me telefonin e vet<br><small style="opacity:.75">dhomë me kod</small></button>
+    </div>
+    <p class="lead">Secili hyn nga telefoni i vet dhe sheh vetëm kartën e vet. Biseda dhe votimi bëhen me zë, në tavolinë.</p>
+    <input class="inp" id="oName" maxlength="16" placeholder="Emri yt" autocomplete="off" aria-label="Emri yt">
+    <button class="go" id="oCreate" style="margin-top:0">Krijo dhomë</button>
+    <div class="or">ose hyr me kod</div>
+    <div class="joinrow"><input class="inp code" id="oCode" maxlength="4" placeholder="KODI" autocomplete="off" autocapitalize="characters" aria-label="Kodi i dhomës"><button class="go ghost" id="oJoin">Hyr</button></div>
+    <p class="err" id="oHomeErr"></p>
+  </section>
+
+  <!-- ===== online: lobby ===== -->
+  <section class="screen" id="sOnLobby" hidden>
+    <div class="box" style="text-align:center">
+      <p class="lab" style="margin:0">Kodi i dhomës</p>
+      <div class="codebig" id="oCodeTxt">----</div>
+      <div class="share"><button class="go ghost sm" id="oCopy">Kopjo linkun</button><button class="go ghost sm" id="oWa">WhatsApp</button></div>
+    </div>
+    <div>
+      <p class="lab" id="oPlLab">Lojtarët</p>
+      <div class="plist" id="oPlayers"></div>
+    </div>
+    <div id="oHostCfg">
+      <p class="lab">Kategoria</p>
+      <div class="chips" id="oCats"></div>
+      <div class="box" style="margin-top:14px">
+        <div class="row"><div>Imposterë<small>Sa veta nuk e dinë fjalën</small></div>
+          <div class="step"><button id="oImpM" aria-label="Më pak">−</button><b id="oImpN">1</b><button id="oImpP" aria-label="Më shumë">+</button></div></div>
+        <div class="row"><div>Ndihmë për imposterin<small>I tregohet kategoria</small></div><button class="tog" id="oHint" aria-label="Ndihmë për imposterin"></button></div>
+        <div class="row"><div>Koha e bisedës</div><div class="chips" id="oTimes"></div></div>
+      </div>
+    </div>
+    <div class="box" id="oGuestCfg" hidden><p class="lab">Rregullat e dhomës</p><div class="summary" id="oSummary"></div></div>
+    <div id="oLobbyScores" hidden><p class="lab">Pikët</p><table class="score" id="oLobbyScore"></table></div>
+    <p class="err" id="oLobbyErr"></p>
+    <button class="go" id="oDeal">Fillo raundin</button>
+    <p class="lead" id="oGuestWait" style="text-align:center" hidden>Prit derisa hosti të fillojë raundin.</p>
+    <button class="ghostline" id="oLeave">Dil nga dhoma</button>
+  </section>
+
+  <!-- ===== online: your card ===== -->
+  <section class="screen" id="sOnCard" hidden>
+    <div class="pass">
+      <div class="count" id="oRound"></div>
+      <div class="who" style="font-size:40px">Karta jote</div>
+      <div class="secret" id="oSecret" tabindex="0" aria-label="Mbaje shtypur për ta parë">
+        <div class="inside" id="oInside"></div>
+        <div class="cover"><img class="oLogo" alt=""><span>MBAJE SHTYPUR</span></div>
+      </div>
+      <p>Vetëm ti duhet ta shohësh. Lëshoje dhe shtyp "E pashë".</p>
+      <div class="progress" id="oProgress"></div>
+    </div>
+    <button class="go" id="oSeen" disabled>E pashë</button>
+    <button class="go ghost" id="oForceTalk" hidden style="margin-top:0">Fillo bisedën tani</button>
+  </section>
+
+  <!-- ===== online: joined mid-round ===== -->
+  <section class="screen" id="sOnWait" hidden>
+    <div class="pass">
+      <div class="who" style="font-size:40px">Raundi ka nisur</div>
+      <p>Ke hyrë pasi u shpërndanë kartat. Do marrësh kartë në raundin tjetër.</p>
+    </div>
+  </section>
+
+  <!-- ===== online: talk ===== -->
+  <section class="screen" id="sOnTalk" hidden>
+    <div class="center"><h2>Bisedoni</h2><p>Secili thotë një fjalë për fjalën e fshehtë. Me radhë, duke filluar nga:</p></div>
+    <div class="order" id="oOrder"></div>
+    <div class="ring" id="oRing"><svg viewBox="0 0 120 120"><circle class="bgc" cx="60" cy="60" r="52"/><circle class="fg" id="oArc" cx="60" cy="60" r="52"/></svg><div class="t" id="oClock"></div></div>
+    <div class="peek" id="oPeek"><span class="pc">Mbaje shtypur për kartën tënde</span><span class="pv" id="oPeekV"></span></div>
+    <div class="two" id="oTalkHost" style="margin-top:auto"><button class="go ghost" id="oPause">Ndalo</button><button class="go" id="oVote">Votoni</button></div>
+    <p class="lead" id="oTalkGuest" style="text-align:center;margin-top:auto" hidden>Hosti hap votimin kur të jeni gati.</p>
+  </section>
+
+  <!-- ===== online: vote ===== -->
+  <section class="screen" id="sOnVote" hidden>
+    <div class="center"><h2>Kush është imposteri?</h2><p id="oVoteLead"></p></div>
+    <div class="vgrid" id="oVgrid"></div>
+    <div class="progress" id="oVotePick"></div>
+    <button class="go" id="oReveal" disabled>Zbulo</button>
+  </section>
+
+  <!-- ===== online: result ===== -->
+  <section class="screen" id="sOnResult" hidden>
+    <div class="verdict" id="oVerdict"></div>
+    <div id="oGuessBox" class="box" hidden>
+      <p style="margin:0 0 10px">Imposteri ka një shans: e thotë fjalën me zë. E gjeti?</p>
+      <div class="two"><button class="go ghost" id="oGNo">Jo</button><button class="go" id="oGYes">Po, e gjeti</button></div>
+    </div>
+    <p class="lead" id="oGuessWait" style="text-align:center" hidden>Imposteri ka një shans: e thotë fjalën me zë. Hosti shënon nëse e gjeti.</p>
+    <div id="oScoreBox" hidden><p class="lab">Pikët</p><table class="score" id="oScore"></table></div>
+    <div class="two" id="oEndBtns" hidden style="margin-top:auto"><button class="go ghost" id="oToLobby">Ndrysho</button><button class="go" id="oAgain">Raund i ri</button></div>
+    <p class="lead" id="oEndWait" style="text-align:center;margin-top:auto" hidden>Prit hostin për raundin tjetër.</p>
+  </section>
+</div>
+
+<div class="toast" id="oToast"></div>
+
+<div class="sheet" id="help" hidden><div class="box">
+  <h3>Si luhet</h3>
+  <ul>
+    <li>Të gjithë marrin të njëjtën fjalë, përveç imposterit.</li>
+    <li>Telefoni kalon dorë më dorë. Secili e sheh fjalën duke e mbajtur shtypur kartën.</li>
+    <li>Me radhë, secili thotë një fjalë që lidhet me të. As shumë qartë, as shumë larg.</li>
+    <li>Në fund votoni. Nëse kapet imposteri, ai ka një shans të gjejë fjalën.</li>
+    <li>Pikët: imposteri që nuk kapet merr 2. Nëse kapet por e gjen fjalën, merr 1. Përndryshe çdo lojtar tjetër merr 1.</li>
+  </ul>
+  <p><b>Një telefon:</b> telefoni kalon dorë më dorë. <b>Secili me telefonin e vet:</b> njëri krijon dhomën dhe ndan kodin ose linkun; çdo telefon sheh vetëm kartën e vet, hosti drejton raundin.</p>
+  <button class="go ghost" id="bHelpClose" style="width:100%">Mbyll</button>
+</div></div>
+
+<script src="cards.js"></script>
+<script type="module">
+import { WORDS as WORDLIST } from './imposter-words.js';
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+
+const WORDS = WORDLIST;
+const CATS = Object.keys(WORDS);
+const COLORS = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62','#b5651d','#3f5ca8','#8a3a3a','#4d7d2a','#6b4f9e','#a0476b','#2d7a7a','#7a6a2a'];
+const TIMES = [[0,'Pa kohë'],[120,'2 min'],[180,'3 min'],[300,'5 min']];
+
+/* ---------- saved setup ---------- */
+let S = { names: ['Lojtari 1','Lojtari 2','Lojtari 3','Lojtari 4'], cats: ['Ushqime','Vende'], imps: 1, hint: true, time: 180, scores: {} };
+try { Object.assign(S, JSON.parse(localStorage.getItem('vw-imposter') || '{}')); } catch(e) {}
+const save = () => { try { localStorage.setItem('vw-imposter', JSON.stringify(S)); } catch(e) {} };
+
+let R = null;   // current round
+const show = id => {
+  const cur = document.querySelector('.screen:not([hidden])');
+  document.querySelectorAll('.screen').forEach(s => s.hidden = s.id !== id);
+  if (!cur || cur.id !== id) scrollTo(0, 0);
+};
+
+/* ---------- setup ---------- */
+function maxImps(){ return Math.max(1, Math.min(3, Math.floor((S.names.length - 1) / 2))); }
+function renderSetup(){
+  $('#nPl').textContent = S.names.length + ' nga 3–12';
+  $('#players').innerHTML = S.names.map((n, i) => `<div class="pl"><span class="dot" style="background:${COLORS[i % 12]}">${i + 1}</span>
+    <input id="pn${i}" value="${esc(n)}" maxlength="16" aria-label="Emri i lojtarit ${i + 1}">
+    <button class="ib" data-rm="${i}" aria-label="Hiq" ${S.names.length <= 3 ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`).join('');
+  $('#bAdd').hidden = S.names.length >= 12;
+  $('#cats').innerHTML = CATS.map(c => `<button class="chip ${S.cats.includes(c) ? 'on' : ''}" data-c="${c}">${c}</button>`).join('');
+  S.imps = Math.min(S.imps, maxImps());
+  $('#impN').textContent = S.imps; $('#impM').disabled = S.imps <= 1; $('#impP').disabled = S.imps >= maxImps();
+  $('#tHint').classList.toggle('on', S.hint); $('#tHint').setAttribute('aria-pressed', S.hint);
+  $('#times').innerHTML = TIMES.map(([v, l]) => `<button class="chip ${S.time === v ? 'on' : ''}" data-t="${v}">${l}</button>`).join('');
+  $('#setErr').textContent = '';
+}
+$('#players').addEventListener('input', e => { const i = +e.target.id.slice(2); if (!isNaN(i)) { S.names[i] = e.target.value; save(); } });
+$('#players').addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if (!b || S.names.length <= 3) return; S.names.splice(+b.dataset.rm, 1); save(); renderSetup(); });
+$('#bAdd').onclick = () => { if (S.names.length < 12) { S.names.push('Lojtari ' + (S.names.length + 1)); save(); renderSetup(); const el = $('#pn' + (S.names.length - 1)); el.focus(); el.select(); } };
+$('#cats').onclick = e => { const b = e.target.closest('[data-c]'); if (!b) return; const c = b.dataset.c;
+  S.cats = S.cats.includes(c) ? S.cats.filter(x => x !== c) : [...S.cats, c]; save(); renderSetup(); };
+$('#impM').onclick = () => { S.imps = Math.max(1, S.imps - 1); save(); renderSetup(); };
+$('#impP').onclick = () => { S.imps = Math.min(maxImps(), S.imps + 1); save(); renderSetup(); };
+$('#tHint').onclick = () => { S.hint = !S.hint; save(); renderSetup(); };
+$('#times').onclick = e => { const b = e.target.closest('[data-t]'); if (!b) return; S.time = +b.dataset.t; save(); renderSetup(); };
+
+function begin(){
+  const names = S.names.map(n => n.trim());
+  if (names.some(n => !n)) return $('#setErr').textContent = 'Çdo lojtar duhet të ketë një emër.';
+  if (new Set(names.map(n => n.toLowerCase())).size !== names.length) return $('#setErr').textContent = 'Dy lojtarë kanë të njëjtin emër. Ndryshoni njërin.';
+  if (!S.cats.length) return $('#setErr').textContent = 'Zgjidh të paktën një kategori.';
+  S.names = names; save();
+  const cat = S.cats[Math.random() * S.cats.length | 0];
+  const pool = WORDS[cat].filter(w => w !== (R && R.word));
+  const word = pool[Math.random() * pool.length | 0];
+  const idx = names.map((_, i) => i).sort(() => Math.random() - .5);
+  const imps = new Set(idx.slice(0, S.imps));
+  const start = Math.random() * names.length | 0;
+  R = { cat, word, imps, at: 0, start, vote: -1 };
+  passTo(0);
+}
+$('#bBegin').onclick = begin;
+
+/* ---------- pass the phone ---------- */
+const secret = $('#secret');
+let seenThis = false;
+function passTo(i){
+  R.at = i; seenThis = false;
+  $('#passCount').textContent = `${i + 1} / ${S.names.length}`;
+  $('#passWho').textContent = S.names[i];
+  const imp = R.imps.has(i);
+  $('#inside').className = 'inside' + (imp ? ' imp' : '');
+  $('#inside').innerHTML = imp
+    ? `<span class="k">Ti je</span><span class="w">IMPOSTER</span><span class="h">${S.hint ? 'Kategoria: ' + esc(R.cat) : 'Nuk e di fjalën. Dëgjo të tjerët.'}</span>`
+    : `<span class="k">Fjala</span><span class="w">${esc(R.word)}</span><span class="h">${esc(R.cat)}</span>`;
+  secret.classList.remove('open');
+  $('#bSeen').disabled = true;
+  $('#bSeen').textContent = i === S.names.length - 1 ? 'E pashë · fillojmë' : 'E pashë · tjetri';
+  show('sPass');
+}
+const open = e => { e.preventDefault(); secret.classList.add('open'); seenThis = true; };
+const close = () => { secret.classList.remove('open'); if (seenThis) $('#bSeen').disabled = false; };
+secret.addEventListener('pointerdown', open);
+['pointerup','pointercancel','pointerleave'].forEach(t => secret.addEventListener(t, close));
+secret.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') open(e); });
+secret.addEventListener('keyup', close);
+secret.addEventListener('contextmenu', e => e.preventDefault());
+$('#bSeen').onclick = () => { if (R.at < S.names.length - 1) passTo(R.at + 1); else talk(); };
+
+/* ---------- talk ---------- */
+let timer = 0, left = 0, paused = false;
+const C = 2 * Math.PI * 52;
+function talk(){
+  const n = S.names.length;
+  $('#order').innerHTML = [...Array(n)].map((_, k) => `<span>${esc(S.names[(R.start + k) % n])}</span>`).join('');
+  left = S.time; paused = false; $('#bPause').textContent = 'Ndalo';
+  $('#ring').hidden = !S.time; $('#bPause').hidden = !S.time;
+  const arc = $('#arc'); arc.style.strokeDasharray = C; arc.style.strokeDashoffset = 0;
+  tick(); clearInterval(timer);
+  if (S.time) timer = setInterval(() => { if (!paused && left > 0) { left--; tick(); if (!left) { clearInterval(timer); beep(); } } }, 1000);
+  show('sTalk');
+}
+function tick(){
+  const m = Math.floor(left / 60), s = left % 60;
+  $('#clock').textContent = `${m}:${String(s).padStart(2, '0')}`;
+  $('#arc').style.strokeDashoffset = C * (1 - left / (S.time || 1));
+  $('#ring').classList.toggle('low', left <= 20);
+}
+function beep(){ try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 660; g.gain.value = .12; o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + .4); } catch(e) {} }
+$('#bPause').onclick = () => { paused = !paused; $('#bPause').textContent = paused ? 'Vazhdo' : 'Ndalo'; };
+$('#bVote').onclick = () => { clearInterval(timer); vote(); };
+
+/* ---------- vote ---------- */
+function vote(){
+  R.vote = -1;
+  $('#vgrid').innerHTML = S.names.map((n, i) => `<button class="vbtn" data-v="${i}"><span class="dot" style="width:30px;height:30px;border-radius:50%;flex:none;background:${COLORS[i % 12]}"></span><span>${esc(n)}</span></button>`).join('');
+  $('#bReveal').disabled = true;
+  show('sVote');
+}
+$('#vgrid').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; R.vote = +b.dataset.v;
+  document.querySelectorAll('.vbtn').forEach(x => x.classList.toggle('on', x === b)); $('#bReveal').disabled = false; };
+$('#bReveal').onclick = reveal;
+
+function impNames(){ return [...R.imps].map(i => S.names[i]); }
+function reveal(){
+  const caught = R.imps.has(R.vote);
+  const list = impNames(), many = list.length > 1;
+  $('#verdict').innerHTML = caught
+    ? `<div class="big good">${esc(S.names[R.vote])} ishte imposter</div><p>${many ? 'Imposterët ishin: ' + list.map(esc).join(', ') + '.' : ''} Fjala ishte</p><span class="word">${esc(R.word)}</span>`
+    : `<div class="big bad">${esc(S.names[R.vote])} nuk ishte imposter</div><p>${many ? 'Imposterët ishin ' : 'Imposter ishte '}<b>${list.map(esc).join(', ')}</b>. Fjala ishte</p><span class="word">${esc(R.word)}</span>`;
+  $('#guessBox').hidden = !caught; $('#scoreBox').hidden = caught; $('#endBtns').hidden = caught;
+  if (!caught) award('imp2');
+  show('sResult');
+}
+function award(kind){
+  const add = {};
+  S.names.forEach((n, i) => {
+    const imp = R.imps.has(i);
+    add[n] = kind === 'imp2' ? (imp ? 2 : 0) : kind === 'imp1' ? (imp ? 1 : 0) : (imp ? 0 : 1);
+  });
+  for (const n in add) S.scores[n] = (S.scores[n] || 0) + add[n];
+  save();
+  const rows = S.names.map(n => ({ n, s: S.scores[n] || 0, a: add[n] })).sort((a, b) => b.s - a.s);
+  $('#score').innerHTML = rows.map(r => `<tr><td>${esc(r.n)}</td><td class="n">${r.a ? `<em>+${r.a}</em>` : ''}${r.s}</td></tr>`).join('');
+  $('#guessBox').hidden = true; $('#scoreBox').hidden = false; $('#endBtns').hidden = false;
+}
+$('#gYes').onclick = () => { award('imp1'); $('#verdict').insertAdjacentHTML('beforeend', '<p>Imposteri e gjeti fjalën, ndaj merr 1 pikë.</p>'); };
+$('#gNo').onclick = () => award('crew');
+$('#bAgain').onclick = begin;
+$('#bSetup').onclick = () => { renderSetup(); show('sSetup'); };
+
+/* ---------- chrome ---------- */
+$('#bHelp').onclick = () => { $('#help').hidden = false; };
+$('#bHelpClose').onclick = () => { $('#help').hidden = true; };
+$('#help').onclick = e => { if (e.target.id === 'help') $('#help').hidden = true; };
+$('#bHome').onclick = () => { clearInterval(timer); if (window.parent !== window) { try { parent.postMessage({vw: 'home'}, '*'); } catch(e) {} } else location.href = './'; };
+window.VWCards.logoURL(240).then(u => { $('#coverLogo').src = u; document.querySelectorAll('.oLogo').forEach(i => i.src = u); });
+renderSetup();
+/* ================= online rooms: each phone its own card =================
+   The server (worker/games/imposter.js) deals the word and the imposters and sends every phone
+   only its own card. This page just shows the state it receives and sends the host's choices. */
+const TLAB = Object.fromEntries(TIMES);
+const OERR = {
+  need_3: 'Duhen të paktën 3 lojtarë në dhomë.',
+  need_cat: 'Zgjidh të paktën një kategori.',
+  host_cant_leave: 'Hosti nuk mund të dalë. Bëje dikë tjetër host fillimisht.',
+  host_online: 'Hosti është i lidhur.',
+  host_wait: 'Prit pak: hosti mund të kthehet brenda një minute.',
+  paused: 'Dhomat e reja janë mbyllur përkohësisht. Provo më vonë.',
+  busy: 'Shumë dhoma sot. Provo më vonë.',
+  slow_down: 'Shumë kërkesa. Prit një minutë dhe provo përsëri.'
+};
+const ost = {
+  get(k, d){ try { const v = localStorage.getItem('vw.imp.' + k); return v === null ? d : JSON.parse(v); } catch(e) { return d; } },
+  set(k, v){ try { localStorage.setItem('vw.imp.' + k, JSON.stringify(v)); } catch(e) {} },
+  del(k){ try { localStorage.removeItem('vw.imp.' + k); } catch(e) {} }
+};
+// Secret key for this phone (shared with Mafia). The server also sets an HttpOnly cookie;
+// this key is only the fallback when cookies are blocked. Other players never see it.
+const KEY = (() => {
+  let k = null;
+  try { k = localStorage.getItem('vw.key'); } catch(e) {}
+  if (!k || !/^[a-z0-9-]{16,64}$/i.test(k)) k = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).slice(2) + Date.now().toString(36) + Math.random().toString(36).slice(2)).slice(0, 32);
+  try { localStorage.setItem('vw.key', k); } catch(e) {}
+  return k;
+})();
+const savedName = () => { let n = ost.get('name', ''); if (!n) { try { n = JSON.parse(localStorage.getItem('mafia.name') || '""'); } catch(e) {} } return n || ''; };
+
+const O = { mode: 'one', ws: null, S: null, room: null, retry: 0, pingT: 0, want: false, skew: 0, round: -1, viewed: false, beeped: -1 };
+const isHost = () => O.S && O.S.me === O.S.hostPid;
+const nameOf = id => (O.S.players.find(p => p.pid === id) || {}).name || (O.S.names || {})[id] || '?';
+const colorOf = id => COLORS[Math.max(0, O.S.players.findIndex(p => p.pid === id)) % 12];
+const osend = o => { if (O.ws && O.ws.readyState === 1) O.ws.send(JSON.stringify(o)); };
+function toast(t){ const el = $('#oToast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('on'), 2800); }
+function setNet(on, txt){
+  $('#oNet').hidden = !O.room || O.mode !== 'online';
+  $('#oNetDot').classList.toggle('on', !!on);
+  $('#oNetTxt').innerHTML = (txt || (on ? 'lidhur' : 'po lidhet…')) + (O.room ? ` · dhoma <b>${esc(O.room)}</b>` : '');
+}
+
+/* ---------- mode ---------- */
+function setMode(m){
+  O.mode = m; ost.set('mode', m);
+  document.querySelectorAll('.mode button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  if (m === 'one') { $('#oNet').hidden = true; $('#oHostGone').hidden = true; renderSetup(); show('sSetup'); return; }
+  setNet(O.ws && O.ws.readyState === 1);
+  if (O.room && O.S) oRender(); else if (O.room) show('sOnLobby'); else { $('#oName').value = $('#oName').value || savedName(); show('sOnHome'); }
+}
+document.querySelectorAll('.mode').forEach(sw => sw.addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); }));
+
+/* ---------- connection ---------- */
+function oConnect(){
+  if (!O.room) return;
+  O.want = true;
+  if (O.ws && O.ws.readyState < 2) return;
+  const q = new URLSearchParams({ name: savedName(), k: KEY });
+  const host = ost.get('host.' + O.room, ''); if (host) q.set('host', host);
+  setNet(false);
+  const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/${O.room}?${q}`);
+  O.ws = sock;
+  sock.onopen = () => { O.retry = 0; setNet(true); clearInterval(O.pingT); O.pingT = setInterval(() => osend({ t: 'ping' }), 25000); };
+  sock.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch(_) { return; }
+    if (m.t === 'state') { O.S = m; O.skew = m.now - Date.now(); oRender(); }
+    else if (m.t === 'error') toast(OERR[m.e] || m.e);
+    else if (m.t === 'kicked') oLeaveLocal('Hosti të nxori nga dhoma.');
+    else if (m.t === 'closed') oLeaveLocal('Kjo dhomë u mbyll.');
+    else if (m.t === 'refused' || m.t === 'replaced') { const code = m.t === 'replaced' ? 4002 : m.code; const h = sock.onclose; sock.onclose = null; try { sock.close(); } catch(_) {} h({ code }); }
+  };
+  sock.onclose = e => {
+    clearInterval(O.pingT);
+    if (O.ws !== sock || !O.want || e.code === 4000 || e.code === 4001) return;
+    if (e.code === 4004) return oLeaveLocal('Kjo dhomë nuk ekziston më.');
+    if (e.code === 4003) return oLeaveLocal('Dhoma është plot.');
+    if (e.code === 4400 || e.code === 4401) return oLeaveLocal('Shkruaj emrin dhe hyr përsëri.');
+    if (e.code === 4002) { setNet(false, 'hapur në një dritare tjetër'); return; }
+    setNet(false);
+    setTimeout(oConnect, Math.min(5000, 600 * 2 ** O.retry++));
+  };
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && O.room) { O.retry = 0; oConnect(); }
+  oCover();
+});
+addEventListener('online', () => { if (O.room) { O.retry = 0; oConnect(); } });
+
+function oEnter(code){
+  O.room = code; ost.set('room', code);
+  const u = new URL(location.href); u.search = '?r=' + code; history.replaceState(null, '', u);
+  $('#oCodeTxt').textContent = code;
+  if (O.mode !== 'online') setMode('online'); else show('sOnLobby');
+  oConnect();
+}
+function oLeaveLocal(msg){
+  O.want = false; if (O.ws) try { O.ws.close(); } catch(e) {}
+  O.ws = null; O.S = null; O.room = null; O.round = -1;
+  ost.del('room');
+  history.replaceState(null, '', location.pathname);
+  $('#oHostGone').hidden = true; setNet(false);
+  if (O.mode === 'online') { $('#oName').value = savedName(); show('sOnHome'); }
+  if (msg) toast(msg);
+}
+
+/* ---------- home: create / join ---------- */
+function needName(){
+  const n = $('#oName').value.trim();
+  if (!n) { $('#oHomeErr').textContent = 'Shkruaj emrin fillimisht.'; $('#oName').focus(); return null; }
+  ost.set('name', n); $('#oHomeErr').textContent = ''; return n;
+}
+$('#oCreate').onclick = async () => {
+  if (!needName()) return;
+  $('#oCreate').disabled = true;
+  try {
+    const r = await fetch('/api/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ game: 'imposter' }) });
+    const j = await r.json();
+    if (!j.code) throw (OERR[j.error] || 0);
+    ost.set('host.' + j.code, j.hostToken);
+    oEnter(j.code);
+  } catch(e) { $('#oHomeErr').textContent = typeof e === 'string' ? e : 'Nuk u krijua dhoma. Provo përsëri.'; }
+  $('#oCreate').disabled = false;
+};
+async function oJoin(){
+  if (!needName()) return;
+  const code = $('#oCode').value.trim().toUpperCase();
+  if (!/^[A-Z]{4}$/.test(code)) { $('#oHomeErr').textContent = 'Kodi ka 4 shkronja.'; return; }
+  try {
+    const j = await (await fetch('/api/room/' + code)).json();
+    if (!j.ok) { $('#oHomeErr').textContent = 'Kjo dhomë nuk ekziston.'; return; }
+    if (j.game && j.game !== 'imposter') { location.href = j.game + '?r=' + code; return; }
+  } catch(e) { $('#oHomeErr').textContent = "S'ka lidhje. Provo përsëri."; return; }
+  oEnter(code);
+}
+$('#oJoin').onclick = oJoin;
+$('#oCode').addEventListener('keydown', e => { if (e.key === 'Enter') oJoin(); });
+$('#oCode').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); });
+$('#oName').addEventListener('keydown', e => { if (e.key === 'Enter') ($('#oCode').value.length === 4 ? oJoin() : $('#oCreate').click()); });
+
+/* ---------- lobby ---------- */
+const shareLink = () => `${location.origin}${location.pathname}?r=${O.room}`;
+$('#oCopy').onclick = async () => {
+  try { if (navigator.share) { await navigator.share({ title: 'Imposter', text: `Hyr në lojë: ${O.room}`, url: shareLink() }); return; } } catch(e) { return; }
+  try { await navigator.clipboard.writeText(shareLink()); toast('Linku u kopjua'); } catch(e) { toast(shareLink()); }
+};
+$('#oWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(`Hyr në lojën Imposter: ${shareLink()}`), '_blank');
+$('#oPlayers').addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]'); if (!b || !O.S) return;
+  const nm = nameOf(b.dataset.pid);
+  if (b.dataset.act === 'kick' && confirm(`Ta nxjerrësh ${nm} nga dhoma?`)) osend({ t: 'kick', pid: b.dataset.pid });
+  if (b.dataset.act === 'host' && confirm(`Ta bësh ${nm} host?`)) osend({ t: 'makeHost', pid: b.dataset.pid });
+});
+function sendCfg(patch){ Object.assign(O.S.cfg, patch); renderLobby(); osend({ t: 'config', config: patch }); }
+$('#oCats').onclick = e => {
+  const b = e.target.closest('[data-c]'); if (!b || !isHost()) return;
+  const c = b.dataset.c, cur = O.S.cfg.cats;
+  const next = cur.includes(c) ? cur.filter(x => x !== c) : [...cur, c];
+  if (!next.length) return toast(OERR.need_cat);
+  sendCfg({ cats: next });
+};
+$('#oImpM').onclick = () => isHost() && sendCfg({ imps: Math.max(1, Math.min(O.S.cfg.imps, O.S.maxImps) - 1) });
+$('#oImpP').onclick = () => isHost() && sendCfg({ imps: Math.min(O.S.maxImps, O.S.cfg.imps + 1) });
+$('#oHint').onclick = () => isHost() && sendCfg({ hint: !O.S.cfg.hint });
+$('#oTimes').onclick = e => { const b = e.target.closest('[data-t]'); if (b && isHost()) sendCfg({ time: +b.dataset.t }); };
+$('#oDeal').onclick = () => osend({ t: 'deal' });
+$('#oLeave').onclick = () => {
+  if (!O.S) return oLeaveLocal();
+  if (isHost()) {
+    const next = O.S.players.find(p => p.pid !== O.S.me && p.online);
+    if (!next) { if (confirm('Je i vetmi në dhomë. Ta mbyllësh?')) oLeaveLocal(); return; }
+    if (!confirm(`Je host. Nëse del, host bëhet ${next.name}. Të dalësh?`)) return;
+    osend({ t: 'makeHost', pid: next.pid }); osend({ t: 'leave' }); oLeaveLocal(); return;
+  }
+  if (confirm('Të dalësh nga dhoma?')) { osend({ t: 'leave' }); oLeaveLocal(); }
+};
+$('#oClaim').onclick = () => osend({ t: 'claimHost' });
+
+function scoreRows(list, gain){
+  return list.map(r => `<tr><td>${esc(r.name)}${r.here ? '' : ' <span style="color:var(--sub)">(doli)</span>'}</td><td class="n">${gain && gain[r.pid] ? `<em>+${gain[r.pid]}</em>` : ''}${r.score}</td></tr>`).join('');
+}
+function renderLobby(){
+  const S = O.S, host = isHost(), n = S.players.length;
+  $('#oCodeTxt').textContent = S.code;
+  $('#oPlLab').textContent = `Lojtarët · ${n}`;
+  $('#oPlayers').innerHTML = S.players.map((p, i) => {
+    const tags = [];
+    if (p.pid === S.me) tags.push('<span class="tag you">ti</span>');
+    if (p.pid === S.hostPid) tags.push('<span class="tag">host</span>');
+    const acts = host && p.pid !== S.me ? `<button class="xb" data-act="host" data-pid="${p.pid}" title="Bëje host" aria-label="Bëje host">★</button><button class="xb" data-act="kick" data-pid="${p.pid}" title="Nxirre" aria-label="Nxirre">×</button>` : '';
+    return `<div class="prow"><i class="st ${p.online ? 'on' : ''}"></i><span class="dot" style="width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;font:700 14px var(--f-d);color:#fff;background:${COLORS[i % 12]}">${esc((p.name[0] || '?').toUpperCase())}</span><span class="nm">${esc(p.name)}</span>${tags.join('')}${acts}</div>`;
+  }).join('');
+  const c = S.cfg, imps = Math.min(c.imps, S.maxImps);
+  $('#oHostCfg').hidden = !host; $('#oGuestCfg').hidden = host;
+  $('#oDeal').hidden = !host; $('#oGuestWait').hidden = host;
+  if (host) {
+    $('#oCats').innerHTML = S.allCats.map(k => `<button class="chip ${c.cats.includes(k) ? 'on' : ''}" data-c="${esc(k)}">${esc(k)}</button>`).join('');
+    $('#oImpN').textContent = imps; $('#oImpM').disabled = imps <= 1; $('#oImpP').disabled = imps >= S.maxImps;
+    $('#oHint').classList.toggle('on', c.hint); $('#oHint').setAttribute('aria-pressed', c.hint);
+    $('#oTimes').innerHTML = S.times.map(v => `<button class="chip ${c.time === v ? 'on' : ''}" data-t="${v}">${TLAB[v] || v + ' s'}</button>`).join('');
+    $('#oDeal').disabled = n < 3;
+    $('#oDeal').textContent = S.round ? 'Raund i ri' : 'Fillo raundin';
+    $('#oLobbyErr').textContent = n < 3 ? `Duhen të paktën 3 lojtarë në dhomë. Ndaje kodin ${S.code}.` : '';
+  } else {
+    $('#oSummary').innerHTML = `Kategoritë: <b>${c.cats.map(esc).join(', ')}</b><br>${imps === 1 ? '1 imposter' : imps + ' imposterë'} · ${c.hint ? 'imposteri e di kategorinë' : 'pa ndihmë për imposterin'} · ${TLAB[c.time] || c.time + ' s'}`;
+    $('#oLobbyErr').textContent = '';
+  }
+  const scored = S.scores.some(r => r.score > 0);
+  $('#oLobbyScores').hidden = !scored;
+  if (scored) $('#oLobbyScore').innerHTML = scoreRows(S.scores);
+}
+
+/* ---------- your card ---------- */
+const oSecret = $('#oSecret');
+function cardHTML(c){
+  return c.imp
+    ? `<span class="k">Ti je</span><span class="w">IMPOSTER</span><span class="h">${c.cat ? 'Kategoria: ' + esc(c.cat) : 'Nuk e di fjalën. Dëgjo të tjerët.'}</span>${c.n > 1 ? `<span class="h">Në këtë raund ka ${c.n} imposterë.</span>` : ''}`
+    : `<span class="k">Fjala</span><span class="w">${esc(c.word)}</span><span class="h">${esc(c.cat)}</span>`;
+}
+function oCover(){ oSecret.classList.remove('open'); $('#oPeek').classList.remove('open'); }
+const oOpen = e => { e.preventDefault(); if (!O.S || !O.S.card) return; oSecret.classList.add('open'); O.viewed = true; };
+const oClose = () => { oSecret.classList.remove('open'); if (O.viewed && O.S && O.S.phase === 'cards' && !O.S.seen.includes(O.S.me)) $('#oSeen').disabled = false; };
+oSecret.addEventListener('pointerdown', oOpen);
+['pointerup', 'pointercancel', 'pointerleave'].forEach(t => oSecret.addEventListener(t, oClose));
+oSecret.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') oOpen(e); });
+oSecret.addEventListener('keyup', oClose);
+oSecret.addEventListener('contextmenu', e => e.preventDefault());
+$('#oSeen').onclick = () => { $('#oSeen').disabled = true; osend({ t: 'seen' }); };
+$('#oForceTalk').onclick = () => { if (confirm('Të fillojë biseda pa pritur që ta shohin të gjithë kartën?')) osend({ t: 'talk' }); };
+const peek = $('#oPeek');
+peek.addEventListener('pointerdown', e => { e.preventDefault(); if (O.S && O.S.card) peek.classList.add('open'); });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(t => peek.addEventListener(t, () => peek.classList.remove('open')));
+peek.addEventListener('contextmenu', e => e.preventDefault());
+
+function renderCard(){
+  const S = O.S;
+  $('#oRound').textContent = `Raundi ${S.round}`;
+  $('#oInside').className = 'inside' + (S.card.imp ? ' imp' : '');
+  $('#oInside').innerHTML = cardHTML(S.card);
+  const mine = S.seen.includes(S.me);
+  $('#oSeen').textContent = mine ? 'Prit të tjerët…' : 'E pashë';
+  $('#oSeen').disabled = mine || !O.viewed;
+  const active = S.holders.filter(h => S.players.some(p => p.pid === h));
+  const left = active.filter(h => !S.seen.includes(h));
+  $('#oProgress').innerHTML = `E kanë parë <b>${active.length - left.length}</b> nga <b>${active.length}</b>` + (left.length && left.length <= 4 ? `<br>Presim: ${left.map(h => esc(nameOf(h))).join(', ')}` : '');
+  $('#oForceTalk').hidden = !isHost();
+}
+
+/* ---------- talk ---------- */
+const OC = 2 * Math.PI * 52;
+function remaining(){
+  const S = O.S, t = S.timer;
+  if (!S.cfg.time) return 0;
+  if (t.paused) return t.left;
+  return Math.max(0, Math.ceil((t.ends - (Date.now() + O.skew)) / 1000));
+}
+function tickClock(){
+  if (!O.S || O.S.phase !== 'talk' || O.mode !== 'online') return;
+  const total = O.S.cfg.time, left = remaining();
+  $('#oClock').textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  $('#oArc').style.strokeDasharray = OC;
+  $('#oArc').style.strokeDashoffset = OC * (1 - left / (total || 1));
+  $('#oRing').classList.toggle('low', left <= 20);
+  if (!left && !O.S.timer.paused && O.beeped !== O.S.round) { O.beeped = O.S.round; beep(); }
+}
+setInterval(tickClock, 250);
+function renderTalk(){
+  const S = O.S, host = isHost();
+  $('#oOrder').innerHTML = S.order.map(id => `<span>${esc(nameOf(id))}</span>`).join('');
+  $('#oRing').hidden = !S.cfg.time;
+  $('#oPeek').hidden = !S.card;
+  if (S.card) { $('#oPeekV').className = 'pv' + (S.card.imp ? ' imp' : ''); $('#oPeekV').textContent = S.card.imp ? 'IMPOSTER' + (S.card.cat ? ' · ' + S.card.cat : '') : S.card.word; }
+  $('#oTalkHost').hidden = !host; $('#oTalkGuest').hidden = host;
+  $('#oPause').hidden = !S.cfg.time;
+  $('#oPause').textContent = S.timer.paused ? 'Vazhdo' : 'Ndalo';
+  $('#oPause').disabled = S.timer.paused && !S.timer.left;
+  tickClock();
+}
+$('#oPause').onclick = () => osend({ t: 'pause' });
+$('#oVote').onclick = () => osend({ t: 'vote' });
+
+/* ---------- vote ---------- */
+function renderVote(){
+  const S = O.S, host = isHost();
+  $('#oVoteLead').textContent = host ? 'Votoni me zë. Pastaj zgjidh këtu atë që mori më shumë vota.' : 'Votoni me zë. Hosti zgjedh në telefonin e vet atë që mori më shumë vota.';
+  $('#oVgrid').hidden = !host; $('#oReveal').hidden = !host;
+  if (host) {
+    $('#oVgrid').innerHTML = S.holders.map(id => `<button class="vbtn ${S.vote === id ? 'on' : ''}" data-v="${id}"><span class="dot" style="width:30px;height:30px;border-radius:50%;flex:none;background:${colorOf(id)}"></span><span>${esc(nameOf(id))}</span></button>`).join('');
+    $('#oReveal').disabled = !S.vote;
+  }
+  $('#oVotePick').innerHTML = host ? '' : (S.vote ? `Zgjedhja e hostit: <b>${esc(nameOf(S.vote))}</b>` : 'Hosti ende nuk ka zgjedhur.');
+}
+$('#oVgrid').onclick = e => { const b = e.target.closest('[data-v]'); if (b) osend({ t: 'pick', pid: b.dataset.v }); };
+$('#oReveal').onclick = () => osend({ t: 'reveal' });
+
+/* ---------- result ---------- */
+function renderResult(){
+  const S = O.S, r = S.result, host = isHost();
+  const list = r.imps.map(nameOf), many = list.length > 1, voted = nameOf(r.vote);
+  let html = r.caught
+    ? `<div class="big good">${esc(voted)} ishte imposter</div><p>${many ? 'Imposterët ishin: ' + list.map(esc).join(', ') + '. ' : ''}Fjala ishte</p><span class="word">${esc(r.word)}</span>`
+    : `<div class="big bad">${esc(voted)} nuk ishte imposter</div><p>${many ? 'Imposterët ishin ' : 'Imposter ishte '}<b>${list.map(esc).join(', ')}</b>. Fjala ishte</p><span class="word">${esc(r.word)}</span>`;
+  if (r.caught && r.awarded) html += r.guessed ? '<p>Imposteri e gjeti fjalën, ndaj merr 1 pikë.</p>' : '<p>Imposteri nuk e gjeti fjalën: çdo lojtar tjetër merr 1 pikë.</p>';
+  $('#oVerdict').innerHTML = html;
+  const waiting = r.caught && !r.awarded;
+  $('#oGuessBox').hidden = !(waiting && host);
+  $('#oGuessWait').hidden = !(waiting && !host);
+  $('#oScoreBox').hidden = !r.awarded;
+  if (r.awarded) $('#oScore').innerHTML = scoreRows(S.scores, r.gain);
+  $('#oEndBtns').hidden = !(r.awarded && host);
+  $('#oEndWait').hidden = !(r.awarded && !host);
+}
+$('#oGYes').onclick = () => osend({ t: 'guess', yes: true });
+$('#oGNo').onclick = () => osend({ t: 'guess', yes: false });
+$('#oAgain').onclick = () => osend({ t: 'deal' });
+$('#oToLobby').onclick = () => osend({ t: 'lobby' });
+
+/* ---------- one render for every state the server sends ---------- */
+function oRender(){
+  const S = O.S;
+  if (!S) return;
+  if (!S.players.some(p => p.pid === S.me)) return oLeaveLocal();
+  if (S.round !== O.round) { O.round = S.round; O.viewed = false; oCover(); }
+  if (O.mode !== 'online') return;
+  $('#oHostGone').hidden = isHost() || S.hostOnline !== false;
+  const holder = !!S.card;
+  if (S.phase === 'lobby') { renderLobby(); show('sOnLobby'); }
+  else if (S.phase === 'cards') { if (holder) { renderCard(); show('sOnCard'); } else show('sOnWait'); }
+  else if (S.phase === 'talk') { renderTalk(); show('sOnTalk'); }
+  else if (S.phase === 'vote') { renderVote(); show('sOnVote'); }
+  else if (S.phase === 'result') { renderResult(); show('sOnResult'); }
+}
+
+/* ---------- start: ?r=CODE link, a room we were in, or the last mode used ---------- */
+(async function oBoot(){
+  const q = (new URLSearchParams(location.search).get('r') || '').toUpperCase();
+  const code = q || String(ost.get('room', '') || '').toUpperCase();
+  if (!/^[A-Z]{4}$/.test(code)) { setMode(ost.get('mode', 'one') === 'online' ? 'online' : 'one'); return; }
+  setMode('online');
+  try {
+    const j = await (await fetch('/api/room/' + code)).json();
+    if (j.ok && j.game && j.game !== 'imposter') { ost.del('room'); if (q) { location.href = j.game + '?r=' + code; return; } show('sOnHome'); return; }
+    if (j.ok && q && !savedName()) { $('#oCode').value = q; show('sOnHome'); $('#oName').focus(); return; }
+    if (j.ok) oEnter(code);
+    else { ost.del('room'); history.replaceState(null, '', location.pathname); show('sOnHome'); if (q) $('#oHomeErr').textContent = 'Kjo dhomë nuk ekziston më.'; }
+  } catch(e) { if (q && !savedName()) { $('#oCode').value = q; show('sOnHome'); } else oEnter(code); }
+})();
+
+})();
+</script>
+</body>
+</html>
