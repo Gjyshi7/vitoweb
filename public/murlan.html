@@ -162,7 +162,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div class="ov" id="ovStart"><div class="panel start">
     <img id="startLogo" alt="">
     <h2>Murlan</h2>
-    <p>Ti kundër Arbenit, Dritës dhe Gëzimit. Fiton kush arrin i pari 21 pikë.</p>
+    <p><span id="startWho"></span> Fiton kush arrin i pari 21 pikë.</p>
     <button class="pbtn" id="bStart">Fillo lojën</button>
     <button class="linkb" id="bRules0">Rregullat</button>
   </div></div>
@@ -193,7 +193,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     <p>Ruhen në këtë shfletues.</p>
     <div class="set">Tavolina<div class="seg" data-k="felt"><button data-v="blu">Blu</button><button data-v="jeshile">Jeshile</button><button data-v="bordo">Bordo</button></div></div>
     <div class="set">Ngjyrat e letrave<div class="seg" data-k="colors"><button data-v="2">2 ngjyra</button><button data-v="4">4 ngjyra</button></div></div>
-    <div class="set">Shpejtësia e lojtarëve<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
+    <div class="set">Animacionet<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
     <div class="set">Zëri<div class="seg" data-k="sound"><button data-v="on">Po</button><button data-v="off">Jo</button></div></div>
     <div class="row2"><button class="pbtn ghost" id="bNew">Lojë e re</button><button class="pbtn" id="bSetClose">Mbyll</button></div>
   </div></div>
@@ -226,6 +226,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 
 <script src="cards.js"></script>
 <script src="engine.js"></script>
+<script src="players.js"></script>
 <script>
 (() => {
 'use strict';
@@ -264,9 +265,14 @@ async function buildArt(){
 }
 
 /* ---------- seats & geometry ---------- */
-const NAMES = ['Ti','Arben','Drita','Gëzim'];
-const FEM = [false, false, true, false];
-const AVC = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62'];
+const NAMES = ['Ti','','',''];
+const FEM = [false, false, false, false];
+const AVC = ['#b02a63','','',''];
+const SEAT = [null, null, null, null];        // the other three players: name, pace
+function seatPlayers(){
+  PLAYERS.seats(3).forEach((s, i) => { SEAT[i + 1] = s; NAMES[i + 1] = s.name; FEM[i + 1] = s.fem; AVC[i + 1] = s.color; });
+  const st = $('#startWho'); if (st) st.textContent = `Në tavolinë: ${NAMES[1]}, ${NAMES[2]} dhe ${NAMES[3]}.`;
+}
 const PILE = [640, 330], DISCARD = [330, 338], DECK = [640, 338];
 const els = [];
 let mt = null, H = null, gen = 0, dealt = null, reveal = -1, discardN = 0;
@@ -327,7 +333,7 @@ function renderPlate(p){
   let sub;
   if (placeIdx >= 0 && H.active.some(Boolean)) sub = `<span>Vendi ${placeIdx + 1} · ${pts} pikë</span>`;
   else sub = `<span class="${n > 0 && n <= 2 && !dealt ? 'low' : ''}">${n === 1 ? '1 letër' : n + ' letra'} · ${pts} pikë</span>`;
-  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0]}</div><div><b>${NAMES[p]}</b>${sub}</div>`;
+  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0].toUpperCase()}</div><div><b>${NAMES[p]}</b>${sub}</div>`;
   el.classList.toggle('out', placeIdx >= 0 && H.active.some(Boolean));
 }
 const renderPlates = () => { for (let p = 0; p < 4; p++) renderPlate(p); };
@@ -580,7 +586,7 @@ async function exchange(my){
   if (first === 0) {
     giftOpts = G.giftOptions(H.hands[0]); mode = 'gift'; sel.clear(); layoutSeat(0); refresh();
     gift = await new Promise(r => giftResolve = r); giftResolve = null; giftOpts = []; if (my !== gen) return;
-  } else await sleep(D(500));
+  } else await sleep(PLAYERS.think(SEAT[first], { options: 6 }));
   gift = G.exchangeReturn(mt, gift);
   status(first === 0 ? `I kthen ${NAMES[last]} një letër` : last === 0 ? `${NAMES[first]} të kthen një letër` : `${NAMES[first]} i kthen ${NAMES[last]} një letër`);
   await flyCard(gift, last === 0 || first === 0); if (my !== gen) return;
@@ -599,8 +605,12 @@ async function runHand(){
     if (p === 0) ids = await humanTurn();
     else {
       status(H.must3 ? `${NAMES[p]} ka 3♠ dhe hap` : `Luan ${NAMES[p]}…`);
-      await sleep(D(520 + Math.random() * 480)); if (my !== gen) return;
       ids = G.botMove(mt, p, { budgetMs: fast ? 120 : 220 });
+      const opts = M.allMoves(H.hands[p], H.top, H.must3).length;
+      const wait = fast ? 500 + Math.random() * 500
+        : PLAYERS.think(SEAT[p], { forced: !opts, options: opts, first: !H.top && H.hands[p].length >= 13,
+            hard: !!ids && (ids.length >= 4 || H.hands[p].length - ids.length <= 2) });
+      await sleep(wait); if (my !== gen) return;
     }
     if (my !== gen) return;
     const ev = G.act(mt, p, ids);
@@ -653,7 +663,8 @@ function showResult(res){
   $('#ovEnd').hidden = false;
   if (res.winner === 0) chime();
 }
-function newMatch(){ mt = G.newMatch(); renderPlates(); meta(); humanResolve = null; runHand(); }
+let seated = false;
+function newMatch(){ if (!seated) seatPlayers(); seated = false; mt = G.newMatch(); renderPlates(); meta(); humanResolve = null; runHand(); }
 
 /* ---------- settings & panels ---------- */
 function applySettings(){
@@ -701,6 +712,7 @@ async function start(){
   await buildArt();
   const mu = await ART.logoURL(300); $('#brandImg').src = mu; $('#feltMark').src = mu; $('#startLogo').src = mu;
   mkCards(); fillDeck(); resetCards();
+  seatPlayers(); seated = true;
   renderPlates();
   status('Gati për lojë');
   $('#loading').hidden = true;
@@ -710,5 +722,6 @@ async function start(){
 start();
 })();
 </script>
+<script src="table-ui.js"></script>
 </body>
 </html>

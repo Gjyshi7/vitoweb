@@ -205,7 +205,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div class="ov" id="ovStart"><div class="panel start">
     <img id="startLogo" alt="">
     <h2>Derri në dorë</h2>
-    <p>Ti kundër Arbenit, Dritës dhe Gëzimit. Bëj çifte, hidhi, dhe mos mbet me K♠ në dorë.</p>
+    <p><span id="startWho"></span> Bëj çifte, hidhi, dhe mos mbet me K♠ në dorë.</p>
     <button class="pbtn" id="bStart">Fillo lojën</button>
     <button class="linkb" id="bRules0">Rregullat</button>
   </div></div>
@@ -229,7 +229,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     <p>Ruhen në këtë shfletues, njësoj për të gjitha lojërat e tavolinës.</p>
     <div class="set">Tavolina<div class="seg" data-k="felt"><button data-v="blu">Blu</button><button data-v="jeshile">Jeshile</button><button data-v="bordo">Bordo</button></div></div>
     <div class="set">Ngjyrat e letrave<div class="seg" data-k="colors"><button data-v="2">2 ngjyra</button><button data-v="4">4 ngjyra</button></div></div>
-    <div class="set">Shpejtësia e lojtarëve<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
+    <div class="set">Animacionet<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
     <div class="set">Zëri<div class="seg" data-k="sound"><button data-v="on">Po</button><button data-v="off">Jo</button></div></div>
     <div class="row2"><button class="pbtn ghost" id="bNew">Lojë e re</button><button class="pbtn" id="bSetClose">Mbyll</button></div>
   </div></div>
@@ -252,6 +252,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 </div>
 </div></div>
 
+<script src="players.js"></script>
 <script>
 /* ===== Derri në dorë engine (pure, no DOM) =====
    Same card ids as Murlan: 0..51 -> rank = 3 + (id>>2) (3..15, 11 J, 12 Q, 13 K, 14 A, 15 = 2), suit = id&3 (0 ♠,1 ♥,2 ♦,3 ♣).
@@ -500,9 +501,16 @@ function chime(){
 }
 
 /* ---------- seats & geometry ---------- */
-const NAMES = ['Ti','Arben','Drita','Gëzim'];
-const ND = ['ti','Arbeni','Drita','Gëzimi'];          // definite form, used inside sentences
-const AVC = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62'];
+const NAMES = ['Ti','','',''];
+const FEM = [false, false, false, false];
+const AVC = ['#b02a63','','',''];
+const SEAT = [null, null, null, null];
+const ND = new Proxy([], { get: (_, k) => k === '0' ? 'ti' : NAMES[k] });   // usernames are not declined in sentences
+let seated = false, meOut = false;
+function seatPlayers(){
+  PLAYERS.seats(3).forEach((s, i) => { SEAT[i + 1] = s; NAMES[i + 1] = s.name; FEM[i + 1] = s.fem; AVC[i + 1] = s.color; });
+  $('#startWho').textContent = `Në tavolinë: ${NAMES[1]}, ${NAMES[2]} dhe ${NAMES[3]}.`;
+}
 const PILE = [640, 345], DECK = [640, 338];
 const NEAR = [[640, 470], [330, 400], [640, 250], [950, 400]];   // where a seat shows a pair before throwing it
 const els = [];
@@ -577,7 +585,7 @@ function renderPlate(p){
   const out = place >= 0 && !(H.over && p === H.loser);
   const first = out ? `Doli` : `${n === 1 ? '1 letër' : n + ' letra'}`;
   const tally = derr ? ` · <span class="pig">${derr === 1 ? '1 herë derr' : derr + ' herë derr'}</span>` : '';
-  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0]}</div><div><b>${NAMES[p]}</b><span>${first}${tally}</span></div>`;
+  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0].toUpperCase()}</div><div><b>${NAMES[p]}</b><span>${first}${tally}</span></div>`;
   el.classList.toggle('out', out);
 }
 const renderPlates = () => { for (let p = 0; p < 4; p++) renderPlate(p); };
@@ -611,6 +619,7 @@ async function showPair(p, ids, my){
 function refresh(){
   $('#bRand').disabled = mode !== 'pick';
   $('#bFast').classList.toggle('on', fast);
+  $('#bFast').style.visibility = meOut ? '' : 'hidden';   // speeding the others up only once you're out
 }
 $('#cards').addEventListener('click', e => {
   audio();
@@ -715,16 +724,16 @@ async function botPickFromMe(p, my){
   const hand = H.hands[0], tries = hand.length > 1 ? 1 + ((Math.random() * 2) | 0) : 0;
   for (let k = 0; k < tries; k++) {
     hov = hand[(Math.random() * hand.length) | 0]; layoutSeat(0); snap(.1, 3000, .03);
-    await sleep(D(420)); if (my !== gen) return -1;
+    await sleep(fast ? D(420) : 350 + Math.random() * 650); if (my !== gen) return -1;
   }
   const idx = E.botPick(mt, p);
-  hov = hand[idx]; layoutSeat(0); await sleep(D(380));
+  hov = hand[idx]; layoutSeat(0); await sleep(fast ? D(380) : 300 + Math.random() * 400);
   return idx;
 }
 async function botPickFromBot(p, src, my){
   const idx = E.botPick(mt, p);
   hov = H.hands[src][idx]; layoutSeat(src); snap(.12, 2800, .03);
-  await sleep(D(360)); if (my !== gen) return -1;
+  await sleep(fast ? D(360) : 450 + Math.random() * 700); if (my !== gen) return -1;
   return idx;
 }
 
@@ -750,7 +759,7 @@ async function animateDraw(ev, my){
   layoutSeat(p);
   for (const q of ev.outs) {
     bubble(q, q === 0 ? 'Dole! Je i shpëtuar' : 'Doli!', true);
-    if (q === 0) { chime(); fast = true; refresh(); }
+    if (q === 0) { chime(); fast = true; meOut = true; refresh(); }
     renderPlates(); await sleep(D(700));
   }
 }
@@ -793,12 +802,12 @@ async function firstPairs(my){
   }
   dealt = null; layoutAll(); $('#cap').textContent = '';
   for (const q of res.outs) bubble(q, q === 0 ? 'Dole! Je i shpëtuar' : 'Doli!', true);
-  if (res.outs.includes(0)) { fast = true; refresh(); }
+  if (res.outs.includes(0)) { fast = true; meOut = true; refresh(); }
   await sleep(D(500));
 }
 async function runRound(){
   const my = ++gen;
-  fast = false; mode = 'idle'; humanResolve = null; refresh();
+  fast = false; meOut = false; mode = 'idle'; humanResolve = null; refresh();
   H = E.deal(mt); meta(); setTurn(-1, -1);
   resetCards(); renderPlates();
   await dealAnim(my); if (my !== gen) return;
@@ -810,7 +819,7 @@ async function runRound(){
     if (p === 0) idx = await humanPick(src, my);
     else {
       status(`${ND[p]} merr nga ${from0(src)}`);
-      await sleep(D(300 + Math.random() * 300)); if (my !== gen) return;
+      await sleep(fast ? D(300 + Math.random() * 300) : PLAYERS.think(SEAT[p], { forced: true }) * .8); if (my !== gen) return;
       idx = src === 0 ? await botPickFromMe(p, my) : await botPickFromBot(p, src, my);
     }
     if (my !== gen || idx < 0) return;
@@ -839,11 +848,11 @@ function showResult(){
   $('#endTitle').textContent = L === 0 ? 'Mbete me derrin' : `${NAMES[L]} mbeti me derrin`;
   $('#endLead').textContent = L === 0 ? `Dora ${mt.round}: K♠ mbeti në dorën tënde.` : `Dora ${mt.round}: ti shpëtove.`;
   $('#resTable').innerHTML = '<tr><th>Lojtari</th><th>Kjo dorë</th><th class="n">Herë derr</th></tr>' +
-    H.order.map((p, i) => `<tr class="${p === 0 ? 'me' : ''}"><td>${NAMES[p]}</td><td>${p === L ? 'Derri' : 'Doli ' + (p === 2 ? ['e para','e dyta','e treta'] : ['i pari','i dyti','i treti'])[i]}</td><td class="n">${mt.losses[p]}</td></tr>`).join('');
+    H.order.map((p, i) => `<tr class="${p === 0 ? 'me' : ''}"><td>${NAMES[p]}</td><td>${p === L ? 'Derri' : 'Doli ' + (FEM[p] ? ['e para','e dyta','e treta'] : ['i pari','i dyti','i treti'])[i]}</td><td class="n">${mt.losses[p]}</td></tr>`).join('');
   $('#bNext').onclick = () => { $('#ovEnd').hidden = true; runRound(); };
   $('#ovEnd').hidden = false;
 }
-function newMatch(){ gen++; mt = E.newMatch(); renderPlates(); meta(); runRound(); }
+function newMatch(){ gen++; if (!seated) seatPlayers(); seated = false; mt = E.newMatch(); renderPlates(); meta(); runRound(); }
 
 /* ---------- settings & panels ---------- */
 function applySettings(){
@@ -886,6 +895,7 @@ async function start(){
   const mk = document.createElement('canvas'); mk.width = 300; mk.height = 300; logo(mk.getContext('2d'), 150, 150, 210, 'color');
   const mu = await toURL(mk); $('#brandImg').src = mu; $('#feltMark').src = mu; $('#startLogo').src = mu;
   mkCards(); resetCards();
+  seatPlayers(); seated = true;
   renderPlates();
   status('Gati për lojë');
   $('#loading').hidden = true;
@@ -895,5 +905,6 @@ async function start(){
 start();
 })();
 </script>
+<script src="table-ui.js"></script>
 </body>
 </html>

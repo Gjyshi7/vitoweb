@@ -212,7 +212,7 @@ main{min-width:0;padding:22px 28px 60px}
       <button class="on" data-view="games" data-filter="all"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Të gjitha<span class="n" id="cAll"></span></button>
       <button data-view="games" data-filter="letra"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="11" height="16" rx="2"/><path d="M15 6l4 1.2-3.4 13"/></svg>Me letra</button>
       <button data-view="games" data-filter="shoke"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 14.5c3 0 6 2 6 5.5"/></svg>Me shokët</button>
-      <button data-view="games" data-filter="bote"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01"/></svg>Kundër botëve</button>
+      <button data-view="games" data-filter="bote"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01"/></svg>Luaj tani</button>
     </nav>
     <div class="foot">Lojëra shqiptare për kafene, shtëpi dhe telefon. Pa shkarkim.</div>
   </aside>
@@ -234,7 +234,7 @@ main{min-width:0;padding:22px 28px 60px}
             <h2>Murlan</h2>
             <p>Ti dhe tre lojtarë që nuk falin. Kolor, bombë, flush, deri në 21 pikë.</p>
             <span class="playbtn"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>LUAJ</span>
-            <div class="facts"><span>4 lojtarë</span><span>Kundër botëve</span><span>Horizontalisht</span></div>
+            <div class="facts"><span>4 lojtarë</span><span>Online</span><span>Horizontalisht</span></div>
           </div>
         </button>
         <button class="side" data-play="imposter" aria-label="Luaj Imposter">
@@ -254,7 +254,7 @@ main{min-width:0;padding:22px 28px 60px}
           <button class="on" data-filter="all">Të gjitha</button>
           <button data-filter="letra">Me letra</button>
           <button data-filter="shoke">Me shokët</button>
-          <button data-filter="bote">Kundër botëve</button>
+          <button data-filter="bote">Luaj tani</button>
         </div>
         <div class="grid" id="grid"></div>
       </div>
@@ -288,7 +288,7 @@ const GAMES = [
   { id:'imposter', name:'Imposter',      line:'Një fjalë, një gënjeshtar.', tags:['shoke'], file:'imposter', art:'imposter', meta:'Një telefon ose secili me të vetin' },
   { id:'mafia',    name:'Mafia',         line:'Rolet në telefon, loja në tavolinë.', tags:['shoke'], file:'mafia', art:'mafia', meta:'Secili me telefonin e vet' }
 ];
-const FILTER_NAMES = { all:'Të gjitha lojërat', letra:'Me letra', shoke:'Me shokët', bote:'Kundër botëve' };
+const FILTER_NAMES = { all:'Të gjitha lojërat', letra:'Me letra', shoke:'Me shokët', bote:'Luaj tani' };
 let filter = 'all';
 const recent = () => store.get('vw-recent', []);
 
@@ -376,7 +376,7 @@ function renderGrid(){
     const art = document.createElement('div'); art.className = 'art';
     if (['murlan','spathi','derri'].includes(g.art)) art.appendChild(artCanvas(g.art)); else art.innerHTML = svgArt(g.art);
     b.appendChild(art);
-    const tagTxt = g.tags.map(t => ({letra:'Me letra', shoke:'Me shokët', bote:'Kundër botëve'})[t]).join(' · ');
+    const tagTxt = g.tags.map(t => ({letra:'Me letra', shoke:'Me shokët', bote:'Luaj tani'})[t]).join(' · ');
     b.insertAdjacentHTML('beforeend', `<div class="info"><h4>${g.name}</h4><p>${g.line}</p><p style="font-size:13px;letter-spacing:.04em">${g.meta} · ${tagTxt}</p></div>`);
     if (g.soon) b.insertAdjacentHTML('beforeend', '<span class="badge soon">Së shpejti</span>');
     else if (g.id === rec) b.insertAdjacentHTML('beforeend', '<span class="badge last">Luajte së fundi</span>');

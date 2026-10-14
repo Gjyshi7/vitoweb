@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
 <style>
 /* Layout: the shared Tavolina stage, one fixed 1280x720 (16:9) table scaled to fit; turns 90° when the phone is upright.
-   Two seats: you at the bottom, Arben at the top. Stock on the left, both capture piles on the right, open cards in the middle.
+   Two seats: you at the bottom, the other player at the top. Stock on the left, both capture piles on the right, open cards in the middle.
    Single dark look on purpose: a lit card table in a dark room. */
 :root{
   color-scheme:dark;
@@ -149,7 +149,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div class="cnt" id="cS" style="left:214px;top:300px"></div>
   <div class="lbl" style="left:176px;top:440px">TALLONI</div>
   <div class="cnt" id="c1" style="left:1140px;top:198px"></div>
-  <div class="lbl" style="left:1104px;top:312px">ARBENI</div>
+  <div class="lbl" id="lblOpp" style="left:1104px;top:312px"></div>
   <div class="cnt" id="c0" style="left:1140px;top:408px"></div>
   <div class="lbl" style="left:1104px;top:522px">TI</div>
 
@@ -162,7 +162,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div class="ov" id="ovStart"><div class="panel start">
     <img id="startLogo" alt="">
     <h2>Spathi</h2>
-    <p id="startLead">Ti kundër Arbenit. Fiton kush arrin i pari 21 pikë.</p>
+    <p id="startLead">Fiton kush arrin i pari 21 pikë.</p>
     <button class="pbtn" id="bStart">Fillo lojën</button>
     <button class="linkb" id="bRules0">Rregullat</button>
   </div></div>
@@ -178,7 +178,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
       <li><b>Pikët për dorë, 5 gjithsej:</b> 2 për më shumë letra (27 e lart; me 26 secili, 1 pikë secilit), 1 për 7 ose më shumë spathi, 1 për 2♣, 1 për 10♦.</li>
       <li><b>Fiton</b> kush arrin i pari 21 pikë, ose 11 në lojën e shkurtër. Nëse të dy e kalojnë në të njëjtën dorë, fiton kush ka më shumë; në barazim luhet edhe një dorë.</li>
     </ul>
-    <p>Rregullat bazë vijnë nga Spathi i visixplay. Shpërndarja me nga 4, J/Q/K dhe letrat e mbetura janë zgjedhjet e kësaj loje, sepse burimi nuk i përmend.</p>
+    
     <button class="pbtn ghost" id="bRulesClose">Mbyll</button>
   </div></div>
 
@@ -188,7 +188,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     <div class="set">Tavolina<div class="seg" data-k="felt"><button data-v="blu">Blu</button><button data-v="jeshile">Jeshile</button><button data-v="bordo">Bordo</button></div></div>
     <div class="set">Ngjyrat e letrave<div class="seg" data-k="colors"><button data-v="2">2 ngjyra</button><button data-v="4">4 ngjyra</button></div></div>
     <div class="set">Loja deri në<div class="seg" data-k="target"><button data-v="21">21 pikë</button><button data-v="11">11 pikë</button></div></div>
-    <div class="set">Shpejtësia e Arbenit<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
+    <div class="set">Animacionet<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
     <div class="set">Zëri<div class="seg" data-k="sound"><button data-v="on">Po</button><button data-v="off">Jo</button></div></div>
     <div class="row2"><button class="pbtn ghost" id="bNew">Lojë e re</button><button class="pbtn" id="bSetClose">Mbyll</button></div>
   </div></div>
@@ -218,6 +218,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div id="loading">Duke përgatitur letrat…</div>
 </div>
 </div></div>
+<script src="players.js"></script>
 <script>
 /* ===== Spathi engine (pure, no DOM) =====
    Card ids 0..51 share the Murlan art mapping: rank r = 3 + (id>>2) with 14 = A, 15 = 2; suit = id&3 (0 ♠, 1 ♥, 2 ♦, 3 ♣).
@@ -545,8 +546,16 @@ async function buildArt(){
 }
 
 /* ---------- seats & geometry ---------- */
-const NAMES = ['Ti', 'Arben'];
-const AVC = ['#b02a63', '#2c6e8f'];
+const NAMES = ['Ti', ''];
+const AVC = ['#b02a63', ''];
+const SEAT = [null, null];
+let seated = false;
+function seatPlayers(){
+  const s = PLAYERS.seats(1)[0];
+  SEAT[1] = s; NAMES[1] = s.name; AVC[1] = s.color;
+  $('#lblOpp').textContent = s.name;
+  applySettings();
+}
 const STOCK = [176, 362], PILES = [[1104, 462], [1104, 252]];
 const TSC = .8;                          // table card scale
 const els = [], pileRot = new Map();
@@ -700,7 +709,7 @@ function renderPlates(){
   for (let p = 0; p < 2; p++) {
     const t = H ? H.taken[p] : [];
     const n = t.length, cl = t.filter(S.isClub).length, pts = mt ? mt.scores[p] : 0;
-    $('#pl' + p).innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0]}</div><div><b>${NAMES[p]}</b><span><i>${n}</i> ${n === 1 ? 'letër' : 'letra'} · <i>${cl}</i> ♣ · <i>${pts}</i> pikë</span></div>`;
+    $('#pl' + p).innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0].toUpperCase()}</div><div><b>${NAMES[p]}</b><span><i>${n}</i> ${n === 1 ? 'letër' : 'letra'} · <i>${cl}</i> ♣ · <i>${pts}</i> pikë</span></div>`;
   }
 }
 function setTurn(p){ for (let i = 0; i < 2; i++) $('#pl' + i).classList.toggle('turn', i === p); }
@@ -852,8 +861,10 @@ async function runHand(){
     if (p === 0) mv = await humanTurn();
     else {
       status(`Luan ${NAMES[p]}…`);
-      await sleep(D(650 + Math.random() * 450)); if (my !== gen) return;
       mv = S.botMove(mt, p, {samples: 40});
+      const take = mv.take ? mv.take.length : 0;
+      await sleep(fast ? 600 : PLAYERS.think(SEAT[p], { options: H.hands[p].length + take, hard: take >= 3,
+        first: H.hands[p].length === 4 && H.table.length === 4 })); if (my !== gen) return;
     }
     if (my !== gen) return;
     const before = H.table.slice();
@@ -882,14 +893,14 @@ async function endHand(res, my){
 }
 function showResult(res){
   const done = res.winner !== null;
-  $('#endTitle').textContent = done ? (res.winner === 0 ? 'Fitove lojën!' : 'Fitoi Arbeni') : `Dora ${mt.handNo} mbaroi`;
+  $('#endTitle').textContent = done ? (res.winner === 0 ? 'Fitove lojën!' : `Fitoi ${NAMES[1]}`) : `Dora ${mt.handNo} mbaroi`;
   $('#endLead').textContent = done ? `${res.scores[0]} me ${res.scores[1]} pas ${mt.handNo} duarsh.` : `Caku është ${res.target} pikë.`;
   const note = $('#endNote');
   note.hidden = !res.tiedAbove; note.textContent = res.tiedAbove ? `Të dy keni ${res.scores[0]} pikë mbi cakun, ndaj luhet edhe një dorë.` : '';
   const P = (v) => v ? `<i>+${v}</i>` : '';
   const row = (k, a, b, pa, pb) => `<tr><td>${k}</td><td class="me">${a}${P(pa)}</td><td>${b}${P(pb)}</td></tr>`;
   const has = (p, id) => H.taken[p].includes(id) ? 'Po' : '–';
-  $('#resTable').innerHTML = '<tr><th></th><th>Ti</th><th>Arbeni</th></tr>' +
+  $('#resTable').innerHTML = '<tr><th></th><th>Ti</th><th>' + NAMES[1] + '</th></tr>' +
     row('Letrat', res.n[0], res.n[1], res.parts[0].cards, res.parts[1].cards) +
     row('Spathitë ♣', res.cl[0], res.cl[1], res.parts[0].clubs, res.parts[1].clubs) +
     row('2♣', has(0, S.TWO_CLUBS), has(1, S.TWO_CLUBS), res.parts[0].two, res.parts[1].two) +
@@ -902,6 +913,7 @@ function showResult(res){
   if (res.winner === 0 || (!done && res.pts[0] > res.pts[1])) chime();
 }
 function newMatch(){
+  if (!seated) seatPlayers(); seated = false;
   humanResolve = null;
   mt = S.newMatch({target: +ST.target}); renderPlates(); meta();
   runHand();
@@ -913,7 +925,7 @@ function applySettings(){
   stage.style.setProperty('--felt-c', f[0]); stage.style.setProperty('--felt-e', f[1]);
   stage.style.setProperty('--t', ST.speed === 'fast' ? '.24s' : '.36s');
   $('#bSound').classList.toggle('off', ST.sound !== 'on');
-  $('#startLead').textContent = `Ti kundër Arbenit. Fiton kush arrin i pari ${ST.target} pikë.`;
+  $('#startLead').textContent = `${NAMES[1] ? 'Kundërshtari: ' + NAMES[1] + '. ' : ''}Fiton kush arrin i pari ${ST.target} pikë.`;
   document.querySelectorAll('.seg').forEach(sg => sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', ST[sg.dataset.k] === b.dataset.v)));
 }
 document.querySelectorAll('.seg').forEach(sg => sg.addEventListener('click', async e => {
@@ -957,6 +969,7 @@ async function start(){
   const mk = document.createElement('canvas'); mk.width = 300; mk.height = 300; logo(mk.getContext('2d'), 150, 150, 210, 'color');
   const mu = await toURL(mk); $('#brandImg').src = mu; $('#feltMark').src = mu; $('#startLogo').src = mu;
   mkCards(); fillDeck();
+  seatPlayers(); seated = true;
   mt = S.newMatch({target: +ST.target}); H = S.deal(mt); mt.handNo = 0;
   pending = new Set(); for (let i = 0; i < 52; i++) els[i].el.style.transition = 'none';
   render(); $('#cards').offsetWidth; els.forEach(c => c.el.style.transition = '');
@@ -969,5 +982,6 @@ async function start(){
 start();
 })();
 </script>
+<script src="table-ui.js"></script>
 </body>
 </html>

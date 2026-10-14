@@ -208,8 +208,8 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     <h2>Rregullat</h2>
     <ul>
       <li><b>28 gurë</b>, nga 0|0 te 6|6. Secili merr 7.</li>
-      <li><b>2 kundër 2:</b> ti dhe Drita (përballë teje) kundër Arbenit dhe Gëzimit. Shpërndahen të 28 gurët.</li>
-      <li><b>1 kundër 1:</b> ti kundër Dritës. 14 gurët e tepërt ose tërhiqen kur s'ke gur që hyn, ose mbeten jashtë loje. Zgjidhet te fillimi.</li>
+      <li><b>2 kundër 2:</b> ti dhe partneri (përballë teje) kundër dy lojtarëve anash. Shpërndahen të 28 gurët.</li>
+      <li><b>1 kundër 1:</b> ti kundër lojtarit përballë. 14 gurët e tepërt ose tërhiqen kur s'ke gur që hyn, ose mbeten jashtë loje. Zgjidhet te fillimi.</li>
       <li><b>Dora e parë</b> e hap kush ka dyshen më të lartë (6|6 te 2 kundër 2) dhe duhet të hapë me të. Pas saj hap kush doli i pari në dorën e kaluar.</li>
       <li>Guri vendoset në një nga dy skajet dhe numri duhet të përputhet. Kush s'ka gur që hyn, pason.</li>
       <li><b>Pikët:</b> kur dikush mbaron gurët, ekipi i tij merr pikat e gurëve që u mbetën në dorë kundërshtarëve. 6|6 vlen 12, e kështu me radhë.</li>
@@ -225,7 +225,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     <p>Ruhen në këtë shfletues.</p>
     <div class="set">Tavolina<div class="seg" data-k="felt"><button data-v="blu">Blu</button><button data-v="jeshile">Jeshile</button><button data-v="bordo">Bordo</button></div></div>
     <div class="set">Pikat e gurëve<div class="seg" data-k="pipc"><button data-v="klasike">Klasike</button><button data-v="ngjyra">Me ngjyra</button></div></div>
-    <div class="set">Shpejtësia e lojtarëve<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
+    <div class="set">Animacionet<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
     <div class="set">Zëri<div class="seg" data-k="sound"><button data-v="on">Po</button><button data-v="off">Jo</button></div></div>
     <div class="set"><div>Lojtarët<small>Vlen nga loja e re</small></div><div class="seg" data-k="dteams"><button data-v="2v2">2 kundër 2</button><button data-v="1v1">1 kundër 1</button></div></div>
     <div class="set stockRow"><div>Gurët e tepërt<small>Vetëm te 1 kundër 1</small></div><div class="seg" data-k="dstock"><button data-v="po">Tërhiqen</button><button data-v="jo">Mbeten jashtë</button></div></div>
@@ -259,6 +259,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 </div>
 </div></div>
 
+<script src="players.js"></script>
 <script>
 /* ===== Domino engine (pure, no DOM) =====
    Double-six set: 28 tiles. Tile id 0..27 -> [a, b] with a <= b. Id 0 is 0|0.
@@ -494,8 +495,15 @@ let FACE = [];
 const buildArt = () => { FACE = Array.from({length: 28}, (_, i) => faceSVG(i)); };
 
 /* ---------- seats & geometry ---------- */
-const NAMES = ['Ti','Arben','Drita','Gëzim'];
-const AVC = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62'];
+const NAMES = ['Ti','','',''];
+const FEM = [false, false, false, false];
+const AVC = ['#b02a63','','',''];
+const SEAT = [null, null, null, null];
+let seated = false;
+function seatPlayers(){
+  PLAYERS.seats(3).forEach((s, i) => { SEAT[i + 1] = s; NAMES[i + 1] = s.name; FEM[i + 1] = s.fem; AVC[i + 1] = s.color; });
+  applySettings();
+}
 const AREA = {cx: 640, halfW: 380, top: 198, bot: 552};   // where the line of play may go
 const SIZES = [76, 70, 64, 58, 52, 47, 42, 38];           // tile length on the table, largest first
 const STACK = [640, 376], BONE = [330, 146];
@@ -506,7 +514,7 @@ let chainL = SIZES[0], offY = 376, lastId = -1;
 const D = ms => ms * (ST.speed === 'fast' ? .55 : 1);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const active = p => !mt || mt.seats.includes(p);
-const sideName = t => mt.teams ? (t === 0 ? 'Ti & Drita' : 'Arben & Gëzim') : (t === 0 ? 'Ti' : 'Drita');
+const sideName = t => mt.teams ? (t === 0 ? `Ti & ${NAMES[2]}` : `${NAMES[1]} & ${NAMES[3]}`) : (t === 0 ? 'Ti' : NAMES[2]);
 
 function mkTiles(){
   const box = $('#tiles'); box.textContent = '';
@@ -653,14 +661,14 @@ function renderPlate(p){
   const n = handOf(p).length;
   const low = n > 0 && n <= 2 && !dealt && H && H.cur >= 0;
   const tag = p === 0 ? '' : mt && mt.teamOf[p] === 0 ? ' · <i>partneri</i>' : '';
-  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0]}</div><div><b>${NAMES[p]}</b><span class="${low ? 'low' : ''}">${n === 1 ? '1 gur' : n + ' gurë'}${tag}</span></div>`;
+  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0].toUpperCase()}</div><div><b>${NAMES[p]}</b><span class="${low ? 'low' : ''}">${n === 1 ? '1 gur' : n + ' gurë'}${tag}</span></div>`;
 }
 const renderPlates = () => { for (let p = 0; p < 4; p++) renderPlate(p); };
 function setTurn(p){ for (let i = 0; i < 4; i++) $('#pl' + i).classList.toggle('turn', i === p); }
 function status(txt){ $('#status').innerHTML = txt; }
 function meta(){
   if (!mt) { $('#meta').innerHTML = ''; return; }
-  const [a, b] = mt.teams ? ['Ne', 'Ata'] : ['Ti', 'Drita'];
+  const [a, b] = mt.teams ? ['Ne', 'Ata'] : ['Ti', NAMES[2]];
   $('#meta').innerHTML = `${a} <b>${mt.scores[0]}</b> · ${b} <b>${mt.scores[1]}</b> · deri në ${mt.target}`;
 }
 function bubble(p, txt, gold, ms = 1150){
@@ -865,13 +873,14 @@ async function botTurn(p, my){
   if (!E.canMove(H, p) && E.canDraw(mt)) {
     status(`${NAMES[p]} tërheq nga stoku…`);
     while (!E.canMove(H, p) && E.canDraw(mt)) {
-      await sleep(D(330)); if (my !== gen) return null;
+      await sleep(450 + Math.random() * 650); if (my !== gen) return null;
       E.draw(mt, p); snap(.2, 2400, .04); layoutSeat(p); layoutBone();
     }
     await sleep(D(300)); if (my !== gen) return null;
   }
   status(!H.start && H.mustOpen !== null ? `${NAMES[p]} hap me ${T(H.mustOpen)}` : `Luan ${NAMES[p]}…`);
-  await sleep(D(480 + Math.random() * 420)); if (my !== gen) return null;
+  const opts = E.movesFor(H, p).length;
+  await sleep(PLAYERS.think(SEAT[p], { forced: opts <= 1, options: opts, hard: H.hands[p].length <= 2 })); if (my !== gen) return null;
   const m = E.botChoose(mt, p);
   return m ? {type: 'play', m} : {type: 'pass'};
 }
@@ -926,7 +935,7 @@ function showResult(res){
   const done = res.matchWinner !== null, we = res.winTeam === 0;
   let title, lead;
   if (done) {
-    title = res.matchWinner === 0 ? (mt.teams ? 'Fituat lojën!' : 'Fitove lojën!') : (mt.teams ? 'Fituan Arbeni dhe Gëzimi' : 'Fitoi Drita');
+    title = res.matchWinner === 0 ? (mt.teams ? 'Fituat lojën!' : 'Fitove lojën!') : (mt.teams ? `Fituan ${NAMES[1]} dhe ${NAMES[3]}` : `Fitoi ${NAMES[2]}`);
     lead = `${sideName(res.matchWinner)} ${mt.teams ? 'arritën' : (res.matchWinner === 0 ? 'arrite' : 'arriti')} ${res.scores[res.matchWinner]} pikë pas ${mt.handNo} duarsh.`;
   } else if (res.winTeam === null) {
     title = 'Barazim, askush s\'merr pikë';
@@ -935,7 +944,7 @@ function showResult(res){
     const takes = mt.teams ? 'marrin' : 'merr';
     title = we ? (mt.teams ? 'E fituat dorën!' : 'Fitove dorën!') : `${sideName(res.winTeam)} ${mt.teams ? 'fituan' : 'fitoi'} dorën`;
     lead = res.kind === 'domino'
-      ? `${res.p === 0 ? 'Mbarove' : NAMES[res.p] + ' mbaroi'} gurët. ${mt.teams ? sideName(res.winTeam) + ' marrin' : (we ? 'Merr' : 'Drita merr')} ${res.gain} pikë nga gurët që u mbetën kundërshtarëve.`
+      ? `${res.p === 0 ? 'Mbarove' : NAMES[res.p] + ' mbaroi'} gurët. ${mt.teams ? sideName(res.winTeam) + ' marrin' : (we ? 'Merr' : NAMES[2] + ' merr')} ${res.gain} pikë nga gurët që u mbetën kundërshtarëve.`
       : `Askush s'kishte lëvizje. Më pak pikë në dorë kishin ${sideName(res.winTeam)}, ndaj ${takes} ${res.gain}.`;
   }
   $('#endTitle').textContent = title; $('#endLead').textContent = lead;
@@ -954,6 +963,7 @@ function showResult(res){
   if (we) chime();
 }
 function newMatch(){
+  if (!seated) seatPlayers(); seated = false;
   gen++; humanResolve = null;
   mt = E.newMatch({teams: ST.dteams !== '1v1', stock: ST.dstock === 'po', target: target()});
   H = null; renderPlates(); meta();
@@ -970,7 +980,7 @@ function applySettings(){
   $$('.stockRow').forEach(r => r.hidden = ST.dteams !== '1v1');
   $$('.cust').forEach(i => { i.hidden = ST.dtarget !== 'custom'; if (document.activeElement !== i) i.value = ST.dcustom; });
   const n = target();
-  $('#startLead').innerHTML = (ST.dteams === '1v1' ? 'Ti kundër Dritës. Fiton kush arrin i pari ' : 'Ti dhe Drita kundër Arbenit dhe Gëzimit. Fiton ekipi që arrin i pari ') + `<span style="white-space:nowrap">${n} pikë</span>.`;
+  $('#startLead').innerHTML = (!NAMES[1] ? 'Fiton kush arrin i pari ' : ST.dteams === '1v1' ? `Kundërshtari: ${NAMES[2]}. Fiton kush arrin i pari ` : `Partneri: ${NAMES[2]}. Kundër: ${NAMES[1]} dhe ${NAMES[3]}. Fiton ekipi që arrin i pari `) + `<span style="white-space:nowrap">${n} pikë</span>.`;
   $$('.tgt').forEach(s => s.textContent = n);
 }
 $$('.seg').forEach(sg => sg.addEventListener('click', e => {
@@ -1010,7 +1020,7 @@ $('#bStart').onclick = () => { audio(); $('#ovStart').hidden = true; newMatch();
 function start(){
   applySettings(); buildArt();
   $('#brandImg').innerHTML = $('#feltMark').innerHTML = $('#startLogo').innerHTML = logoSVG();
-  mkTiles(); fillDeck(); resetTiles(); renderPlates();
+  mkTiles(); fillDeck(); resetTiles(); seatPlayers(); seated = true; renderPlates();
   status('Gati për lojë');
   $('#loading').hidden = true;
   let seen = false; try { seen = localStorage.getItem('vw-rot-seen') === '1'; } catch(e) {}
@@ -1021,5 +1031,6 @@ start();
 })();
 
 </script>
+<script src="table-ui.js"></script>
 </body>
 </html>
