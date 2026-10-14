@@ -585,7 +585,7 @@ function renderPlate(p){
   const out = place >= 0 && !(H.over && p === H.loser);
   const first = out ? `Doli` : `${n === 1 ? '1 letër' : n + ' letra'}`;
   const tally = derr ? ` · <span class="pig">${derr === 1 ? '1 herë derr' : derr + ' herë derr'}</span>` : '';
-  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0].toUpperCase()}</div><div><b>${NAMES[p]}</b><span>${first}${tally}</span></div>`;
+  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${(NAMES[p] || "?")[0].toUpperCase()}</div><div><b>${NAMES[p]}</b><span>${first}${tally}</span></div>`;
   el.classList.toggle('out', out);
 }
 const renderPlates = () => { for (let p = 0; p < 4; p++) renderPlate(p); };
@@ -905,6 +905,7 @@ async function start(){
 start();
 })();
 </script>
+<script src="ads.js"></script>
 <script src="table-ui.js"></script>
 </body>
 </html>

@@ -1,13 +1,16 @@
 # VitoWeb Loja
 
-The hub with 6 games (Murlan, Spathi, Derri në dorë, Domino, Imposter, Mafia) plus the room servers that let every phone play from its own screen (Mafia and Imposter), all on Cloudflare.
+The hub with 6 games (Murlan, Spathi, Derri në dorë, Domino, Imposter, Mafia) plus the room servers that let every phone play from its own screen (Murlan, Mafia and Imposter), all on Cloudflare.
 
 | Folder / file | What it is |
 |---|---|
 | `public/` | The site: hub, 6 games, icons, 404 page. Served as static files (free, unlimited). |
-| `worker/` | The servers. `index.js` = API, `room.js` = one live room per game code, `guard.js` = daily kill switch, `games/` = Mafia and Imposter rules. |
+| `worker/` | The servers. `index.js` = API, `room.js` = one live room per game code, `guard.js` = daily kill switch, `games/` = Murlan, Mafia and Imposter. `gen/` = copies of the page engines, made by `npm run build` (don't edit). |
+| `public/players.js` | Names and pace of the other players at the card tables (shared by every game and the server). |
+| `public/table-ui.js` | Top bar (RENDIT, PAUZË), pause menu and the big play buttons, shared by the 4 table games. |
+| `public/ads.js` | Ad slots, off until AdSense approves the site. Open any page with `?ads=preview` to see where they go. |
 | `wrangler.toml` | Cloudflare settings: rooms (Durable Objects), rate limits, kill switch. |
-| `test/smoke.mjs` | 52 checks with fake phones. Run it after every deploy. |
+| `test/smoke.mjs` | 64 checks with fake phones. Run it after every deploy. |
 
 ## 1. Put it online (first time, about 5 minutes)
 
@@ -32,7 +35,7 @@ Cloudflare's drag-and-drop upload only hosts plain files. It cannot create the r
    BASE=https://vitoweb-loja.vitoweb.workers.dev npm test
    ```
 
-   It should end with `52 passed, 0 failed`. It creates 2 test rooms, which delete themselves.
+   It should end with `64 passed, 0 failed`. It creates 3 test rooms, which delete themselves.
 
 **Updating later:** change files, run `npx wrangler deploy` again. Phones in a room drop for a second and reconnect on their own; rooms keep their state.
 
@@ -52,12 +55,13 @@ npx wrangler dev --ip 0.0.0.0
 
 - On the Mac: http://localhost:8787
 - On phones on the same Wi-Fi: `http://<your Mac's IP>:8787` (Mac: System Settings → Wi-Fi → Details → IP address).
-- `npm test` in a second terminal runs the 52 checks against it.
+- `npm test` in a second terminal runs the 64 checks against it.
 
 This runs the real Cloudflare runtime locally, rooms included.
 
 ## 3. What to test with friends
 
+- **Murlan online (2–4 phones):** Fillo → Luaj me shokët → Krijo tavolinë, send the link, the others join, host presses Fillo. Empty seats fill by themselves. Close one phone mid-hand and reopen the link: same cards. Leave a phone idle: after 30 s its turn plays itself.
 - **Hub:** open every game on an iPhone and an Android, and come back with the back arrow.
 - **Card games:** one full game each, phone sideways and upright; drag cards in your hand.
 - **Mafia (4+ phones):** create a room, share the WhatsApp link, everyone joins, deal, hold the card to see the role. Lock one phone for 2 minutes, unlock: same role. Narrator sees the table. Kick someone. Reveal. New round.
@@ -95,7 +99,8 @@ Change in `wrangler.toml`, then `npx wrangler deploy`:
 - Switch to the Workers Paid plan ($5/month) on launch day and set budget alerts.
 - Turnstile (bot check) on room creation, Google login with accounts in D1, AdSense with privacy and terms pages, a bot stress test.
 - Your own domain (for example `loja.vitoweb.al`; Cloudflare advises against running a business on `workers.dev`): Workers & Pages → vitoweb-loja → Domains → Add domain.
-- Online multiplayer for the card games (today they're played against bots).
+- Online tables for Spathi, Derri and Domino (Murlan has them; the room server is built so each game is one more file in `worker/games/`).
+- Ads: see `public/ads.js`. AdSense needs your own domain, a privacy page and Google's consent message for EU/UK/CH visitors. Turn on H5 Games Ads in AdSense for the break between hands.
 
 ## If something goes wrong
 

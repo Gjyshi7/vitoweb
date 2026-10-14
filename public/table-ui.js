@@ -1,7 +1,8 @@
 /* ===== Table controls, shared by every card/tile game =====
-   The top bar used to hold six small icons. Now it keeps only what you need mid-hand:
-   sort (where the game has it), rules (?) and a pause button. Everything else (look at the deck,
-   sound, full screen, settings, leave) lives in the pause menu, with words, not just icons.
+   The top bar used to hold six small icons. Now it keeps only two labelled buttons: RENDIT (sort,
+   where the game has it) and PAUZË. Everything else (rules, look at the deck, sound, full screen,
+   settings, leave) lives in the pause menu, with words, not just icons. No hint button: you play your own hand.
+   The play buttons at the bottom right are big, one under the other, so a thumb finds them without looking.
    It only re-arranges the game's own buttons and clicks them, so each game keeps its own logic.
    Load it after the game's script. */
 (() => {
@@ -11,13 +12,21 @@
 
   const css = document.createElement('style');
   css.textContent = `
-.top{height:54px}
-.top .r{gap:8px}
-.ib{width:52px;height:44px;border-radius:12px}
-.ib svg{width:25px;height:25px}
-.top .r .ib.keep{background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.top{height:56px}
+.top .r{gap:10px}
+.top .l .ib{width:56px;height:48px;border-radius:12px}
+.top .l .ib svg{width:28px;height:28px}
 .top .r .ib.hideTop{display:none}
-#bMenu{width:auto;padding:0 14px 0 10px;gap:6px;display:flex;align-items:center;color:var(--ink);font:700 15px var(--f-ui, system-ui);letter-spacing:.06em}
+.top .r .ib.keep{width:auto;height:46px;padding:0 16px 0 12px;gap:8px;display:flex;align-items:center;border-radius:12px;
+  color:var(--ink);font:700 17px var(--f-ui, system-ui);letter-spacing:.06em;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.top .r .ib.keep svg{width:24px;height:24px}
+/* play buttons: one column, big */
+#bHint{display:none!important}
+.acts{right:22px!important;bottom:16px!important;width:262px!important;grid-template-columns:1fr!important;gap:12px!important}
+.acts .btn{height:84px;font-size:27px;border-radius:18px}
+.acts .btn.main{height:110px;font-size:38px;border-radius:20px}
+.acts .btn:disabled{opacity:1;color:rgba(255,255,255,.28);background:rgba(14,22,38,.72);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.07)}
+.acts .btn:not(:disabled):active{transform:scale(.96)}
 #ovMenu .panel{width:520px;padding:26px 28px}
 #ovMenu h2{margin:0 0 6px;font:800 30px var(--f-ui, system-ui);color:var(--ink)}
 #ovMenu .sub{margin:0 0 14px;color:var(--sub);font:500 17px var(--f-ui, system-ui)}
@@ -32,7 +41,6 @@
 
   const ICON = {
     pause: '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>',
-    help: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6M12 17h.01"/></svg>',
     rules: '<svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 8h6M9 12h6"/></svg>',
     deck: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="11" height="15" rx="2"/><path d="M8 5V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-5"/></svg>',
     sound: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg>',
@@ -43,10 +51,9 @@
   };
 
   // top bar: sort (if any) + ? + pause; the rest goes into the menu
-  const bSort = $('#bSort'), bRules = $('#bRules');
-  if (bSort) bSort.classList.add('keep');
-  if (bRules) { bRules.classList.add('keep'); bRules.innerHTML = ICON.help; bRules.title = bRules.ariaLabel = 'Si luhet'; }
-  ['#bDeck', '#bSound', '#bFull', '#bSet'].forEach(id => { const b = $(id); if (b) b.classList.add('hideTop'); });
+  const bSort = top.querySelector('#bSort');
+  if (bSort) { bSort.classList.add('keep'); bSort.insertAdjacentHTML('beforeend', '<span>RENDIT</span>'); }
+  ['#bRules', '#bDeck', '#bSound', '#bFull', '#bSet'].forEach(id => { const b = top.querySelector(id); if (b) b.classList.add('hideTop'); });
 
   const bMenu = document.createElement('button');
   bMenu.className = 'ib keep'; bMenu.id = 'bMenu'; bMenu.type = 'button';
@@ -90,6 +97,20 @@
     if (b.dataset.k === '#bHome' || b.dataset.k === '#bFull') close();
     target.click();
   });
+  // ads: a small one at the bottom of the rules, a full-screen break between hands (see ads.js)
+  if (typeof ADS !== 'undefined') {
+    const rp = $('#ovRules .panel');
+    if (rp) {   // under the title, far from the Mbyll button (accidental clicks break AdSense policy)
+      const d = document.createElement('div'); d.className = 'adslot'; d.dataset.ad = 'rules';
+      const h = rp.querySelector('h2'); h ? h.after(d) : rp.prepend(d); ADS.fill(rp);
+    }
+    const bNext = $('#bNext');
+    if (bNext && ADS.on) bNext.addEventListener('click', e => {
+      if (bNext._adDone) { bNext._adDone = false; return; }
+      e.stopImmediatePropagation();
+      ADS.between(document.title.split(/[·|-]/)[0].trim() || 'loja', () => { bNext._adDone = true; bNext.click(); });
+    }, true);
+  }
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     if (!ov.hidden) close();

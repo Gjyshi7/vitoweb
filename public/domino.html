@@ -613,8 +613,29 @@ function playableIds(){
 }
 const handScale = n => n > 11 ? .92 : 1.04;
 const HAND_GEOM = (i, n) => { const w = TW * handScale(n), step = n > 1 ? Math.min(74, (740 - w) / (n - 1)) : 0; return {x: 635 + (i - (n - 1) / 2) * step, y: 628, rot: 0}; };
+/* the other players' tiles always look the same: a row of FAN backs, so nobody can count them.
+   Real tiles fill the first slots (extra ones sit exactly on the last slot), decoy backs fill the rest. The last tile shows as one. */
+const FAN = 5, decoys = [null, [], [], []];
+function decoy(p, k){
+  let d = decoys[p][k];
+  if (!d) { d = document.createElement('div'); d.className = 'tile decoy'; d.innerHTML = BACK; $('#tiles').appendChild(d); decoys[p][k] = d; }
+  return d;
+}
+function fanSlot(p, k){ const o = k - (FAN - 1) / 2; return p === 2 ? [640 + o * 30, 152, 0] : [p === 1 ? 140 : 1140, 404 + o * 28, p === 1 ? 90 : -90]; }
+function layoutFan(p, ids, hide){
+  const n = ids.length;
+  ids.forEach((id, i) => {
+    const k = n === 1 ? (FAN - 1) / 2 : Math.min(i, FAN - 1), [x, y, r] = fanSlot(p, k);
+    put(id, x, y, r, .4, 10 + Math.min(i, FAN), false);
+  });
+  for (let k = 0; k < FAN; k++) {
+    const d = decoy(p, k), on = !hide && n >= 2 && k >= n;
+    d.style.display = on ? '' : 'none';
+    if (on) { const [x, y, r] = fanSlot(p, k); place(d, x, y, r, .4); d.style.zIndex = 10 + k; }
+  }
+}
 function layoutSeat(p){
-  if (!active(p)) return;
+  if (!active(p)) { if (p) layoutFan(p, [], true); return; }
   const h = handOf(p), n = h.length;
   if (p === 0) {
     const ids = orderHand(h, sortCmp(), !!dealt), ok = playableIds();
@@ -629,18 +650,16 @@ function layoutSeat(p){
       if (!isDragged(id)) put(id, g.x, y, 0, sc, 100 + i, true);
     });
   } else {
-    h.forEach((id, i) => {
+    h.forEach(id => els[id].el.classList.remove('mine','sel','dim','hint','last'));
+    if (!reveal) layoutFan(p, h, false);
+    else h.forEach((id, i) => {
       const o = i - (n - 1) / 2;
-      const e = els[id].el; e.classList.remove('mine','sel','dim','hint','last');
-      if (reveal) {
+      layoutFan(p, [], true);
+      {
         // hand over: show what was left, face up
         const sc = .5;
         if (p === 2) put(id, 640 + o * 34, 166, 0, sc, 300 + i, true);
         else { const col = i % 4, row = i >> 2, x = p === 1 ? 108 + col * 34 : 1172 - col * 34; put(id, x, 346 + row * 68, 0, sc, 300 + i, true); }
-      } else if (p === 2) { const step = n > 1 ? Math.min(30, 330 / (n - 1)) : 0; put(id, 640 + o * step, 152, 0, .4, 10 + i, false); }
-      else {
-        const step = n > 1 ? Math.min(28, 190 / (n - 1)) : 0;
-        put(id, p === 1 ? 140 : 1140, 404 + o * step, p === 1 ? 90 : -90, .4, 10 + i, false);
       }
     });
   }
@@ -660,8 +679,12 @@ function renderPlate(p){
   if (!active(p)) return;
   const n = handOf(p).length;
   const low = n > 0 && n <= 2 && !dealt && H && H.cur >= 0;
-  const tag = p === 0 ? '' : mt && mt.teamOf[p] === 0 ? ' · <i>partneri</i>' : '';
-  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0].toUpperCase()}</div><div><b>${NAMES[p]}</b><span class="${low ? 'low' : ''}">${n === 1 ? '1 gur' : n + ' gurë'}${tag}</span></div>`;
+  const mate = p !== 0 && mt && mt.teamOf[p] === 0;
+  // how many tiles the others hold stays hidden, except the last one
+  const sub = p === 0 ? `<span class="${low ? 'low' : ''}">${n === 1 ? '1 gur' : n + ' gurë'}</span>`
+    : n === 1 && !dealt && H ? `<span class="low">1 gur${mate ? ' · <i>partneri</i>' : ''}</span>`
+    : mate ? '<span><i>partneri</i></span>' : '';
+  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${(NAMES[p] || "?")[0].toUpperCase()}</div><div><b>${NAMES[p]}</b>${sub}</div>`;
 }
 const renderPlates = () => { for (let p = 0; p < 4; p++) renderPlate(p); };
 function setTurn(p){ for (let i = 0; i < 4; i++) $('#pl' + i).classList.toggle('turn', i === p); }
@@ -838,7 +861,6 @@ $('#bSort').onclick = () => {
 addEventListener('keydown', e => {
   if (!$('#ovStart').hidden || e.target.tagName === 'INPUT') return;
   if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); $('#bMain').click(); }
-  else if (e.key === 'h' || e.key === 'H') $('#bHint').click();
   else if (e.key === 'Escape') { ['#ovSet','#ovDeck','#ovRules'].forEach(s => $(s).hidden = true); if (sel >= 0) $('#felt').click(); }
 });
 function humanTurn(){ mode = 'play'; sel = -1; hintMove = null; clearGhosts(); layoutSeat(0); refresh(); return new Promise(r => humanResolve = r); }
@@ -847,6 +869,7 @@ function humanTurn(){ mode = 'play'; sel = -1; hintMove = null; clearGhosts(); l
 function resetTiles(){
   for (let i = 0; i < 28; i++) { const e = els[i].el; e.className = 'tile'; e.style.transition = 'none'; put(i, STACK[0] + (i % 7 - 3) * 1.2, STACK[1] - i * .4, 90, .55, i, false); }
   $('#tiles').offsetWidth; els.forEach(c => c.el.style.transition = '');
+  for (let p = 1; p < 4; p++) layoutFan(p, [], true);
   reveal = false; lastId = -1; chainL = SIZES[0]; offY = (AREA.top + AREA.bot) / 2; clearGhosts(); handOrder = [];
   $('#feltMark').classList.remove('off');
 }
@@ -1031,6 +1054,7 @@ start();
 })();
 
 </script>
+<script src="ads.js"></script>
 <script src="table-ui.js"></script>
 </body>
 </html>

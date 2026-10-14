@@ -11,8 +11,9 @@ import { DurableObject } from "cloudflare:workers";
 import { publicId, cleanName } from "./util.js";
 import mafia from "./games/mafia.js";
 import imposter from "./games/imposter.js";
+import murlan from "./games/murlan.js";
 
-export const GAMES = { mafia, imposter };
+export const GAMES = { mafia, imposter, murlan };
 const MAX_PLAYERS = 30;
 const MSG_WINDOW_MS = 10_000;   // per-socket message budget
 const MSG_MAX = 40;
@@ -60,8 +61,27 @@ export class Room extends DurableObject {
 
   // Rooms delete themselves after ROOM_TTL_MINUTES without any activity (default 6 hours).
   // Long on purpose: in Mafia every phone can stay locked for the whole game night.
+  // One alarm does two jobs: the next move a table has to make by itself (a seat on autopilot,
+  // a turn that ran out of time), and deleting the room after ROOM_TTL_MINUTES of no activity.
+  async schedule() {
+    if (!this.s) return;
+    const game = GAMES[this.s.game];
+    const wake = game.wakeAt ? game.wakeAt(this.s, this.online()) : 0;
+    const ttl = this.s.touched + this.ttl();
+    await this.ctx.storage.setAlarm(wake ? Math.min(wake, ttl) : ttl);
+  }
+
   async alarm() {
     if (!this.s) { await this.ctx.storage.deleteAll(); return; }
+    const game = GAMES[this.s.game];
+    if (game.onTick && Date.now() - this.s.touched < this.ttl()) {
+      let changed = false, failed = false;
+      try { changed = game.onTick(this.s, Date.now(), this.online()); } catch (e) { failed = true; console.error("tick", e && e.stack || e); }
+      if (changed) { await this.ctx.storage.put("s", this.s); this.broadcast(); } // not save(): the table moving alone is not activity
+      if (failed) await this.ctx.storage.setAlarm(Date.now() + 10_000);           // a bug must not spin the alarm
+      else await this.schedule();
+      return;
+    }
     if (Date.now() - this.s.touched >= this.ttl()) {
       for (const w of this.ctx.getWebSockets()) { try { w.send('{"t":"closed"}'); w.close(4004, "room closed"); } catch {} }
       this.s = null;
@@ -93,9 +113,11 @@ export class Room extends DurableObject {
     if (!key) return refuse(4400, "no key");
     if (!name) return refuse(4401, "no name");
 
+    const game = GAMES[s.game];
     let p = s.players.find((x) => x.keys.includes(key) || (alt && x.keys.includes(alt)));
     if (!p) {
-      if (s.players.length >= MAX_PLAYERS) return refuse(4003, "full");
+      if (s.players.length >= (game.maxPlayers || MAX_PLAYERS)) return refuse(4003, "full");
+      if (game.canJoin && !game.canJoin(s)) return refuse(4005, "started");
       let pid;
       do { pid = publicId(); } while (s.players.some((x) => x.pid === pid));
       p = { pid, keys: [], name, joinedRound: s.round };
@@ -111,8 +133,10 @@ export class Room extends DurableObject {
     // One live connection per player: a second tab or a reconnect replaces the old one.
     for (const w of this.ctx.getWebSockets(p.pid)) { try { w.send('{"t":"replaced"}'); w.close(4002, "replaced"); } catch {} }
     this.ctx.acceptWebSocket(server, [p.pid]);
+    if (game.onJoin) game.onJoin(s, p.pid);
     await this.save();
     this.broadcast();
+    await this.schedule();
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -156,7 +180,7 @@ export class Room extends DurableObject {
     const me = s.players.find((x) => x.pid === pid);
     if (!me) { try { ws.close(4001, "not in room"); } catch {} return; }
     const isHost = pid === s.hostPid;
-    const err = (e) => { try { ws.send(JSON.stringify({ t: "error", e })); } catch {} };
+    const err = (e, why) => { try { ws.send(JSON.stringify(why ? { t: "error", e, why } : { t: "error", e })); } catch {} };
 
     let changed = false;
     switch (msg.t) {
@@ -194,13 +218,14 @@ export class Room extends DurableObject {
       }
       default: {
         const r = GAMES[s.game].onMessage(s, { pid, isHost, now: Date.now() }, msg);
-        if (r && r.error) return err(r.error);
+        if (r && r.error) return err(r.error, r.why);
         changed = !!(r && r.changed);
       }
     }
     if (!changed) return;
     await this.save();
     this.broadcast();
+    await this.schedule();
   }
 
   async webSocketClose(ws) {
@@ -214,6 +239,7 @@ export class Room extends DurableObject {
       await this.ctx.storage.put("s", s); // not save(): a dropped phone is not activity
     }
     this.broadcast();
+    await this.schedule();
   }
 
   async webSocketError(ws) {
@@ -225,12 +251,12 @@ export class Room extends DurableObject {
     if (!s) return;
     const online = this.online();
     const now = Date.now();
-    const players = s.players.map((x) => ({ pid: x.pid, name: x.name, online: online.has(x.pid) }));
+    const game = GAMES[s.game];
+    const players = (game.listPlayers && game.listPlayers(s, online)) || s.players.map((x) => ({ pid: x.pid, name: x.name, online: online.has(x.pid) }));
     const base = {
       t: "state", code: s.code, game: s.game, hostPid: s.hostPid, hostOnline: online.has(s.hostPid),
       hostOffAt: s.hostOffAt || 0, hostGraceMs: HOST_GRACE_MS, players, round: s.round, now,
     };
-    const game = GAMES[s.game];
     for (const w of this.ctx.getWebSockets()) {
       if (w.readyState !== 1) continue;
       const pid = this.ctx.getTags(w)[0];

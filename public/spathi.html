@@ -149,9 +149,9 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div class="cnt" id="cS" style="left:214px;top:300px"></div>
   <div class="lbl" style="left:176px;top:440px">TALLONI</div>
   <div class="cnt" id="c1" style="left:1140px;top:198px"></div>
-  <div class="lbl" id="lblOpp" style="left:1104px;top:312px"></div>
+  <div class="lbl" id="lblOpp" style="left:1104px;top:270px"></div>
   <div class="cnt" id="c0" style="left:1140px;top:408px"></div>
-  <div class="lbl" style="left:1104px;top:522px">TI</div>
+  <div class="lbl" style="left:1104px;top:444px">TI</div>
 
   <div class="acts">
     <button class="btn main" id="bPlay" disabled>LUAJ</button>
@@ -556,7 +556,7 @@ function seatPlayers(){
   $('#lblOpp').textContent = s.name;
   applySettings();
 }
-const STOCK = [176, 362], PILES = [[1104, 462], [1104, 252]];
+const STOCK = [176, 362], PILES = [[1104, 386], [1104, 212]];   // capture piles kept above the play buttons
 const TSC = .8;                          // table card scale
 const els = [], pileRot = new Map();
 let mt = null, H = null, gen = 0, fast = false;
@@ -709,7 +709,7 @@ function renderPlates(){
   for (let p = 0; p < 2; p++) {
     const t = H ? H.taken[p] : [];
     const n = t.length, cl = t.filter(S.isClub).length, pts = mt ? mt.scores[p] : 0;
-    $('#pl' + p).innerHTML = `<div class="av" style="background:${AVC[p]}">${NAMES[p][0].toUpperCase()}</div><div><b>${NAMES[p]}</b><span><i>${n}</i> ${n === 1 ? 'letër' : 'letra'} · <i>${cl}</i> ♣ · <i>${pts}</i> pikë</span></div>`;
+    $('#pl' + p).innerHTML = `<div class="av" style="background:${AVC[p]}">${(NAMES[p] || "?")[0].toUpperCase()}</div><div><b>${NAMES[p]}</b><span><i>${n}</i> ${n === 1 ? 'letër' : 'letra'} · <i>${cl}</i> ♣ · <i>${pts}</i> pikë</span></div>`;
   }
 }
 function setTurn(p){ for (let i = 0; i < 2; i++) $('#pl' + i).classList.toggle('turn', i === p); }
@@ -807,7 +807,6 @@ addEventListener('keydown', e => {
   if (e.key === 'Escape') { ['#ovSet','#ovDeck','#ovRules'].forEach(s => $(s).hidden = true); return; }
   if (!$('#ovStart').hidden || !$('#ovEnd').hidden) return;
   if (e.key === 'Enter') $('#bPlay').click();
-  else if (e.key === 'h' || e.key === 'H') $('#bHint').click();
 });
 $('#bSort').onclick = () => { audio(); handOrder = []; relayoutHand(); snap(.2, 2400, .05); };
 function humanTurn(){ mode = 'play'; selCard = -1; selTake.clear(); render(); refresh(); return new Promise(r => humanResolve = r); }
@@ -982,6 +981,7 @@ async function start(){
 start();
 })();
 </script>
+<script src="ads.js"></script>
 <script src="table-ui.js"></script>
 </body>
 </html>

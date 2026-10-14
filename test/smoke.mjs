@@ -43,6 +43,63 @@ function phone(code, name, { k = key(), host = "" } = {}) {
   return p;
 }
 
+async function murlan() {
+  console.log("Murlan");
+  const { M } = await import(new URL("../worker/gen/murlan-engine.js", import.meta.url));
+  const c = await create("murlan");
+  ok(c.status === 200 && c.game === "murlan", `create room (${c.code})`);
+  const a = phone(c.code, "Ana", { host: c.hostToken });
+  await a.open;
+  const b = phone(c.code, "Beni");
+  await b.open;
+  ok(await a.until((S) => S.mur && S.mur.seats.filter(Boolean).length === 2, "2 seats"), "2 phones sit down");
+  a.send({ t: "start" });
+  ok(await a.until((S) => S.mur.phase === "filling", "filling"), "start fills the empty seats");
+  ok(await a.until((S) => S.mur.phase === "play" && S.mur.seats.every(Boolean), "4 seats", 15000), "4 players at the table, cards dealt");
+  const v = a.S.mur;
+  ok(v.hand.length >= 13 && v.counts.reduce((x, y) => x + y, 0) === 54, "own hand + counts add up to 54");
+  ok(!JSON.stringify(a.S).includes('"bot"'), "nothing on the wire says bot");
+  ok(a.S.players.length === 4, "player list shows all 4 seats");
+  const late = phone(c.code, "Vonë");
+  ok(await late.open.then(() => sleep(400)).then(() => late.closed === 4005 || late.msgs.some((m) => m.t === "refused")), "a 5th phone can't join a running table");
+
+  // both phones play until the hand ends; check that nobody ever sees someone else's cards
+  let leak = false, plays = 0;
+  const deal = (S) => S.mur.log.find((e) => e.k === "deal");
+  const playTurn = (p) => {
+    const m = p.S && p.S.mur;
+    if (!m || m.phase !== "play" || m.step !== "turn" || m.cur !== m.me || p.sentSeq === m.seq) return;
+    p.sentSeq = m.seq;
+    const moves = M.allMoves(m.hand, m.top, m.must3);
+    if (!moves.length) return p.send({ t: "play", ids: null });
+    const mv = moves.sort((x, y) => M.size(x) - M.size(y) || x.r - y.r)[0];
+    p.send({ t: "play", ids: M.cardsFor(m.hand, mv, m.must3) }); plays++;
+  };
+  const gift = (p) => {
+    const m = p.S && p.S.mur;
+    if (m && m.step === "gift" && m.exchange && m.exchange.first === m.me && p.giftSeq !== m.seq) { p.giftSeq = m.seq; p.send({ t: "gift", card: m.hand.find((x) => x < 32) ?? m.hand[0] }); }
+  };
+  const t0 = Date.now();
+  let ended = false;
+  while (Date.now() - t0 < 300000) {
+    for (const p of [a, b]) {
+      const m = p.S && p.S.mur;
+      if (m && m.log.some((e) => e.k === "deal" && e.hands)) leak = true;
+      playTurn(p); gift(p);
+    }
+    if (a.S.mur.log.some((e) => e.k === "end")) { ended = true; break; }
+    await sleep(60);
+  }
+  ok(ended, `a full hand is played to the end (${plays} plays by the phones)`);
+  ok(!leak && deal(a.S) && deal(b.S) && JSON.stringify(deal(a.S).hand) !== JSON.stringify(deal(b.S).hand), "each phone only gets its own deal");
+  b.send({ t: "play", ids: [999] });
+  await sleep(300);
+  ok(b.msgs.some((x) => x.t === "error"), "bad moves are refused");
+  b.close();
+  ok(await a.until((S) => S.players.length === 4, "still 4"), "a phone that leaves keeps its seat at the table");
+  a.close(); late.close();
+}
+
 async function mafia() {
   console.log("Mafia");
   const c = await create("mafia");
@@ -212,6 +269,7 @@ async function misc() {
   }
 }
 
+await murlan();
 await mafia();
 await imposter();
 await misc();

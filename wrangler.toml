@@ -7,6 +7,10 @@ main = "worker/index.js"
 compatibility_date = "2026-10-01"
 workers_dev = true
 
+# The room server imports the same game engine as the pages: this copies it into worker/gen.
+[build]
+command = "node scripts/build.mjs"
+
 [assets]
 directory = "./public"
 binding = "ASSETS"
@@ -14,7 +18,7 @@ not_found_handling = "404-page"
 # Only room traffic wakes the Worker; every page, script and image is served as a free static asset.
 run_worker_first = ["/api/*", "/ws/*"]
 
-# One Durable Object per room (Mafia, Imposter), plus one "Guard" for the daily kill switch.
+# One Durable Object per room (Mafia, Imposter, Murlan), plus one "Guard" for the daily kill switch.
 [[durable_objects.bindings]]
 name = "ROOM"
 class_name = "Room"

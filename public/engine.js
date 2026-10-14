@@ -5,7 +5,7 @@
    Kolor index: A = 1 or 14, 2 = 2, otherwise the rank. Jokers never in a row.
    Beating: flush beats everything; a flush only falls to a flush with a higher top card (same top: the longer one).
             bomb beats everything except a higher bomb or a flush.
-            kolor only falls to a kolor of the same length with a higher top card (or a bomb / flush). */
+            kolor only falls to the kolor one step higher with the same length (3-4-5-6-7 -> 4-5-6-7-8 only), or a bomb / flush. */
 const M = (() => {
   const rankOf = id => id >= 52 ? (id === 52 ? 16 : 17) : 3 + (id >> 2);
   const suitOf = id => id >= 52 ? 4 : (id & 3);
@@ -24,7 +24,7 @@ const M = (() => {
     if (top.t === 6) return false;
     if (m.t === 4) return top.t !== 4 || m.r > top.r;
     if (m.t !== top.t) return false;
-    if (m.t === 5 && m.n !== top.n) return false;
+    if (m.t === 5) return m.n === top.n && m.r === top.r + 1;   // house rule: exactly one step higher
     return m.r > top.r;
   }
   function scaleRuns(c, onlyLen, minTop, out) {
@@ -64,7 +64,7 @@ const M = (() => {
     if (top.t === 6) return out;               // only a flush answers a flush
     if (top.t === 1) { for (let r = top.r + 1; r <= 17; r++) if (c[r] >= 1) out.push({ t: 1, r }); }
     else if (top.t === 2 || top.t === 3) { for (let r = top.r + 1; r <= 15; r++) if (c[r] >= top.t) out.push({ t: top.t, r }); }
-    else if (top.t === 5) scaleRuns(c, top.n, top.r, out);
+    else if (top.t === 5) { const k = []; scaleRuns(c, top.n, top.r, k); for (const m of k) if (m.r === top.r + 1) out.push(m); }
     for (let r = 3; r <= 15; r++) if (c[r] === 4 && (top.t !== 4 || r > top.r)) out.push({ t: 4, r });
     return out;
   }
@@ -306,6 +306,7 @@ const G = (() => {
       if (t.t === 6) why = 'Flush-i mundet vetëm nga një flush më i lartë';
       else if (t.t === 4 && m.t !== 4) why = 'Bomba mundet vetëm nga bombë më e lartë ose flush';
       else if (t.t === 5 && m.t === 5 && m.n !== t.n) why = `Duhet kolor me ${t.n} letra, jo ${m.n}`;
+      else if (t.t === 5 && m.t === 5) why = `Kolori mundet vetëm nga ${name({ t: 5, s: t.s + 1, r: t.r + 1, n: t.n })}, bomba ose flush`;
       else if (t.t !== m.t && m.t !== 4) why = 'Duhet i njëjti lloj kombinimi';
       return { ok: false, why };
     }
