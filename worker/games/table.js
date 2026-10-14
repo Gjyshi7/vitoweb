@@ -202,17 +202,20 @@ export function makeTable(spec) {
   }
 
   // one step of a quick-match lobby: somebody sits down, or the table is full and the deal starts
+  // Quick match pacing (Devit's numbers): nobody sits down for the first ~6 s, real people only.
+  // Then players arrive one by one, ~3 s, ~4 s, ~5 s apart. A real person joining resets the clock:
+  // the next one waits another 3-4 s. Full table: deal in a moment.
+  const STEP = [3000, 4000, 5000];
+  const jitter = (ms) => ms + (Math.random() * 800 - 400);
   function fillStep(s, now) {
     const g = s.g;
     syncLobby(s);
     const free = spec.seatList(g.cfg).filter((i) => !g.seats[i]);
     if (!free.length) { g.fillAt = 0; return begin(s, now); }
-    const holding = now < g.holdUntil, held = holding ? Math.min(g.reserve || 0, free.length) : 0;
-    if (free.length === held) { g.fillAt = g.holdUntil; return; }      // only seats we're keeping for someone
     g.seats[free[(Math.random() * free.length) | 0]] = newBot(s);
     g.seq += 1;
-    const late = !holding && g.reserve > 0;                             // they didn't come: don't make anyone wait more
-    g.fillAt = free.length === 1 ? now + gap(600, 1100) : now + (late ? gap(450, 1100) : gap());
+    g.added = (g.added || 0) + 1;
+    g.fillAt = free.length === 1 ? now + gap(700, 1200) : now + jitter(STEP[Math.min(g.added - 1, STEP.length - 1)]);
   }
 
   function autoMove(s, now) {
@@ -247,9 +250,7 @@ export function makeTable(spec) {
     init(opts = {}) {
       return {
         phase: "lobby", cfg: spec.cleanCfg(opts.cfg || {}), pub: !!opts.public, startAt: 0,
-        fillAt: opts.public ? Date.now() + gap(900, 2200) : 0,
-        reserve: opts.public && opts.plan ? Math.max(0, Math.min(3, opts.plan.reserve | 0)) : 0,
-        holdUntil: opts.public && opts.plan ? Date.now() + Math.max(0, Math.min(15_000, opts.plan.hold | 0)) : 0,
+        fillAt: opts.public ? Date.now() + (opts.plan && opts.plan.reserve ? 8_000 : 6_000) : 0,   // a likely player gets a little longer
         seats: [null, null, null, null], mt: null, step: null, actor: -1, due: 0, stepAt: 0, seq: 0, log: [],
       };
     },
@@ -280,9 +281,9 @@ export function makeTable(spec) {
       syncLobby(s);
       g.seq += 1;
       if (g.pub && !had && humansAt(g) > 1) {
-        g.reserve = Math.max(0, (g.reserve || 0) - 1);      // someone we were waiting for (the first person opened the table)
         // full of people: deal in a moment
-        if (spec.seatList(g.cfg).every((i) => g.seats[i])) g.fillAt = Math.min(g.fillAt || Infinity, now + gap(500, 900));
+        if (spec.seatList(g.cfg).every((i) => g.seats[i])) g.fillAt = now + gap(500, 900);
+        else g.fillAt = Math.max(g.fillAt || 0, now + jitter(3500));    // a real person came: don't rush in with players right after
       }
       return true;
     },

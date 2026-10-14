@@ -108,8 +108,8 @@ async function quick() {
   ok(q3.code !== q.code, "other settings get another table");
   const solo = phone(q3.code, "Vetëm");
   await solo.open;
-  ok(await solo.until((S) => S.tbl && S.tbl.seats.filter(Boolean).length === 2, "one more", 4000), "players sit down one at a time");
-  ok(await solo.until((S) => S.tbl && S.tbl.phase === "play", "play", 12000), "the table fills and the match starts on the server");
+  ok(await solo.until((S) => S.tbl && S.tbl.seats.filter(Boolean).length === 2, "one more", 9000), "players sit down one at a time");
+  ok(await solo.until((S) => S.tbl && S.tbl.phase === "play", "play", 25000), "the table fills and the match starts on the server");
   const q4 = await (await fetch(BASE + "/api/quick", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: "domino", cfg: { teams: false } }) })).json();
   ok(q4.code === q3.code, "someone new is sent to the match in progress");
   const late = phone(q4.code, "Vonë");
