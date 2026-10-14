@@ -269,6 +269,7 @@ main{min-width:0;padding:22px 28px 60px}
   <div class="load" id="cabLoad"><b id="cabName"></b><div class="bar"><i></i></div>DUKE HAPUR TAVOLINËN</div>
 </div>
 
+<script src="presence.js"></script>
 <script src="ads.js"></script>
 <script src="cards.js"></script>
 <script>
@@ -417,11 +418,13 @@ function openGame(id){
   f.style.opacity = '0';
   f.onload = () => { f.style.opacity = '1'; $('#cabLoad').hidden = true; try { f.contentWindow.focus(); } catch(e) {} };
   cab.appendChild(f); cab.hidden = false; document.body.style.overflow = 'hidden';
+  if (window.VWP) VWP.pause(true);           // the game page reports for itself now
   try { history.pushState({ game: id }, ''); } catch(e) {}
 }
 function closeGame(fromPop){
   if (cab.hidden) return;
   cab.querySelector('iframe')?.remove(); cab.hidden = true; document.body.style.overflow = '';
+  if (window.VWP) VWP.pause(false);
   renderGrid();
   if (!fromPop) { try { if (history.state && history.state.game) history.back(); } catch(e) {} }
 }

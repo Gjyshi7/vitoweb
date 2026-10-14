@@ -335,6 +335,7 @@ button:focus-visible,.tog:focus-visible{outline:2px solid var(--gold);outline-of
 </div></div>
 
 <script src="cards.js"></script>
+<script src="presence.js"></script>
 <script type="module">
 import { WORDS as WORDLIST } from './imposter-words.js';
 (() => {
@@ -403,6 +404,7 @@ function begin(){
   const imps = new Set(idx.slice(0, Math.min(n, maxImps())));
   const start = Math.random() * names.length | 0;
   R = { cat, word, imps, at: 0, start, secret: S.imps === 0 };
+  if (window.VWP) VWP.played('imposter');
   passTo(0);
 }
 $('#bBegin').onclick = () => { SND.unlock(); begin(); };
@@ -837,7 +839,7 @@ function oRender(){
   const S = O.S;
   if (!S) return;
   if (!S.players.some(p => p.pid === S.me)) return oLeaveLocal();
-  if (S.round !== O.round) { O.round = S.round; O.viewed = false; oCover(); }
+  if (S.round !== O.round) { if (O.round >= 0 && S.card && window.VWP) VWP.played('imposter'); O.round = S.round; O.viewed = false; oCover(); }
   if (O.mode !== 'online') return;
   $('#oHostGone').hidden = isHost() || S.hostOnline !== false;
   const holder = !!S.card;

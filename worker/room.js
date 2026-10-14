@@ -61,7 +61,10 @@ export class Room extends DurableObject {
   async info() {
     if (!this.s) return { ok: false };
     const g = this.s.g || {};
-    return { ok: true, game: this.s.game, players: this.s.players.length, open: GAMES[this.s.game].canJoin ? GAMES[this.s.game].canJoin(this.s) : true, cfg: g.cfg || null };
+    const on = this.online();
+    const seated = Array.isArray(g.seats) ? g.seats.filter((x) => x && !x.bot && on.has(x.pid)).length : this.s.players.length;   // people actually there
+    return { ok: true, game: this.s.game, players: this.s.players.length, humans: seated, phase: g.phase || null,
+      open: GAMES[this.s.game].canJoin ? GAMES[this.s.game].canJoin(this.s) : true, cfg: g.cfg || null };
   }
 
   // Rooms delete themselves after ROOM_TTL_MINUTES without any activity (default 6 hours).
@@ -121,7 +124,8 @@ export class Room extends DurableObject {
     const game = GAMES[s.game];
     let p = s.players.find((x) => x.keys.includes(key) || (alt && x.keys.includes(alt)));
     if (!p) {
-      if (s.players.length >= (game.maxPlayers || MAX_PLAYERS)) return refuse(4003, "full");
+      // table games decide by their seats (a seat a bot holds can go to a person); others by head count
+      if (s.players.length >= (game.canJoin ? 16 : game.maxPlayers || MAX_PLAYERS)) return refuse(4003, "full");
       if (game.canJoin && !game.canJoin(s)) return refuse(4005, "started");
       let pid;
       do { pid = publicId(); } while (s.players.some((x) => x.pid === pid));

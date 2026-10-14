@@ -65,7 +65,7 @@ for (const [pub, gone, out] of [[true, 150_000, true], [true, 30_000, false], [f
   const s = { players: [{ pid: "a", name: "Ana" }, { pid: "b", name: "Beni" }], g: mod.init({ cfg: { teams: true }, public: pub }) };
   mod.onJoin(s, "a", now); mod.onJoin(s, "b", now);
   if (s.g.phase === "lobby") mod.onMessage(s, { pid: "a", isHost: true, now }, { t: "start" });
-  if (s.g.phase === "lobby") { now = s.g.startAt; mod.onTick(s, now, new Set(["a", "b"])); }
+  for (let i = 0; i < 20 && s.g.phase === "lobby"; i++) { now = Math.max(now, mod.wakeAt(s, new Set(["a", "b"]))); mod.onTick(s, now, new Set(["a", "b"])); }
   const away = new Set(["a"]), end = now + gone;
   while (now < end && s.g.phase === "play") { const w = mod.wakeAt(s, away); if (!w) break; now = Math.min(Math.max(now, w), end); mod.onTick(s, now, away); }
   const v = mod.view(s, "b").tbl;
@@ -119,6 +119,33 @@ for (const [pub, gone, out] of [[true, 150_000, true], [true, 30_000, false], [f
   }
   ok(found, "derri: found a turn taking from a person");
   Date.now = realNow;
+}
+// quick match lobby: players sit down one at a time; seats kept for someone likely stay open until the hold ends;
+// a person who arrives later takes a seat (from a bot if need be), also during a match
+{
+  const mod = (await import("../worker/games/murlan.js")).default;
+  let now = 4_000_000; const realNow = Date.now; Date.now = () => now;
+  const s = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: { teams: true }, public: true, plan: { reserve: 1, hold: 6000 } }) };
+  mod.onJoin(s, "a", now);
+  const on = new Set(["a"]), seated = () => s.g.seats.filter(Boolean).length, times = [];
+  const t0 = now;
+  while (s.g.phase === "lobby" && now - t0 < 20_000) { const w = mod.wakeAt(s, on); if (!w) break; now = Math.max(now, w); const n = seated(); mod.onTick(s, now, on); if (seated() > n) times.push(now - t0); }
+  ok(times.length === 3 && times[1] > times[0] && times[2] >= 6000, `lobby: bots arrive one by one, the held seat waits ~6 s (${times.join(", ")} ms)`);
+  ok(s.g.phase === "play", "lobby: the match starts once the table is full");
+  // someone new arrives mid-match: takes a bot's seat
+  s.players.push({ pid: "b", name: "Beni" });
+  ok(mod.canJoin(s), "a match in progress with bots can take a person");
+  mod.onJoin(s, "b", now);
+  const sb = s.g.seats.findIndex((x) => x && x.pid === "b");
+  ok(sb >= 0 && !s.g.seats[sb].bot && mod.view(s, "b").tbl.snap.hand.length > 0, "the newcomer sits in a bot's seat with its cards");
+  // a full lobby of bots: a person still gets in
+  const s2 = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: { teams: true }, public: true }) };
+  mod.onJoin(s2, "a", now);
+  s2.g.fillAt = now; for (let i = 0; i < 3; i++) { mod.onTick(s2, now, on); now += 10; s2.g.fillAt = now; if (s2.g.phase !== "lobby") break; }
+  if (s2.g.phase === "lobby") { s2.players.push({ pid: "c", name: "Cimi" }); mod.onJoin(s2, "c", now); }
+  ok(s2.g.phase !== "lobby" || s2.g.seats.some((x) => x && x.pid === "c"), "lobby full of bots: a person replaces one");
+  Date.now = realNow;
+  if (!fails) console.log(`  ✓ quick match: bots arrive at ${times.join(", ")} ms, newcomers take bot seats`);
 }
 console.log(fails ? `\n${fails} failed` : "\nall passed");
 process.exit(fails ? 1 : 0);

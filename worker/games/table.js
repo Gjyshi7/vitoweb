@@ -3,7 +3,7 @@
 //   lobby and seats, quick match (public tables), turn clock, players who drop, seats that play by
 //   themselves, the event log every phone replays, and what each phone is allowed to see.
 //
-// Phases:  lobby -> play -> over -> (play again | closed)   (or lobby -> solo: only one person at the table, the phone plays it locally)
+// Phases:  lobby -> play -> over -> (play again | closed)
 // Votes:   'choice' after a hand the table must decide on (spec.pending / spec.choose, e.g. Murlan's tie at the target),
 //          'again' when a match ends (anyone can say yes early, during the match). Bots never vote.
 //
@@ -31,7 +31,11 @@ const OFFLINE_MS = 6_000;      // a phone that is gone this long plays its turn 
 const AWAY_PUB_MS = 60_000;    // gone this long at a quick-match table: the seat goes to someone else
 const AWAY_ROOM_MS = 180_000;  // the same at a table with friends
 const END_MS = 9_000;          // result screen between hands
-const PUBLIC_WAIT_MS = 7_000;  // a quick-match table waits this long for people, then starts
+// quick match: people sit down one by one. Seats the Guard expects a real person for (someone on
+// this game's menu, someone who usually plays it) stay open up to plan.hold ms; the rest fill
+// with players at a natural pace. A newcomer always gets in: in the lobby they take a seat from
+// a player who sat down meanwhile, during a match they take over one of those seats.
+const gap = (a = 600, b = 1800) => a + Math.random() * (b - a);
 const LOG_KEEP = 400;
 const GUARD_MS = 900;          // a card is about to be taken from a person's hand: their hand settles first
 const HOLD_MS = 3_000;         // "PRIT": the holder asks for this long to rearrange, once per turn
@@ -68,7 +72,8 @@ export function makeTable(spec) {
     });
     for (const p of s.players) {
       if (seatOf(g, p.pid) >= 0) continue;
-      const free = list.find((i) => !g.seats[i]);
+      let free = list.find((i) => !g.seats[i]);
+      if (free === undefined && g.pub) { const b = list.filter((i) => g.seats[i] && g.seats[i].bot); free = b[(Math.random() * b.length) | 0]; }
       if (free === undefined) break;
       g.seats[free] = { pid: p.pid, bot: false };
     }
@@ -97,10 +102,6 @@ export function makeTable(spec) {
     const g = s.g;
     syncLobby(s);
     fillSeats(s);
-    if (humansAt(g) < 2) {                       // nobody else came: this phone plays the table itself
-      g.phase = "solo"; g.due = 0; g.seq += 1;
-      return;
-    }
     startMatch(s, now);
   }
   function startMatch(s, now) {
@@ -199,9 +200,23 @@ export function makeTable(spec) {
     delete g.away[x.pid];
   }
 
+  // one step of a quick-match lobby: somebody sits down, or the table is full and the deal starts
+  function fillStep(s, now) {
+    const g = s.g;
+    syncLobby(s);
+    const free = spec.seatList(g.cfg).filter((i) => !g.seats[i]);
+    if (!free.length) { g.fillAt = 0; return begin(s, now); }
+    const holding = now < g.holdUntil, held = holding ? Math.min(g.reserve || 0, free.length) : 0;
+    if (free.length === held) { g.fillAt = g.holdUntil; return; }      // only seats we're keeping for someone
+    g.seats[free[(Math.random() * free.length) | 0]] = newBot(s);
+    g.seq += 1;
+    const late = !holding && g.reserve > 0;                             // they didn't come: don't make anyone wait more
+    g.fillAt = free.length === 1 ? now + gap(600, 1100) : now + (late ? gap(450, 1100) : gap());
+  }
+
   function autoMove(s, now) {
     const g = s.g;
-    if (g.phase === "lobby") return begin(s, now);
+    if (g.phase === "lobby") return g.pub ? fillStep(s, now) : begin(s, now);
     if (g.phase === "over") return settle(s, now, true);
     if (g.phase !== "play") return;
     if (g.step === "choice") return settle(s, now, true);
@@ -214,7 +229,7 @@ export function makeTable(spec) {
 
   function wakeAt(s, online) {
     const g = s.g;
-    if (g.phase === "lobby") return g.pub && online.size ? g.startAt : 0;
+    if (g.phase === "lobby") return g.pub && online.size ? g.fillAt : 0;
     if ((g.phase !== "play" && g.phase !== "over") || !g.due) return 0;
     const someone = g.seats.some((x) => x && !x.bot && online.has(x.pid));
     if (!someone) return 0;                      // nobody watching: the table waits for them
@@ -230,23 +245,44 @@ export function makeTable(spec) {
 
     init(opts = {}) {
       return {
-        phase: "lobby", cfg: spec.cleanCfg(opts.cfg || {}), pub: !!opts.public, startAt: opts.public ? Date.now() + PUBLIC_WAIT_MS : 0,
+        phase: "lobby", cfg: spec.cleanCfg(opts.cfg || {}), pub: !!opts.public, startAt: 0,
+        fillAt: opts.public ? Date.now() + gap(900, 2200) : 0,
+        reserve: opts.public && opts.plan ? Math.max(0, Math.min(3, opts.plan.reserve | 0)) : 0,
+        holdUntil: opts.public && opts.plan ? Date.now() + Math.max(0, Math.min(15_000, opts.plan.hold | 0)) : 0,
         seats: [null, null, null, null], mt: null, step: null, actor: -1, due: 0, stepAt: 0, seq: 0, log: [],
       };
     },
 
     canJoin(s) {
-      const g = s.g;
-      return g.phase === "lobby" && spec.seatList(g.cfg).some((i) => !g.seats[i]);
+      const g = s.g, list = spec.seatList(g.cfg);
+      if (g.phase === "lobby") return list.some((i) => !g.seats[i] || (g.pub && g.seats[i].bot));
+      return g.pub && g.phase === "play" && list.some((i) => g.seats[i] && g.seats[i].bot);
     },
 
     onJoin(s, pid, now) {
       const g = s.g;
+      now = now || Date.now();
+      if (g.phase === "play") {
+        // a match in progress: take over one of the seats a bot holds (not the one whose turn it is)
+        if (!g.pub || seatOf(g, pid) >= 0 || (g.left && g.left.includes(pid))) return false;
+        const bots = spec.seatList(g.cfg).filter((i) => g.seats[i] && g.seats[i].bot);
+        if (!bots.length) return false;
+        const calm = bots.filter((i) => i !== g.actor), pickFrom = calm.length ? calm : bots;
+        const i = pickFrom[(Math.random() * pickFrom.length) | 0];
+        g.seats[i] = { pid, bot: false, color: g.seats[i].color };
+        if (g.actor === i && g.due < now + 4000) { g.due = now + turnMs; g.stepAt = now; }
+        g.seq += 1;
+        return true;
+      }
       if (g.phase !== "lobby") return false;
+      const had = seatOf(g, pid) >= 0;
       syncLobby(s);
       g.seq += 1;
-      // a public table that just filled up starts at once
-      if (g.pub && spec.seatList(g.cfg).every((i) => g.seats[i])) begin(s, now || Date.now());
+      if (g.pub && !had && humansAt(g) > 1) {
+        g.reserve = Math.max(0, (g.reserve || 0) - 1);      // someone we were waiting for (the first person opened the table)
+        // full of people: deal in a moment
+        if (spec.seatList(g.cfg).every((i) => g.seats[i])) g.fillAt = Math.min(g.fillAt || Infinity, now + gap(500, 900));
+      }
       return true;
     },
 

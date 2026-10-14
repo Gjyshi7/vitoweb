@@ -146,6 +146,7 @@ function NETWORK(G){
     $('#mHome').hidden = which !== 'home';
     $('#mRoom').hidden = which !== 'room';
     $('#mRulesSec').hidden = which !== 'rules';
+    if (window.VWP) VWP.set(G.game, which === 'none' ? 'play' : which === 'room' ? (N.quick ? 'search' : 'room') : 'menu');
   }
   function err(t, two){ $(two ? '#mErr2' : '#mErr').textContent = t || ''; }
   function renderModes(){ document.querySelectorAll('#mMode button').forEach(b => b.classList.toggle('on', +b.dataset.i === N.mode)); }
@@ -258,6 +259,7 @@ function NETWORK(G){
   }
   function local(seats){
     show('none'); N.table = true;
+    if (window.VWP) VWP.played(G.game);
     const others = seats || PLAYERS.seats(G.seatsFor(cfgNow()).length - 1).map(s => ({ name: s.name, fem: s.fem, color: s.color }));
     G.onLocal(cfgNow(), [{ name: 'Ti', fem: false, color: '#b02a63' }, ...others]);
   }
@@ -354,7 +356,7 @@ function NETWORK(G){
     }
     if (t.phase === 'closed') return leave('Loja mbaroi.');
     if (t.out) return leave(t.why === 'away' ? AWAY_MSG : '');
-    if (!N.table) { N.table = true; show('none'); }
+    if (!N.table) { N.table = true; show('none'); if (window.VWP) VWP.played(G.game); }
     G.onTable(t, S);
     voteUI();
   }

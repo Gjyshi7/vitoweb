@@ -9,7 +9,11 @@ The hub with 6 games (Murlan, Spathi, Derri në dorë, Domino, Imposter, Mafia) 
 | `public/net.js` | Start menu (Luaj online / Krijo dhomë / Hyr), rooms and the connection, shared by the 4 table games. Sits outside the rotated table, so the keyboard is right on an upright phone. |
 | `public/hand.js` | Your hand in every table game: drag sideways to reorder, drag the selected cards up onto the table to play. One finger only; a second finger cancels. |
 | `public/*-engine.js` | The rules of each table game. The server runs the same files (copied to `worker/gen/`). |
-| `worker/games/table.js` | The shared table server: seats, quick match, turn clock (30 s), seats that play by themselves, what each phone may see. `murlan.js`, `spathi.js`, `derri.js`, `domino.js` only describe their rules. |
+| `worker/games/table.js` | The shared table server: seats, quick match, turn clock (15 s, Derri 20 s), seats that play by themselves, what each phone may see, end-of-match votes, people who are gone too long. `murlan.js`, `spathi.js`, `derri.js`, `domino.js` only describe their rules. |
+| `worker/guard.js` | Daily room cap, plus presence (who is on the site, where, what they usually play) and the quick-match table lists, in its SQLite storage. |
+| `public/presence.js` | Every page reports where it is every 25 s; the phone keeps its own play counts. |
+
+**Quick match.** A new table gets a plan from the Guard: how many real people are likely to sit down soon (someone on that game's start screen, someone on the main page who often plays it). Those seats stay open for 4-10 s; the other seats fill with players one at a time. Anyone who arrives later still gets in: in the lobby they take a seat a bot took meanwhile, during a match they take over a bot's seat with its cards. A newcomer is sent to a running match only if a person is there.
 | `test/sim.mjs` | Plays whole matches of the 4 table games on the server rules with a fake clock and checks no phone ever gets someone else's cards. `node test/sim.mjs` |
 | `public/players.js` | Names and pace of the other players at the card tables (shared by every game and the server). |
 | `public/table-ui.js` | Top bar (RENDIT, PAUZË), pause menu and the big play buttons, shared by the 4 table games. |

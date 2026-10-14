@@ -3,6 +3,7 @@
 // This code only runs for /api/* and /ws/* (see run_worker_first in wrangler.toml):
 //   POST /api/create            {game, cfg}  -> {code, hostToken, game}   new private room
 //   POST /api/quick             {game, cfg}  -> {code, game}              a public table to sit at (quick match)
+//   POST /api/presence          {where, state, hist} -> {all, by}         this page is open (see public/presence.js)
 //   GET  /api/room/CODE                 -> {ok, game}                does the room exist, which game
 //   GET  /ws/CODE?name=&k=&host=        -> websocket into the room
 //   GET  /api/health                    -> {ok}
@@ -124,16 +125,33 @@ async function route(req, env, url) {
     const cfg = GAMES[game].init({ cfg: body.cfg && typeof body.cfg === "object" ? body.cfg : {} }).cfg;
     const key = game + ":" + JSON.stringify(cfg);
     const guard = env.GUARD.get(env.GUARD.idFromName("guard"));
-    const open = await guard.findPublic(key);
-    if (open) {
-      const info = await env.ROOM.get(env.ROOM.idFromName(open)).info();
-      if (info.ok && info.open) return withCookie(json({ code: open, game }));
-      await guard.closePublic(key, open);
+    // a table still filling up first; else a match in progress with a seat a bot holds (most people first)
+    let lobby = null, live = null;
+    for (const code of await guard.findPublic(key)) {
+      const info = await env.ROOM.get(env.ROOM.idFromName(code)).info();
+      if (!info.ok || !info.open) { await guard.closePublic(key, code); continue; }
+      if (info.phase === "lobby") { lobby = code; break; }
+      if (info.phase === "play" && info.humans > 0 && (!live || info.humans > live.humans)) live = { code, humans: info.humans };   // only to meet someone
     }
-    const r = await newRoom(env, game, { cfg, public: true });
+    const pick = lobby || (live && live.code);
+    if (pick) return withCookie(json({ code: pick, game }));
+    const plan = await guard.plan(game, gid);
+    const r = await newRoom(env, game, { cfg, public: true, plan });
     if (!r.code) return withCookie(json(r, 503));
     await guard.addPublic(key, r.code);
     return withCookie(json({ code: r.code, game }));
+  }
+
+  // presence: every open page says where it is (see public/presence.js); answers with how many are online
+  if (path === "/api/presence") {
+    if (req.method !== "POST") return json({ error: "method" }, 405);
+    if (badOrigin(req, url)) return json({ error: "origin" }, 403);
+    if (await limited(env.RL_IP, "ip:" + ip)) return withCookie(json({ error: "slow_down" }, 429));
+    let body = {};
+    try { body = await req.json(); } catch {}
+    const guard = env.GUARD.get(env.GUARD.idFromName("guard"));
+    await guard.seen(gid, body);
+    return withCookie(json(await guard.online()));
   }
 
   const rm = path.match(/^\/api\/room\/([A-Z]{4})$/);
