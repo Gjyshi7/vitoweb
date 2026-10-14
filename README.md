@@ -13,7 +13,7 @@ The hub with 6 games (Murlan, Spathi, Derri në dorë, Domino, Imposter, Mafia) 
 | `worker/guard.js` | Daily room cap, plus presence (who is on the site, where, what they usually play) and the quick-match table lists, in its SQLite storage. |
 | `public/presence.js` | Every page reports where it is every 25 s; the phone keeps its own play counts. |
 
-**Quick match.** A new table gets a plan from the Guard: how many real people are likely to sit down soon (someone on that game's start screen, someone on the main page who often plays it). Those seats stay open for 4-10 s; the other seats fill with players one at a time. Anyone who arrives later still gets in: in the lobby they take a seat a bot took meanwhile, during a match they take over a bot's seat with its cards. A newcomer is sent to a running match only if a person is there.
+**Quick match.** A new table gets a plan from the Guard: how many real people are likely to sit down soon (someone on that game's start screen, someone on the main page who often plays it). Those seats stay open for 4-10 s; the other seats fill with players one at a time. Anyone who arrives later still gets in: in the lobby they take a seat a bot took meanwhile; a match that has only just been dealt (fewer than 2 moves) can still give them a bot's seat. Once cards are being played, nobody new sits down.
 | `test/sim.mjs` | Plays whole matches of the 4 table games on the server rules with a fake clock and checks no phone ever gets someone else's cards. `node test/sim.mjs` |
 | `public/players.js` | Names and pace of the other players at the card tables (shared by every game and the server). |
 | `public/table-ui.js` | Top bar (RENDIT, PAUZË), pause menu and the big play buttons, shared by the 4 table games. |

@@ -107,7 +107,7 @@ export function makeTable(spec) {
   function startMatch(s, now) {
     const g = s.g;
     g.mt = spec.newMatch(g.cfg);
-    g.phase = "play";
+    g.phase = "play"; g.acts = 0;
     dealHand(s, now);
   }
   function dealHand(s, now) {
@@ -144,6 +144,7 @@ export function makeTable(spec) {
     const g = s.g;
     const r = spec.act(g.mt, seat, step, msg, emitter(g));
     if (r && r.error) return r;
+    g.acts = (g.acts || 0) + 1;
     nextTurn(s, now + ((r && r.wait) || 0));
     return { ok: true };
   }
@@ -201,6 +202,7 @@ export function makeTable(spec) {
     delete g.away[x.pid];
   }
 
+  const fresh = (g) => (g.acts || 0) < 2;
   // one step of a quick-match lobby: somebody sits down, or the table is full and the deal starts
   // Quick match pacing (Devit's numbers): nobody sits down for the first ~6 s, real people only.
   // Then players arrive one by one, ~3 s, ~4 s, ~5 s apart. A real person joining resets the clock:
@@ -258,7 +260,8 @@ export function makeTable(spec) {
     canJoin(s) {
       const g = s.g, list = spec.seatList(g.cfg);
       if (g.phase === "lobby") return list.some((i) => !g.seats[i] || (g.pub && g.seats[i].bot));
-      return g.pub && g.phase === "play" && list.some((i) => g.seats[i] && g.seats[i].bot);
+      // a match that has only just been dealt (nobody has really played yet) can still take a person
+      return g.pub && g.phase === "play" && fresh(g) && list.some((i) => g.seats[i] && g.seats[i].bot);
     },
 
     onJoin(s, pid, now) {
@@ -266,7 +269,7 @@ export function makeTable(spec) {
       now = now || Date.now();
       if (g.phase === "play") {
         // a match in progress: take over one of the seats a bot holds (not the one whose turn it is)
-        if (!g.pub || seatOf(g, pid) >= 0 || (g.left && g.left.includes(pid))) return false;
+        if (!g.pub || !fresh(g) || seatOf(g, pid) >= 0 || (g.left && g.left.includes(pid))) return false;
         const bots = spec.seatList(g.cfg).filter((i) => g.seats[i] && g.seats[i].bot);
         if (!bots.length) return false;
         const calm = bots.filter((i) => i !== g.actor), pickFrom = calm.length ? calm : bots;
