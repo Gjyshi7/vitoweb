@@ -28,6 +28,10 @@ input:focus{border-color:var(--accent)}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
 .btn.red{background:var(--mafia);color:#fff}
 .btn:disabled{opacity:.35;cursor:not-allowed}
+.backroom{display:flex;align-items:center;gap:10px;margin-top:18px;padding:12px 12px 12px 16px;border-radius:14px;border:1px solid var(--line)}
+.backroom.hidden{display:none}
+.backroom span{flex:1;font-size:15px}
+.backroom .x{background:none;border:0;color:inherit;opacity:.6;font-size:22px;padding:4px 8px;cursor:pointer}
 .row{display:flex;gap:10px;align-items:center}
 .stack>*+*{margin-top:12px}
 .mute{color:var(--mute)}
@@ -155,6 +159,7 @@ input:focus{border-color:var(--accent)}
     <button class="btn ghost" id="joinBtn" style="width:auto;padding:15px 22px">Hyr</button>
   </div>
   <p class="warn" id="homeErr"></p>
+  <div class="backroom hidden" id="backRoom"><span id="backTxt"></span><button class="btn" id="backGo" style="width:auto;padding:11px 18px">Kthehu</button><button class="x" id="backNo" aria-label="Harroje">×</button></div>
 </section>
 
 <!-- LOBBY -->
@@ -330,13 +335,13 @@ document.addEventListener("visibilitychange", ()=>{ if (document.visibilityState
 window.addEventListener("online", ()=>{ if (room) { retry=0; connect(); } });
 
 function enter(code){
-  room = code; store.set("room", code);
+  room = code; store.set("room", code); store.set("roomAt", Date.now()); $("backRoom").classList.add("hidden");
   const u = new URL(location.href); u.search = "?r="+code; history.replaceState(null,"",u);
   show("lobby"); $("codeTxt").textContent = code; connect();
 }
 function leaveLocal(msg){
   wantOpen = false; if (ws) ws.close(); ws=null; S=null;
-  store.del("room"); room=null;
+  store.del("room"); store.del("roomAt"); room=null;
   history.replaceState(null,"",location.pathname);
   $("hostGone").classList.add("hidden");
   show("home"); setNet("off"); if (msg) toast(msg);
@@ -508,7 +513,21 @@ function render(){
 /* ---------- boot ---------- */
 (function boot(){
   const q = new URLSearchParams(location.search).get("r");
-  const code = (q || store.get("room","") || "").toUpperCase();
+  const saved = (store.get("room","") || "").toUpperCase();
+  // a room from an earlier visit: back in only if the page was closed a few minutes ago;
+  // otherwise the start screen, with a small "Kthehu" if that room is still open
+  if (!q && /^[A-Z]{4}$/.test(saved) && Date.now() - (store.get("roomAt", 0) || 0) > 20*60_000) {
+    show("home");
+    fetch("/api/room/"+saved).then(r=>r.json()).then(j=>{
+      if (!j.ok || (j.game && j.game !== "mafia")) { store.del("room"); store.del("roomAt"); return; }
+      $("backTxt").textContent = `Dhoma ${saved} është ende e hapur`;
+      $("backRoom").classList.remove("hidden");
+      $("backGo").onclick = () => enter(saved);
+      $("backNo").onclick = () => { store.del("room"); store.del("roomAt"); $("backRoom").classList.add("hidden"); };
+    }).catch(()=>{});
+    return;
+  }
+  const code = (q || saved || "").toUpperCase();
   if (/^[A-Z]{4}$/.test(code)) {
     fetch("/api/room/"+code).then(r=>r.json()).then(j=>{
       if (j.ok && j.game && j.game !== "mafia") { store.del("room"); if (q) { location.href = j.game + "?r=" + code; return; } show("home"); return; }

@@ -207,7 +207,6 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div id="myTurn"></div>
   <div class="acts">
     <button class="btn left" id="bWait">PRIT</button>
-    <button class="btn main" id="bRand" disabled>RASTËSISHT</button>
   </div>
 
   <div class="ov" id="ovRules" hidden><div class="panel rules">
@@ -567,7 +566,6 @@ async function showPair(p, ids, my){
 
 /* ---------- your turn: tap a card from the hand in the middle (or RASTËSISHT) ---------- */
 function refresh(){
-  $('#bRand').disabled = mode !== 'pick';
   const w = $('#bWait');
   w.style.visibility = LK.on && (!LK.used || LK.held) ? '' : 'hidden';
   w.textContent = LK.held ? 'GATI' : 'PRIT'; w.classList.toggle('hot', LK.held);
@@ -584,11 +582,9 @@ function choose(idx){
   if (pickBlocked()) return;
   mode = 'idle'; refresh(); const r = humanResolve; humanResolve = null; r(idx);
 }
-$('#bRand').onclick = () => { audio(); if (mode === 'pick') choose((Math.random() * H.hands[pickSrc].length) | 0); };
 $('#bWait').onclick = () => { audio(); LK.held ? endHold(true) : startHold(); };
 addEventListener('keydown', e => {
   if (!$('#menu') || !$('#menu').hidden) return;
-  if (e.key === 'Enter') $('#bRand').click();
 });
 const relayoutHand = () => { if (H) layoutSeat(0); };
 

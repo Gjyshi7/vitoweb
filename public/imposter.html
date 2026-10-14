@@ -628,7 +628,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('online', () => { if (O.room) { O.retry = 0; oConnect(); } });
 
 function oEnter(code){
-  O.room = code; ost.set('room', code);
+  O.room = code; ost.set('room', code); ost.set('roomAt', Date.now());
   const u = new URL(location.href); u.search = '?r=' + code; history.replaceState(null, '', u);
   $('#oCodeTxt').textContent = code;
   if (O.mode !== 'online') setMode('online'); else show('sOnLobby');
@@ -637,7 +637,7 @@ function oEnter(code){
 function oLeaveLocal(msg){
   O.want = false; if (O.ws) try { O.ws.close(); } catch(e) {}
   O.ws = null; O.S = null; O.room = null; O.round = -1;
-  ost.del('room');
+  ost.del('room'); ost.del('roomAt');
   history.replaceState(null, '', location.pathname);
   $('#oHostGone').hidden = true; setNet(false);
   if (O.mode === 'online') { $('#oName').value = savedName(); show('sOnHome'); }
@@ -853,7 +853,14 @@ function oRender(){
 /* ---------- start: ?r=CODE link, a room we were in, or the last mode used ---------- */
 (async function oBoot(){
   const q = (new URLSearchParams(location.search).get('r') || '').toUpperCase();
-  const code = q || String(ost.get('room', '') || '').toUpperCase();
+  // a room from an earlier visit only reopens by itself if the page was closed a few minutes ago;
+  // later you start fresh (the code stays filled in on the online screen)
+  const saved = String(ost.get('room', '') || '').toUpperCase();
+  if (!q && saved && Date.now() - (ost.get('roomAt', 0) || 0) > 20 * 60_000) {
+    ost.del('room'); ost.del('roomAt');
+    setMode(ost.get('mode', 'one') === 'online' ? 'online' : 'one'); $('#oCode').value = saved; return;
+  }
+  const code = q || saved;
   if (!/^[A-Z]{4}$/.test(code)) { setMode(ost.get('mode', 'one') === 'online' ? 'online' : 'one'); return; }
   setMode('online');
   try {
