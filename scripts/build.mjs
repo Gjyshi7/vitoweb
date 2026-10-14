@@ -7,6 +7,9 @@ const root = new URL("..", import.meta.url);
 const jobs = [
   ["public/engine.js", "worker/gen/murlan-engine.js", "M, G"],
   ["public/players.js", "worker/gen/players.js", "PLAYERS"],
+  ["public/spathi-engine.js", "worker/gen/spathi-engine.js", "S"],
+  ["public/derri-engine.js", "worker/gen/derri-engine.js", "E"],
+  ["public/domino-engine.js", "worker/gen/domino-engine.js", "E"],
 ];
 let changed = 0;
 for (const [src, out, names] of jobs) {

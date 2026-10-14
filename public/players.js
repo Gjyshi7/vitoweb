@@ -81,7 +81,7 @@ const PLAYERS = (() => {
       if (s.name.length > 15 || s.name.length < 3 || used.has(k)) continue;
       used.add(k);
       // each player has their own pace: some are quick, some take their time
-      out.push({ ...s, color: cols[out.length % cols.length], speed: .72 + R() * .7 });
+      out.push({ ...s, color: cols[out.length % cols.length], speed: .88 + R() * .24 });
     }
     remember(recent().concat(out.map(s => s.name)));
     return out;
@@ -93,15 +93,16 @@ const PLAYERS = (() => {
     const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
     return median * Math.exp(sigma * z);
   }
+  // usually 1–1.5 s, now and then quicker or around 2 s, never more than 2.5 s
+  const MAX = 2500;
   function think(pl, c = {}){
     const sp = (pl && pl.speed) || 1;
-    if (c.forced) return Math.min(2600, Math.max(650, lognorm(1100, .35) * sp));      // nothing to decide
-    let t = lognorm(1500, .42);
-    t += Math.min(c.options || 1, 12) * 110;                                         // more choices, longer look
-    if (c.first) t += 600 + R() * 1000;                                               // sorting the new hand
-    if (c.hard) t += 500 + R() * 900;                                                 // a big decision (bomb, last cards)
-    if (chance(.05)) t += 2200 + R() * 3500;                                          // got distracted
-    return Math.min(9000, Math.max(800, t * sp));
+    if (c.forced) return Math.min(1400, Math.max(550, lognorm(850, .25) * sp));
+    let t = lognorm(1150, .26);
+    t += Math.min(c.options || 1, 10) * 12;
+    if (c.first) t += 150 + R() * 250;
+    if (c.hard) t += 80 + R() * 180;
+    return Math.min(MAX, Math.max(600, t * sp));
   }
 
   return { seats, think, one };

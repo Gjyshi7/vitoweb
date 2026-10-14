@@ -1,9 +1,9 @@
-/* ===== Table controls, shared by every card/tile game =====
-   The top bar used to hold six small icons. Now it keeps only two labelled buttons: RENDIT (sort,
-   where the game has it) and PAUZË. Everything else (rules, look at the deck, sound, full screen,
-   settings, leave) lives in the pause menu, with words, not just icons. No hint button: you play your own hand.
-   The play buttons at the bottom right are big, one under the other, so a thumb finds them without looking.
-   It only re-arranges the game's own buttons and clicks them, so each game keeps its own logic.
+/* ===== Table controls, shared by the four table games =====
+   Top bar:    ‹ back · game · score chip ········ status ········ full screen · RENDIT · PAUZË
+   Bottom:     the "nothing to play" button on the left (PAS), the play button on the right (LUAJ).
+               Your hand sits between them. Your own score lives in the top bar, not on a plate.
+   Pause menu: rules, the deck, sound, full screen, settings, leave the table.
+   This file only re-arranges each game's own buttons and clicks them; the game keeps its logic.
    Load it after the game's script. */
 (() => {
   const $ = s => document.querySelector(s);
@@ -12,27 +12,36 @@
 
   const css = document.createElement('style');
   css.textContent = `
-.top{height:56px}
-.top .r{gap:10px}
+.top{height:58px!important;z-index:450}
+.top .l{min-width:0!important;gap:14px!important}
+.top .r{min-width:0!important;gap:10px!important}
 .top .l .ib{width:56px;height:48px;border-radius:12px}
-.top .l .ib svg{width:28px;height:28px}
+.top .l .ib svg,.top .r .ib svg{width:26px;height:26px}
 .top .r .ib.hideTop{display:none}
-.top .r .ib.keep{width:auto;height:46px;padding:0 16px 0 12px;gap:8px;display:flex;align-items:center;border-radius:12px;
-  color:var(--ink);font:700 17px var(--f-ui, system-ui);letter-spacing:.06em;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
-.top .r .ib.keep svg{width:24px;height:24px}
-/* play buttons: one column, big */
+.top .r .ib{width:54px;height:46px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.top .r .ib.tlbl{width:auto;padding:0 16px 0 12px;gap:8px;display:flex;align-items:center;font:700 17px var(--f-ui, system-ui);letter-spacing:.06em}
+.top .r .ib.tlbl svg{width:22px;height:22px}
+.meta{display:flex;align-items:center;gap:10px;height:40px;padding:0 14px;border-radius:12px;background:rgba(255,255,255,.06);
+  font:600 17px var(--f-ui, system-ui)!important;letter-spacing:.04em!important;color:var(--sub)!important;white-space:nowrap}
+.meta:empty{display:none}
+.meta b{color:var(--ink);font-size:21px;font-weight:700;margin-left:4px;font-variant-numeric:tabular-nums}
+.meta i{font-style:normal;opacity:.45}
+.meta .us b{color:var(--pink)}
+.status{font-size:20px!important;max-width:470px;overflow:hidden;text-overflow:ellipsis}
+#pl0{display:none!important}
 #bHint{display:none!important}
-.acts{right:22px!important;bottom:16px!important;width:262px!important;grid-template-columns:1fr!important;gap:12px!important}
-.acts .btn{height:84px;font-size:27px;border-radius:18px}
-.acts .btn.main{height:110px;font-size:38px;border-radius:20px}
-.acts .btn:disabled{opacity:1;color:rgba(255,255,255,.28);background:rgba(14,22,38,.72);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.07)}
+.acts{left:22px!important;right:22px!important;width:auto!important;bottom:16px!important;display:flex!important;justify-content:space-between;align-items:flex-end;pointer-events:none;gap:0!important}
+.acts .btn{pointer-events:auto;width:250px;height:100px;border-radius:20px;font-size:30px;order:1}
+.acts .btn.main{order:2;font-size:36px}
+.acts .btn.left{order:1}
+.acts .btn.hot:not(:disabled){color:#fff;background:linear-gradient(#f06a92,var(--pink) 45%,var(--pink-dk));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 18px rgba(176,42,99,.35)}
+.acts .btn:disabled{opacity:1;color:rgba(255,255,255,.26);background:rgba(14,22,38,.7);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.07)}
 .acts .btn:not(:disabled):active{transform:scale(.96)}
-#ovMenu .panel{width:520px;padding:26px 28px}
-#ovMenu h2{margin:0 0 6px;font:800 30px var(--f-ui, system-ui);color:var(--ink)}
-#ovMenu .sub{margin:0 0 14px;color:var(--sub);font:500 17px var(--f-ui, system-ui)}
-#ovMenu .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-#ovMenu .mb{height:58px;border:0;border-radius:14px;display:flex;align-items:center;gap:10px;padding:0 16px;cursor:pointer;
-  background:rgba(255,255,255,.07);color:var(--ink);font:700 18px var(--f-ui, system-ui);text-align:left}
+#ovMenu .panel{width:540px;padding:26px 28px}
+#ovMenu h2{margin:0 0 16px;font:800 30px var(--f-ui, system-ui);color:var(--ink)}
+#ovMenu .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+#ovMenu .mb{height:60px;border:0;border-radius:14px;display:flex;align-items:center;gap:10px;padding:0 16px;cursor:pointer;
+  background:rgba(255,255,255,.07);color:var(--ink);font:700 19px var(--f-ui, system-ui);text-align:left}
 #ovMenu .mb svg{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #ovMenu .mb.danger{color:#ff9db8}
 #ovMenu .mb:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
@@ -47,39 +56,44 @@
     full: '<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
     set: '<svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
     exit: '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
-    play: '<svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>',
   };
 
-  // top bar: sort (if any) + ? + pause; the rest goes into the menu
-  const bSort = top.querySelector('#bSort');
-  if (bSort) { bSort.classList.add('keep'); bSort.insertAdjacentHTML('beforeend', '<span>RENDIT</span>'); }
-  ['#bRules', '#bDeck', '#bSound', '#bFull', '#bSet'].forEach(id => { const b = top.querySelector(id); if (b) b.classList.add('hideTop'); });
+  // top bar: RENDIT (where the game sorts), full screen, PAUZË. The rest goes into the pause menu.
+  const bSort = document.querySelector('#bSort');
+  if (bSort) {
+    bSort.classList.add('tlbl');
+    if (!bSort.closest('.top')) { bSort.classList.remove('btn'); bSort.classList.add('ib'); bSort.innerHTML = ''; }
+    bSort.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h9M4 12h6M4 18h3M17 5v14M14 16l3 3 3-3"/></svg><span>RENDIT</span>';
+    top.prepend(bSort);
+  }
+  ['#bRules', '#bDeck', '#bSound', '#bSet'].forEach(id => { const b = top.querySelector(id); if (b) b.classList.add('hideTop'); });
+  const bFull = $('#bFull');
+  if (bFull && !bFull.hidden) top.appendChild(bFull);
 
   const bMenu = document.createElement('button');
-  bMenu.className = 'ib keep'; bMenu.id = 'bMenu'; bMenu.type = 'button';
-  bMenu.setAttribute('aria-label', 'Pauzë dhe menuja'); bMenu.title = 'Pauzë';
-  bMenu.innerHTML = ICON.pause + '<span>PAUZË</span>';
+  bMenu.className = 'ib tlbl'; bMenu.id = 'bMenu'; bMenu.type = 'button';
+  bMenu.setAttribute('aria-label', 'Pauzë'); bMenu.innerHTML = ICON.pause + '<span>PAUZË</span>';
   top.appendChild(bMenu);
 
-  // the menu sits under the game's own panels (rules, settings), so they open on top of it
+  // pause menu, under the game's own panels (rules, settings) so they open on top of it
   const ov = document.createElement('div');
   ov.className = 'ov'; ov.id = 'ovMenu'; ov.hidden = true;
   const deckLabel = ($('#bDeck') && $('#bDeck').getAttribute('aria-label')) || 'Shiko letrat';
   const rows = [
     ['rules', 'Rregullat', '#bRules'],
     ['deck', deckLabel, '#bDeck'],
-    ['sound', 'Zëri', '#bSound', true],
+    ['sound', 'Zëri', '#bSound'],
     ['full', 'Ekran i plotë', '#bFull'],
     ['set', 'Cilësimet', '#bSet'],
-    ['exit', 'Dil nga loja', '#bHome'],
+    ['exit', 'Dil nga tavolina', '#bHome'],
   ].filter(r => { const b = $(r[2]); return b && !b.hidden; });
   ov.innerHTML = `<div class="panel" role="dialog" aria-modal="true" aria-label="Pauzë">
-    <h2>Pauzë</h2><p class="sub">Tavolina të pret. Shtyp Vazhdo kur të jesh gati.</p>
+    <h2>Pauzë</h2>
     <button class="pbtn" id="mResume" type="button">Vazhdo</button>
     <div class="grid">${rows.map(r => `<button class="mb${r[0] === 'exit' ? ' danger' : ''}" type="button" data-k="${r[2]}">${ICON[r[0]]}<span>${r[1]}</span></button>`).join('')}</div>
   </div>`;
-  const first = $('#ovStart') || stage.querySelector('.ov');
-  first ? stage.insertBefore(ov, first) : stage.appendChild(ov);
+  const firstOv = stage.querySelector('.ov');
+  firstOv ? stage.insertBefore(ov, firstOv) : stage.appendChild(ov);
 
   const soundLabel = () => {
     const b = ov.querySelector('[data-k="#bSound"] span'), s = $('#bSound');
@@ -93,14 +107,20 @@
     if (e.target === ov) return close();
     const b = e.target.closest('.mb'); if (!b) return;
     const target = $(b.dataset.k); if (!target) return;
-    if (b.dataset.k === '#bSound') { target.click(); soundLabel(); return; }   // stays open: just a toggle
+    if (b.dataset.k === '#bSound') { target.click(); soundLabel(); return; }
     if (b.dataset.k === '#bHome' || b.dataset.k === '#bFull') close();
     target.click();
   });
-  // ads: a small one at the bottom of the rules, a full-screen break between hands (see ads.js)
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !document.getElementById('menu') || !document.getElementById('menu').hidden) return;
+    if (!ov.hidden) close();
+    else if (!document.querySelector('#stage .ov:not([hidden]):not(#ovMenu)')) open();
+  });
+
+  // ads: a small one under the rules title, a full-screen break between hands (see ads.js)
   if (typeof ADS !== 'undefined') {
     const rp = $('#ovRules .panel');
-    if (rp) {   // under the title, far from the Mbyll button (accidental clicks break AdSense policy)
+    if (rp) {
       const d = document.createElement('div'); d.className = 'adslot'; d.dataset.ad = 'rules';
       const h = rp.querySelector('h2'); h ? h.after(d) : rp.prepend(d); ADS.fill(rp);
     }
@@ -108,12 +128,7 @@
     if (bNext && ADS.on) bNext.addEventListener('click', e => {
       if (bNext._adDone) { bNext._adDone = false; return; }
       e.stopImmediatePropagation();
-      ADS.between(document.title.split(/[·|-]/)[0].trim() || 'loja', () => { bNext._adDone = true; bNext.click(); });
+      ADS.between(document.title, () => { bNext._adDone = true; bNext.click(); });
     }, true);
   }
-  document.addEventListener('keydown', e => {
-    if (e.key !== 'Escape') return;
-    if (!ov.hidden) close();
-    else if (!document.querySelector('.ov:not([hidden]):not(#ovMenu)')) open();
-  });
 })();

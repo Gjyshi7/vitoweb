@@ -143,6 +143,17 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 
 /* top bar stays usable over the panels, so you can always go back to the games */
 .top{z-index:450}
+.tile{transition:transform var(--t) cubic-bezier(.2,.75,.25,1),box-shadow .15s,filter .2s,opacity .2s}
+.tile.gone{opacity:0;pointer-events:none}
+.stack{position:absolute;left:0;top:0;width:60px;height:120px;border-radius:9px;z-index:9;pointer-events:none;
+  box-shadow:1px 1px 0 #2a3650,2px 2px 0 #2a3650,3px 3px 0 #33405c,4px 4px 0 #33405c,5px 5px 0 #3c4a68,6px 6px 0 #3c4a68,7px 7px 0 #455474,8px 8px 0 #455474,8px 10px 14px rgba(0,0,0,.45)}
+.stack svg{width:100%;height:100%;display:block;border-radius:9px}
+.plate span em{font-style:normal;color:var(--pink);font-weight:700}
+#myTurn{position:absolute;left:320px;width:640px;top:548px;height:5px;border-radius:3px;z-index:95;pointer-events:none;transition:background .25s,box-shadow .25s;overflow:hidden}
+#myTurn.on{background:rgba(239,90,134,.35);box-shadow:0 0 18px rgba(239,90,134,.45)}
+.tbar{position:absolute;left:0;right:0;bottom:0;height:100%;border-radius:2px;background:var(--pink);transform-origin:left center;animation:tbar linear forwards}
+.plate .tbar{left:12px;right:12px;bottom:3px;height:4px;top:auto}
+@keyframes tbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 </style>
 </head>
 <body>
@@ -167,8 +178,8 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div class="plate" id="pl2" style="left:640px;top:56px;transform:translateX(-50%)"></div>
   <div class="plate" id="pl1" style="left:46px;top:214px"></div>
   <div class="plate" id="pl3" style="right:46px;top:214px"></div>
-  <div class="plate" id="pl0" style="left:34px;top:620px"></div>
-  <div class="bubble" id="bb0" style="left:150px;top:590px"></div>
+  <div class="plate" id="pl0" hidden></div>
+  <div class="bubble" id="bb0" style="left:640px;top:505px"></div>
   <div class="bubble" id="bb1" style="left:330px;top:250px"></div>
   <div class="bubble" id="bb2" style="left:830px;top:92px"></div>
   <div class="bubble" id="bb3" style="left:950px;top:250px"></div>
@@ -185,24 +196,11 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div class="ghost" id="g1" hidden></div>
   <div class="cnt" id="boneCnt" hidden></div>
 
+  <div id="myTurn"></div>
   <div class="acts">
-    <button class="btn main" id="bMain" disabled>PAS</button>
-    <button class="btn" id="bHint" disabled>NDIHMË</button>
+    <button class="btn left" id="bMain" disabled>PAS</button>
     <button class="btn" id="bSort">RENDIT</button>
   </div>
-
-  <div class="ov" id="ovStart"><div class="panel start">
-    <div class="lg" id="startLogo"></div>
-    <h2>Domino</h2>
-    <p id="startLead"></p>
-    <div class="opts">
-      <span>Lojtarët</span><div class="seg" data-k="dteams"><button data-v="2v2">2 kundër 2</button><button data-v="1v1">1 kundër 1</button></div>
-      <span class="stockRow">Gurët e tepërt</span><div class="seg stockRow" data-k="dstock"><button data-v="po">Tërhiqen</button><button data-v="jo">Mbeten jashtë</button></div>
-      <span>Deri në</span><div style="display:flex;align-items:center"><div class="seg" data-k="dtarget"><button data-v="50">50</button><button data-v="100">100</button><button data-v="150">150</button><button data-v="custom">Tjetër</button></div><input class="cust" type="number" inputmode="numeric" min="10" max="1000" step="10" aria-label="Pikët për fitore"></div>
-    </div>
-    <button class="pbtn" id="bStart">Fillo lojën</button>
-    <button class="linkb" id="bRules0">Rregullat</button>
-  </div></div>
 
   <div class="ov" id="ovRules" hidden><div class="panel rules">
     <h2>Rregullat</h2>
@@ -227,8 +225,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     <div class="set">Pikat e gurëve<div class="seg" data-k="pipc"><button data-v="klasike">Klasike</button><button data-v="ngjyra">Me ngjyra</button></div></div>
     <div class="set">Animacionet<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
     <div class="set">Zëri<div class="seg" data-k="sound"><button data-v="on">Po</button><button data-v="off">Jo</button></div></div>
-    <div class="set"><div>Lojtarët<small>Vlen nga loja e re</small></div><div class="seg" data-k="dteams"><button data-v="2v2">2 kundër 2</button><button data-v="1v1">1 kundër 1</button></div></div>
-    <div class="set stockRow"><div>Gurët e tepërt<small>Vetëm te 1 kundër 1</small></div><div class="seg" data-k="dstock"><button data-v="po">Tërhiqen</button><button data-v="jo">Mbeten jashtë</button></div></div>
+    <div class="set"><div>Gurët e tepërt<small>Te 1 kundër 1</small></div><div class="seg" data-k="dstock"><button data-v="po">Tërhiqen</button><button data-v="jo">Mbeten jashtë</button></div></div>
     <div class="set"><div>Deri në<small>Vlen nga loja e re</small></div><div style="display:flex;align-items:center"><div class="seg" data-k="dtarget"><button data-v="50">50</button><button data-v="100">100</button><button data-v="150">150</button><button data-v="custom">Tjetër</button></div><input class="cust" type="number" inputmode="numeric" min="10" max="1000" step="10" aria-label="Pikët për fitore"></div></div>
     <div class="row2"><button class="pbtn ghostb" id="bNew">Lojë e re</button><button class="pbtn" id="bSetClose">Mbyll</button></div>
   </div></div>
@@ -251,8 +248,8 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div class="ov" id="ovRot" hidden><div class="panel rot">
     <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M17 11v2"/></svg>
     <h2>Ktheje telefonin anash</h2>
-    <p>Tavolina luhet horizontalisht. Nuk ka nevojë të ndezësh rrotullimin automatik: loja kthehet vetë.</p>
-    <button class="pbtn" id="bRotOk">Në rregull</button>
+    
+    <button class="pbtn" id="bRotOk">OK</button>
   </div></div>
 
   <div id="loading">Duke përgatitur gurët…</div>
@@ -260,181 +257,10 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 </div></div>
 
 <script src="players.js"></script>
-<script>
-/* ===== Domino engine (pure, no DOM) =====
-   Double-six set: 28 tiles. Tile id 0..27 -> [a, b] with a <= b. Id 0 is 0|0.
-   Seats 0..3 clockwise, 0 is you.
-     2 kundër 2: seats 0+2 vs 1+3, 7 tiles each, all 28 dealt.
-     1 kundër 1: seats 0 vs 2, 7 tiles each, 14 left over. With stock on, a player who can't
-                 play draws until they can; with it off the leftovers stay out of play.
-   A hand ends when someone plays their last tile ("domino") or nobody can move ("bllok").
-   The winning side scores the pips left in the losing side's hands.
-   Special rule: 0|0 counts 10 when it's the only tile left in a hand, 0 otherwise.
-   Blocked hand: the side with fewer pips left wins and scores the other side's pips; a tie scores nothing.
-   First side to reach the target (50 / 100 / 150 / custom) wins the match. */
-const E = (() => {
-  const TILES = [];
-  for (let a = 0; a <= 6; a++) for (let b = a; b <= 6; b++) TILES.push([a, b]);
-  const A = id => TILES[id][0], B = id => TILES[id][1];
-  const pips = id => TILES[id][0] + TILES[id][1];
-  const isDbl = id => TILES[id][0] === TILES[id][1];
-  const has = (id, v) => TILES[id][0] === v || TILES[id][1] === v;
-  const other = (id, v) => TILES[id][0] === v ? TILES[id][1] : TILES[id][0];
-  const sumPips = hand => hand.reduce((s, id) => s + pips(id), 0);
-  const ZERO_ALONE = 10;
-  const handValue = hand => hand.length === 1 && hand[0] === 0 ? ZERO_ALONE : sumPips(hand);
-  const label = id => `${A(id)}|${B(id)}`;
-
-  function shuffle(arr, rand) { rand = rand || Math.random; for (let i = arr.length - 1; i > 0; i--) { const j = (rand() * (i + 1)) | 0; [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
-
-  function newMatch(o) {
-    o = o || {};
-    const teams = o.teams !== false;
-    return { teams, stock: !teams && !!o.stock, target: o.target || 100, rand: o.rand || Math.random,
-      seats: teams ? [0, 1, 2, 3] : [0, 2], teamOf: teams ? [0, 1, 0, 1] : [0, 1, 1, 1],
-      scores: [0, 0], handNo: 0, lastWinner: -1, winner: null, hand: null };
-  }
-  const nextSeat = (mt, p) => mt.seats[(mt.seats.indexOf(p) + 1) % mt.seats.length];
-
-  function deal(mt) {
-    mt.handNo++;
-    const deck = shuffle(Array.from({ length: 28 }, (_, i) => i), mt.rand);
-    const hands = [[], [], [], []], n = mt.seats.length * 7;
-    for (let i = 0; i < n; i++) hands[mt.seats[i % mt.seats.length]].push(deck[i]);
-    const H = { hands, bone: deck.slice(n), start: null, L: [], R: [], ends: null, cur: 0, passes: 0,
-      lacks: [new Set(), new Set(), new Set(), new Set()], played: new Set(), mustOpen: null, result: null, dealOrder: deck.slice(0, n) };
-    if (mt.lastWinner >= 0) H.cur = mt.lastWinner;
-    else {
-      // first hand (or after a tied block): the highest double opens and must be played
-      let best = -1, who = 0;
-      for (const p of mt.seats) for (const id of hands[p]) {
-        const v = (isDbl(id) ? 100 : 0) + pips(id) * 2 + B(id) * .1;
-        if (v > best) { best = v; who = p; H.mustOpen = id; }
-      }
-      H.cur = who;
-    }
-    mt.hand = H;
-    return H;
-  }
-
-  /* moves: {id, side}. side 'S' = first tile, 'L' / 'R' = which end. */
-  function movesFor(H, p) {
-    const hand = H.hands[p], out = [];
-    if (!H.start) {
-      for (const id of hand) if (H.mustOpen === null || id === H.mustOpen) out.push({ id, side: 'S' });
-      return out;
-    }
-    const [l, r] = H.ends;
-    for (const id of hand) {
-      const okL = has(id, l), okR = has(id, r);
-      if (okL && okR && l === r) out.push({ id, side: H.L.length <= H.R.length ? 'L' : 'R' });
-      else { if (okL) out.push({ id, side: 'L' }); if (okR) out.push({ id, side: 'R' }); }
-    }
-    return out;
-  }
-  const canMove = (H, p) => movesFor(H, p).length > 0;
-  const canDraw = mt => mt.stock && mt.hand.bone.length > 0;
-
-  function endsAfter(H, m) {
-    if (m.side === 'S') return [A(m.id), B(m.id)];
-    const e = H.ends.slice();
-    if (m.side === 'L') e[0] = other(m.id, e[0]); else e[1] = other(m.id, e[1]);
-    return e;
-  }
-
-  function play(mt, p, m) {
-    const H = mt.hand;
-    if (p !== H.cur) throw new Error('not your turn');
-    if (!movesFor(H, p).some(x => x.id === m.id && x.side === m.side)) throw new Error('illegal move ' + label(m.id) + ' ' + m.side);
-    H.hands[p] = H.hands[p].filter(x => x !== m.id);
-    if (m.side === 'S') { H.start = { id: m.id, left: A(m.id), right: B(m.id) }; H.ends = [A(m.id), B(m.id)]; H.mustOpen = null; }
-    else if (m.side === 'L') { const inner = H.ends[0], outer = other(m.id, inner); H.L.push({ id: m.id, inner, outer }); H.ends[0] = outer; }
-    else { const inner = H.ends[1], outer = other(m.id, inner); H.R.push({ id: m.id, inner, outer }); H.ends[1] = outer; }
-    H.played.add(m.id); H.passes = 0;
-    const ev = { type: 'play', p, id: m.id, side: m.side, over: false };
-    if (!H.hands[p].length) { finish(mt, 'domino', p); ev.over = true; ev.result = H.result; return ev; }
-    H.cur = nextSeat(mt, p);
-    return ev;
-  }
-
-  function draw(mt, p) {
-    const H = mt.hand;
-    if (p !== H.cur || !canDraw(mt) || canMove(H, p)) throw new Error('cannot draw');
-    const id = H.bone.pop(); H.hands[p].push(id);
-    return id;
-  }
-
-  function pass(mt, p) {
-    const H = mt.hand;
-    if (p !== H.cur || canMove(H, p) || canDraw(mt)) throw new Error('cannot pass');
-    if (H.ends) { H.lacks[p].add(H.ends[0]); H.lacks[p].add(H.ends[1]); }
-    H.passes++;
-    const ev = { type: 'pass', p, over: false };
-    if (H.passes >= mt.seats.length) { finish(mt, 'bllok', p); ev.over = true; ev.result = H.result; return ev; }
-    H.cur = nextSeat(mt, p);
-    return ev;
-  }
-
-  function finish(mt, kind, p) {
-    const H = mt.hand;
-    const left = [0, 0, 0, 0];
-    for (const q of mt.seats) left[q] = handValue(H.hands[q]);
-    const teamLeft = [0, 0];
-    for (const q of mt.seats) teamLeft[mt.teamOf[q]] += left[q];
-    let winTeam = null;
-    if (kind === 'domino') winTeam = mt.teamOf[p];
-    else if (teamLeft[0] !== teamLeft[1]) winTeam = teamLeft[0] < teamLeft[1] ? 0 : 1;
-    const gain = winTeam === null ? 0 : teamLeft[1 - winTeam];
-    if (winTeam !== null) mt.scores[winTeam] += gain;
-    // next hand is opened by whoever went out; after a block, by the winning side's lightest hand
-    if (kind === 'domino') mt.lastWinner = p;
-    else if (winTeam !== null) mt.lastWinner = mt.seats.filter(q => mt.teamOf[q] === winTeam).sort((a, b) => left[a] - left[b])[0];
-    else mt.lastWinner = -1;
-    if (winTeam !== null && mt.scores[winTeam] >= mt.target) mt.winner = winTeam;
-    const zeroAlone = mt.seats.filter(q => H.hands[q].length === 1 && H.hands[q][0] === 0);
-    H.cur = -1;
-    H.result = { kind, p, winTeam, gain, left, teamLeft, scores: mt.scores.slice(), matchWinner: mt.winner, zeroAlone };
-  }
-
-  /* ---- bot: one-ply evaluation using only what a real player can see ----
-     Dumps heavy tiles and doubles, keeps ends it can follow, and leaves ends that
-     opponents who already passed on can't match, while not shutting out its partner. */
-  function botChoose(mt, p) {
-    const H = mt.hand, ms = movesFor(H, p);
-    if (!ms.length) return null;
-    if (ms.length === 1) return ms[0];
-    const hand = H.hands[p], rand = mt.rand;
-    const unseen = []; for (let id = 0; id < 28; id++) if (!H.played.has(id) && !hand.includes(id)) unseen.push(id);
-    const others = []; for (let q = nextSeat(mt, p); q !== p; q = nextSeat(mt, q)) others.push(q);
-    let best = null, bs = -1e9;
-    for (const m of ms) {
-      const rest = hand.filter(x => x !== m.id);
-      if (!rest.length) return m;
-      const e = endsAfter(H, m);
-      let s = pips(m.id) * .9 + (isDbl(m.id) ? 3.5 : 0);
-      if (m.id === 0 && rest.length > 1) s -= 2;          // 0|0 is free to hold while you have other tiles
-      if (m.id !== 0 && rest.length === 1 && rest[0] === 0) s -= 6;   // don't get stuck with 0|0 alone (worth 10)
-      s += 1.6 * rest.filter(x => has(x, e[0]) || has(x, e[1])).length;
-      s -= .45 * unseen.filter(x => x !== m.id && (has(x, e[0]) || has(x, e[1]))).length;
-      others.forEach((q, k) => {
-        const mate = mt.teamOf[q] === mt.teamOf[p];
-        const blocked = H.lacks[q].has(e[0]) && H.lacks[q].has(e[1]);
-        const low = H.hands[q].length <= 2;
-        if (mate) { if (blocked) s -= 3 + (low ? 5 : 0); }
-        else if (blocked) s += (k === 0 ? 5 : 2.5) + (low ? 6 : 0);
-        else if (H.lacks[q].has(e[0]) || H.lacks[q].has(e[1])) s += k === 0 ? .8 : .3;
-      });
-      s += (rand() - .5) * .6;
-      if (s > bs) { bs = s; best = m; }
-    }
-    return best;
-  }
-
-  return { TILES, A, B, pips, isDbl, has, other, sumPips, handValue, ZERO_ALONE, label, shuffle, newMatch, nextSeat, deal, movesFor, canMove, canDraw, endsAfter, play, draw, pass, botChoose };
-})();
-if (typeof module !== 'undefined') module.exports = { E };
-
-</script>
+<script src="domino-engine.js"></script>
+<script src="hand.js"></script>
+<script src="ads.js"></script>
+<script src="net.js"></script>
 <script>
 (() => {
 'use strict';
@@ -443,7 +269,7 @@ const $$ = s => document.querySelectorAll(s);
 const stage = $('#stage'), fit = $('#fit');
 
 /* ---------- settings (shared key with the other tables, so felt/sound/speed carry over) ---------- */
-const DEF = {felt:'blu', speed:'normal', sound:'on', pipc:'klasike', dteams:'2v2', dstock:'po', dtarget:'100', dcustom:'200'};
+const DEF = {felt:'blu', speed:'normal', sound:'on', pipc:'klasike', dstock:'po', dtarget:'100', dcustom:'200'};
 let ST = {...DEF};
 try { Object.assign(ST, JSON.parse(localStorage.getItem('vw-tavolina') || '{}')); } catch(e) {}
 const save = () => { try { localStorage.setItem('vw-tavolina', JSON.stringify(ST)); } catch(e) {} };
@@ -497,30 +323,29 @@ const buildArt = () => { FACE = Array.from({length: 28}, (_, i) => faceSVG(i)); 
 /* ---------- seats & geometry ---------- */
 const NAMES = ['Ti','','',''];
 const FEM = [false, false, false, false];
-const AVC = ['#b02a63','','',''];
+const AVC = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62'];
 const SEAT = [null, null, null, null];
-let seated = false;
-function seatPlayers(){
-  PLAYERS.seats(3).forEach((s, i) => { SEAT[i + 1] = s; NAMES[i + 1] = s.name; FEM[i + 1] = s.fem; AVC[i + 1] = s.color; });
-  applySettings();
-}
 const AREA = {cx: 640, halfW: 380, top: 198, bot: 552};   // where the line of play may go
 const SIZES = [76, 70, 64, 58, 52, 47, 42, 38];           // tile length on the table, largest first
 const STACK = [640, 376], BONE = [330, 146];
 const els = [];
 let mt = null, H = null, gen = 0, dealt = null, reveal = false;
-let mode = 'idle', sel = -1, ghosts = [], hintMove = null, sortMode = 'num', humanResolve = null;
+let mode = 'idle', sel = -1, ghosts = [], sortMode = 'num', humanResolve = null;
 let chainL = SIZES[0], offY = 376, lastId = -1;
 const D = ms => ms * (ST.speed === 'fast' ? .55 : 1);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const active = p => !mt || mt.seats.includes(p);
-const sideName = t => mt.teams ? (t === 0 ? `Ti & ${NAMES[2]}` : `${NAMES[1]} & ${NAMES[3]}`) : (t === 0 ? 'Ti' : NAMES[2]);
 
 function mkTiles(){
   const box = $('#tiles'); box.textContent = '';
   for (let i = 0; i < 28; i++) {
     const d = document.createElement('div'); d.className = 'tile'; d.dataset.id = i;
     box.appendChild(d); els[i] = {el: d, up: null};
+  }
+  for (let p = 1; p < 4; p++) {
+    const st = document.createElement('div'); st.className = 'stack'; st.id = 'st' + p; st.hidden = true; st.innerHTML = BACK;
+    const [x, y, r] = [null, [140, 404, 90], [640, 152, 0], [1140, 404, -90]][p];
+    place(st, x, y, r, .55); box.appendChild(st);
   }
 }
 function place(el, x, y, rot, sc){ el.style.transform = `translate3d(${x - TW / 2}px,${y - TH / 2}px,0) rotate(${rot}deg) scale(${sc})`; }
@@ -612,93 +437,94 @@ function playableIds(){
   return new Set(E.movesFor(H, 0).map(m => m.id));
 }
 const handScale = n => n > 11 ? .92 : 1.04;
-const HAND_GEOM = (i, n) => { const w = TW * handScale(n), step = n > 1 ? Math.min(74, (740 - w) / (n - 1)) : 0; return {x: 635 + (i - (n - 1) / 2) * step, y: 628, rot: 0}; };
-/* the other players' tiles always look the same: a row of FAN backs, so nobody can count them.
-   Real tiles fill the first slots (extra ones sit exactly on the last slot), decoy backs fill the rest. The last tile shows as one. */
-const FAN = 5, decoys = [null, [], [], []];
-function decoy(p, k){
-  let d = decoys[p][k];
-  if (!d) { d = document.createElement('div'); d.className = 'tile decoy'; d.innerHTML = BACK; $('#tiles').appendChild(d); decoys[p][k] = d; }
-  return d;
-}
-function fanSlot(p, k){ const o = k - (FAN - 1) / 2; return p === 2 ? [640 + o * 30, 152, 0] : [p === 1 ? 140 : 1140, 404 + o * 28, p === 1 ? 90 : -90]; }
-function layoutFan(p, ids, hide){
-  const n = ids.length;
-  ids.forEach((id, i) => {
-    const k = n === 1 ? (FAN - 1) / 2 : Math.min(i, FAN - 1), [x, y, r] = fanSlot(p, k);
-    put(id, x, y, r, .4, 10 + Math.min(i, FAN), false);
-  });
-  for (let k = 0; k < FAN; k++) {
-    const d = decoy(p, k), on = !hide && n >= 2 && k >= n;
-    d.style.display = on ? '' : 'none';
-    if (on) { const [x, y, r] = fanSlot(p, k); place(d, x, y, r, .4); d.style.zIndex = 10 + k; }
+const HAND_GEOM = (i, n) => { const w = TW * handScale(n), step = n > 1 ? Math.min(74, (640 - w) / (n - 1)) : 0; return {x: 640 + (i - (n - 1) / 2) * step, y: 628, rot: 0}; };
+/* The other players' tiles: one closed stack with a solid edge, so it reads as "tiles" but can't be counted.
+   Their real tiles wait invisibly under it and appear when played. The last tile shows as a single tile. */
+const SEATPOS = [null, [140, 404, 90], [640, 152, 0], [1140, 404, -90]];
+function layoutOther(p){
+  const h = handOf(p), n = h.length, [x, y, r] = SEATPOS[p], st = $('#st' + p);
+  if (reveal) {
+    st.hidden = true;
+    h.forEach((id, i) => {
+      els[id].el.classList.remove('mine','sel','dim','hint','last','gone');
+      const o = i - (n - 1) / 2;
+      if (p === 2) put(id, 640 + o * 34, 166, 0, .5, 300 + i, true);
+      else { const col = i % 4, row = i >> 2, xx = p === 1 ? 108 + col * 34 : 1172 - col * 34; put(id, xx, 346 + row * 68, 0, .5, 300 + i, true); }
+    });
+    return;
   }
+  const stacked = n >= 2 && !dealt;
+  st.hidden = !stacked || !active(p);
+  h.forEach((id, i) => {
+    const e = els[id].el;
+    e.classList.remove('mine','sel','dim','hint','last');
+    e.classList.toggle('gone', stacked);
+    put(id, x, y, r, .4, 10 + i, false);
+  });
 }
 function layoutSeat(p){
-  if (!active(p)) { if (p) layoutFan(p, [], true); return; }
-  const h = handOf(p), n = h.length;
-  if (p === 0) {
-    const ids = orderHand(h, sortCmp(), !!dealt), ok = playableIds();
-    const sc = handScale(n);
-    ids.forEach((id, i) => {
-      const g = HAND_GEOM(i, n), y = g.y - (sel === id ? 30 : 0);
-      const e = els[id].el;
-      e.classList.add('mine'); e.classList.remove('last');
-      e.classList.toggle('sel', sel === id);
-      e.classList.toggle('hint', !!hintMove && hintMove.id === id && sel !== id);
-      e.classList.toggle('dim', !!ok && !ok.has(id));
-      if (!isDragged(id)) put(id, g.x, y, 0, sc, 100 + i, true);
-    });
-  } else {
-    h.forEach(id => els[id].el.classList.remove('mine','sel','dim','hint','last'));
-    if (!reveal) layoutFan(p, h, false);
-    else h.forEach((id, i) => {
-      const o = i - (n - 1) / 2;
-      layoutFan(p, [], true);
-      {
-        // hand over: show what was left, face up
-        const sc = .5;
-        if (p === 2) put(id, 640 + o * 34, 166, 0, sc, 300 + i, true);
-        else { const col = i % 4, row = i >> 2, x = p === 1 ? 108 + col * 34 : 1172 - col * 34; put(id, x, 346 + row * 68, 0, sc, 300 + i, true); }
-      }
-    });
-  }
-  renderPlate(p);
+  if (p) { if (active(p)) layoutOther(p); else $('#st' + p).hidden = true; renderPlate(p); return; }
+  const ids = orderHand(handOf(0), sortCmp(), !!dealt).filter(id => !HAND.lifted(id)), n = ids.length, ok = playableIds();
+  const sc = handScale(n);
+  ids.forEach((id, i) => {
+    const g = HAND_GEOM(i, n), y = g.y - (sel === id ? 30 : 0);
+    const e = els[id].el;
+    e.classList.add('mine'); e.classList.remove('last','gone');
+    e.classList.toggle('sel', sel === id);
+    e.classList.toggle('dim', !!ok && !ok.has(id));
+    if (!isDragged(id)) put(id, g.x, y, 0, sc, 100 + i, true);
+  });
 }
 function layoutBone(){
   const b = H ? H.bone : [];
-  b.forEach((id, i) => { const col = i % 7, row = (i / 7) | 0; put(id, BONE[0] - 80 + col * 27, BONE[1] - 24 + row * 52, 0, .4, 5 + i, false); els[id].el.classList.remove('mine','sel','dim','hint','last'); });
+  b.forEach((id, i) => { const col = i % 7, row = (i / 7) | 0; put(id, BONE[0] - 80 + col * 27, BONE[1] - 24 + row * 52, 0, .4, 5 + i, false); els[id].el.classList.remove('mine','sel','dim','hint','last','gone'); });
   const c = $('#boneCnt');
   c.hidden = !(H && b.length && !dealt);
   c.textContent = (mt && mt.stock ? 'Stoku · ' : 'Jashtë loje · ') + b.length;
   c.style.left = BONE[0] + 170 + 'px'; c.style.top = BONE[1] + 'px';
 }
 function renderPlate(p){
+  if (!p) return;
   const el = $('#pl' + p);
-  el.hidden = !active(p);
-  if (!active(p)) return;
+  el.hidden = !active(p) || !NAMES[p];
+  if (el.hidden) return;
   const n = handOf(p).length;
-  const low = n > 0 && n <= 2 && !dealt && H && H.cur >= 0;
-  const mate = p !== 0 && mt && mt.teamOf[p] === 0;
-  // how many tiles the others hold stays hidden, except the last one
-  const sub = p === 0 ? `<span class="${low ? 'low' : ''}">${n === 1 ? '1 gur' : n + ' gurë'}</span>`
-    : n === 1 && !dealt && H ? `<span class="low">1 gur${mate ? ' · <i>partneri</i>' : ''}</span>`
-    : mate ? '<span><i>partneri</i></span>' : '';
-  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${(NAMES[p] || "?")[0].toUpperCase()}</div><div><b>${NAMES[p]}</b>${sub}</div>`;
+  const mate = mt && mt.teamOf[p] === 0;
+  const bits = [];
+  if (n === 1 && !dealt && H) bits.push('<em>1 gur</em>');
+  if (mate) bits.push('partneri');
+  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${(NAMES[p] || '?')[0].toUpperCase()}</div><div><b></b><span>${bits.join(' · ')}</span></div>`;
+  el.querySelector('b').textContent = NAMES[p];
+  if (TIMER.p === p) addTimer(el);
 }
-const renderPlates = () => { for (let p = 0; p < 4; p++) renderPlate(p); };
-function setTurn(p){ for (let i = 0; i < 4; i++) $('#pl' + i).classList.toggle('turn', i === p); }
-function status(txt){ $('#status').innerHTML = txt; }
+const renderPlates = () => { for (let p = 1; p < 4; p++) renderPlate(p); };
+function setTurn(p){ for (let i = 1; i < 4; i++) $('#pl' + i).classList.toggle('turn', i === p); $('#myTurn').classList.toggle('on', p === 0); }
+function status(txt){ $('#status').innerHTML = txt || ''; }
 function meta(){
-  if (!mt) { $('#meta').innerHTML = ''; return; }
-  const [a, b] = mt.teams ? ['Ne', 'Ata'] : ['Ti', NAMES[2]];
-  $('#meta').innerHTML = `${a} <b>${mt.scores[0]}</b> · ${b} <b>${mt.scores[1]}</b> · deri në ${mt.target}`;
+  const m = $('#meta');
+  if (!mt) { m.innerHTML = ''; return; }
+  if (mt.teams) { m.innerHTML = `<span class="us">Ne<b>${mt.scores[0]}</b></span><span>Ata<b>${mt.scores[1]}</b></span><i>/ ${mt.target}</i>`; return; }
+  m.innerHTML = `<span class="us">Ti<b>${mt.scores[0]}</b></span><span class="opp"></span><i>/ ${mt.target}</i>`;
+  const o = document.createElement('span'); o.textContent = NAMES[2] + ' '; const b = document.createElement('b'); b.textContent = mt.scores[1]; o.appendChild(b);
+  m.querySelector('.opp').replaceWith(o);
 }
 function bubble(p, txt, gold, ms = 1150){
   const b = $('#bb' + p); b.textContent = txt; b.classList.toggle('gold', !!gold); b.classList.add('on');
   clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('on'), D(ms));
 }
 const T = id => `<em>${E.label(id)}</em>`;
+const TIMER = { p: -1, start: 0, ms: 0 };
+function addTimer(el){
+  const used = Math.max(0, Date.now() - TIMER.start);
+  if (used >= TIMER.ms) return;
+  el.querySelectorAll('.tbar').forEach(x => x.remove());
+  el.insertAdjacentHTML('beforeend', `<i class="tbar" style="animation-duration:${TIMER.ms}ms;animation-delay:-${used}ms"></i>`);
+}
+function setTimer(p, start, ms){
+  TIMER.p = p; TIMER.start = start; TIMER.ms = ms;
+  document.querySelectorAll('.tbar').forEach(x => x.remove());
+  if (p >= 0) addTimer(p === 0 ? $('#myTurn') : $('#pl' + p));
+}
 
 /* ---------- sound: short filtered noise bursts made on the fly ---------- */
 let actx = null;
@@ -723,71 +549,51 @@ function chime(){
     o.connect(g).connect(actx.destination); o.start(t + i * .09); o.stop(t + i * .09 + .55); }); } catch(e) {}
 }
 
-/* ---------- your hand: drag a tile left/right to rearrange it ----------
-   House rule for every VitoWeb game: the hand order is the player's. Never lock it, never re-sort it on its own.
-   New tiles land at the right end; RENDIT re-sorts on demand. A tap that doesn't move 8px stays a normal tap. */
-let handOrder = [], dragging = null, dragEndT = 0;
+/* ---------- your hand (hand.js): drag sideways to rearrange, drag up onto the table to play ---------- */
+let handOrder = [];
 function orderHand(hand, sortFn, fresh){
   const set = new Set(hand);
-  if (dragging && !set.has(dragging.id)) { dragging.el.classList.remove('drag'); dragging = null; }
   if (fresh || !handOrder.length) { handOrder = hand.slice().sort(sortFn); return handOrder; }
   handOrder = handOrder.filter(id => set.has(id));
   for (const id of hand) if (!handOrder.includes(id)) handOrder.push(id);
   return handOrder;
 }
-const isDragged = id => !!dragging && dragging.on && dragging.id === id;
+const isDragged = id => HAND.held(id);
 const relayoutHand = () => { if (H) layoutSeat(0); };
-const canDragHand = () => !!H && !dealt;
 function stagePoint(e){
   const r = fit.getBoundingClientRect();
   const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
   return { x: 640 + (rotated ? dy : dx) / fitScale, y: 360 + (rotated ? -dx : dy) / fitScale };
 }
-function dragTo(p){
-  const d = dragging, n = handOrder.length, x = p.x + d.dx;
-  let best = 0, bd = 1e9;
-  for (let i = 0; i < n; i++) { const q = Math.abs(HAND_GEOM(i, n).x - x); if (q < bd) { bd = q; best = i; } }
-  const cur = handOrder.indexOf(d.id);
-  if (cur < 0) return;
-  if (best !== cur) { handOrder.splice(cur, 1); handOrder.splice(best, 0, d.id); relayoutHand(); snap(.08, 3200, .02); }
-  const g = HAND_GEOM(best, n);
-  put(d.id, Math.max(50, Math.min(1230, x)), g.y - 44, 0, handScale(n) * 1.06, 390, true);
+// where a lifted tile goes: its only place, or the end you let go nearest to
+function nearestMove(id, p){
+  const ms = E.movesFor(H, 0).filter(m => m.id === id);
+  if (ms.length <= 1) return ms[0] || null;
+  let best = null, bd = 1e9;
+  for (const m of ms) { const r = ghostRect(m), d = Math.hypot(r.x - p.x, r.y - p.y); if (d < bd) { bd = d; best = m; } }
+  return best;
 }
-function endDrag(e){
-  const d = dragging; if (!d || (e && e.pointerId !== d.pid)) return;
-  dragging = null;
-  if (d.on) { d.el.classList.remove('drag'); dragEndT = performance.now(); relayoutHand(); snap(.12, 2600, .03); }
-}
-(() => {
-  const box = $('#tiles');
-  box.addEventListener('pointerdown', e => {
-    if (e.button > 0 || dragging || !canDragHand()) return;
-    const c = e.target.closest('.tile.mine'); if (!c) return;
-    const id = +c.dataset.id; if (!handOrder.includes(id)) return;
-    const p = stagePoint(e);
-    dragging = { id, pid: e.pointerId, x0: p.x, y0: p.y, on: false, el: c, dx: 0 };
-    try { c.setPointerCapture(e.pointerId); } catch(_) {}
-  });
-  box.addEventListener('pointermove', e => {
-    const d = dragging; if (!d || e.pointerId !== d.pid) return;
-    if (!handOrder.includes(d.id)) return endDrag(e);
-    const p = stagePoint(e);
-    if (!d.on) {
-      if (Math.hypot(p.x - d.x0, p.y - d.y0) < 8) return;
-      d.on = true; d.el.classList.add('drag');
-      d.dx = HAND_GEOM(handOrder.indexOf(d.id), handOrder.length).x - d.x0;
-    }
-    e.preventDefault();
-    dragTo(p);
-  });
-  box.addEventListener('pointerup', endDrag);
-  box.addEventListener('pointercancel', endDrag);
-  box.addEventListener('lostpointercapture', endDrag);
-  // a drag must not also count as a tap on the tile
-  box.addEventListener('click', e => { if (performance.now() - dragEndT < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
-})();
+HAND.attach({
+  box: $('#tiles'), sel: '.tile.mine',
+  el: id => els[id].el, point: stagePoint, geom: HAND_GEOM, order: () => handOrder,
+  relayout: relayoutHand, place: (id, x, y, rot, sc, z) => put(id, x, y, rot, handScale(handOrder.length) * sc, z, true),
+  canArrange: () => !!H && !dealt,
+  canLift: () => !!H && !dealt && mode === 'play',
+  lift(id){
+    const ms = E.movesFor(H, 0).filter(m => m.id === id);
+    if (!ms.length) return null;                                 // a tile that fits nowhere doesn't lift
+    sel = id; showGhosts(ms); refresh();
+    return [id];
+  },
+  check: (ids, p) => { const m = nearestMove(ids[0], p); return { ok: !!m, target: m }; },
+  drop(ids, m){ submit(m); },
+  unlift(){ sel = -1; clearGhosts(); layoutSeat(0); refresh(); },
+  zone: { x0: 260, y0: 190, x1: 1020, y1: 520 },
+  sound: k => k === 'slide' ? snap(.08, 3200, .02) : k === 'play' ? null : snap(.12, 2600, .03),
+});
 
-/* ---------- human input ---------- */
+/* ---------- your moves ----------
+   Tap a tile: the places it fits light up; tap one (or drag the tile there). Nothing plays from a single tap. */
 function clearGhosts(){ ghosts = []; ['#g0','#g1'].forEach(s => $(s).hidden = true); }
 function showGhosts(ms){
   ghosts = ms;
@@ -802,32 +608,21 @@ function refresh(){
   const mine = mode === 'play';
   const ms = mine ? E.movesFor(H, 0) : [];
   const b = $('#bMain');
-  if (mine && !ms.length) {
-    b.disabled = false;
-    if (E.canDraw(mt)) { b.textContent = 'TËRHIQ'; status(`Nuk ke gur që hyn · tërhiq nga stoku (${H.bone.length})`); }
-    else { b.textContent = 'PAS'; status('Nuk ke gur që hyn · shtyp PAS'); }
-  } else {
-    b.disabled = true; b.textContent = 'PAS';
-    if (mine) {
-      if (sel >= 0 && ghosts.length > 1) status(`Ku ta vendosësh ${T(sel)}? Prek njërën anë`);
-      else if (sel >= 0) status(`Prek vendin e ndriçuar për ${T(sel)}`);
-      else if (!H.start && H.mustOpen !== null) status(`Radha jote · hap me ${T(H.mustOpen)}`);
-      else if (!H.start) status('Radha jote · hap me çfarë guri të duash');
-      else status(`Radha jote · skajet janë <em>${H.ends[0]}</em> dhe <em>${H.ends[1]}</em>`);
-    }
-  }
-  $('#bHint').disabled = !(mine && ms.length);
+  const stuck = mine && !ms.length;
+  b.disabled = !stuck;
+  b.classList.toggle('hot', stuck);
+  b.textContent = stuck && E.canDraw(mt) ? 'TËRHIQ' : 'PAS';
+  if (mine) status(!H.start && H.mustOpen !== null ? `Radha jote · hap me ${T(H.mustOpen)}` : 'Radha jote');
 }
 function pick(id){
   const ms = E.movesFor(H, 0).filter(m => m.id === id);
-  if (!ms.length) { snap(.1, 700, .03); status(`${T(id)} nuk hyn në asnjë skaj`); return; }
-  if (sel === id) { sel = -1; hintMove = null; clearGhosts(); layoutSeat(0); refresh(); return; }
-  if (ms.length === 1) return submit(ms[0]);            // only one place it can go: play it straight away
-  sel = id; hintMove = null; showGhosts(ms); snap(.15, 2600, .04); layoutSeat(0); refresh();
+  if (!ms.length) { snap(.1, 700, .03); return; }
+  if (sel === id) { sel = -1; clearGhosts(); layoutSeat(0); refresh(); return; }
+  sel = id; showGhosts(ms); snap(.15, 2600, .04); layoutSeat(0); refresh();
 }
 function submit(m){
-  if (mode !== 'play' || !humanResolve) return;
-  mode = 'idle'; sel = -1; hintMove = null; clearGhosts(); refresh();
+  if (mode !== 'play' || !humanResolve || !m) return;
+  mode = 'idle'; sel = -1; clearGhosts(); refresh();
   const r = humanResolve; humanResolve = null; r({type: 'play', m});
 }
 $('#tiles').addEventListener('click', e => {
@@ -837,160 +632,151 @@ $('#tiles').addEventListener('click', e => {
   pick(id);
 });
 ['#g0','#g1'].forEach((s, i) => $(s).addEventListener('click', e => { e.stopPropagation(); audio(); if (ghosts[i]) submit(ghosts[i]); }));
-$('#felt').addEventListener('click', () => { if (mode === 'play' && sel >= 0) { sel = -1; hintMove = null; clearGhosts(); layoutSeat(0); refresh(); } });
+$('#felt').addEventListener('click', () => { if (mode === 'play' && sel >= 0) { sel = -1; clearGhosts(); layoutSeat(0); refresh(); } });
 $('#bMain').onclick = () => {
   audio();
   if (mode !== 'play' || !humanResolve || E.canMove(H, 0)) return;
   const r = humanResolve; humanResolve = null; mode = 'idle'; refresh();
   r({type: E.canDraw(mt) ? 'draw' : 'pass'});
 };
-$('#bHint').onclick = () => {
-  audio();
-  if (mode !== 'play') return;
-  const m = E.botChoose(mt, 0); if (!m) return;
-  sel = m.id; hintMove = m; showGhosts([m]); layoutSeat(0); refresh();
-  status(`Këshilla: ${T(m.id)}${H.start ? (m.side === 'L' ? ' në skajin e majtë' : ' në skajin e djathtë') : ''}`);
-};
-$('#bSort').onclick = () => {
-  audio(); sortMode = sortMode === 'num' ? 'pips' : 'num'; handOrder = [];
-  if (H) layoutSeat(0);
-  if (mode !== 'play') return;
-  status(sortMode === 'num' ? 'Gurët u renditën sipas numrave' : 'Gurët u renditën nga më i rëndi');
-  clearTimeout(window.__st); window.__st = setTimeout(() => { if (mode === 'play') refresh(); }, 1200);
-};
+$('#bSort').onclick = () => { audio(); sortMode = sortMode === 'num' ? 'pips' : 'num'; handOrder = []; if (H) layoutSeat(0); };
 addEventListener('keydown', e => {
-  if (!$('#ovStart').hidden || e.target.tagName === 'INPUT') return;
+  if (!$('#menu') || !$('#menu').hidden || e.target.tagName === 'INPUT') return;
   if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); $('#bMain').click(); }
-  else if (e.key === 'Escape') { ['#ovSet','#ovDeck','#ovRules'].forEach(s => $(s).hidden = true); if (sel >= 0) $('#felt').click(); }
 });
-function humanTurn(){ mode = 'play'; sel = -1; hintMove = null; clearGhosts(); layoutSeat(0); refresh(); return new Promise(r => humanResolve = r); }
+function humanTurn(){ mode = 'play'; sel = -1; clearGhosts(); layoutSeat(0); refresh(); return new Promise(r => humanResolve = r); }
+function stopInput(){ HAND.cancel(); mode = 'idle'; humanResolve = null; sel = -1; clearGhosts(); }
 
 /* ---------- a hand ---------- */
 function resetTiles(){
   for (let i = 0; i < 28; i++) { const e = els[i].el; e.className = 'tile'; e.style.transition = 'none'; put(i, STACK[0] + (i % 7 - 3) * 1.2, STACK[1] - i * .4, 90, .55, i, false); }
   $('#tiles').offsetWidth; els.forEach(c => c.el.style.transition = '');
-  for (let p = 1; p < 4; p++) layoutFan(p, [], true);
+  for (let p = 1; p < 4; p++) $('#st' + p).hidden = true;
   reveal = false; lastId = -1; chainL = SIZES[0]; offY = (AREA.top + AREA.bot) / 2; clearGhosts(); handOrder = [];
   $('#feltMark').classList.remove('off');
 }
 async function dealAnim(my){
   dealt = [[], [], [], []]; renderPlates(); $('#boneCnt').hidden = true;
-  status('Duke përzier…');
   for (let k = 0; k < 3; k++) {     // a quick shuffle on the felt, then deal one at a time
     for (let i = 0; i < 28; i++) put(i, STACK[0] + (Math.random() - .5) * 120, STACK[1] + (Math.random() - .5) * 70, 90 + (Math.random() - .5) * 60, .55, i, false);
     snap(.12, 3000, .12); await sleep(D(170)); if (my !== gen) return;
   }
   for (let i = 0; i < 28; i++) put(i, STACK[0] + (i % 7 - 3) * 1.2, STACK[1] - i * .4, 90, .55, i, false);
   await sleep(D(260));
-  status('Duke shpërndarë…');
   for (let i = 0; i < H.dealOrder.length; i++) {
     if (my !== gen) return;
     const p = mt.seats[i % mt.seats.length]; dealt[p].push(H.dealOrder[i]); layoutSeat(p);
     if (i % 2 === 0) snap(.16, 2200, .04);
     await sleep(D(38));
   }
-  dealt = null; layoutBone(); renderPlates();
-  await sleep(D(380));
+  await sleep(D(300)); dealt = null;
+  mt.seats.forEach(layoutSeat); layoutBone(); renderPlates();
+  await sleep(D(200));
 }
 async function botTurn(p, my){
   if (!E.canMove(H, p) && E.canDraw(mt)) {
-    status(`${NAMES[p]} tërheq nga stoku…`);
     while (!E.canMove(H, p) && E.canDraw(mt)) {
-      await sleep(450 + Math.random() * 650); if (my !== gen) return null;
+      await sleep(450 + Math.random() * 500); if (my !== gen) return null;
       E.draw(mt, p); snap(.2, 2400, .04); layoutSeat(p); layoutBone();
     }
     await sleep(D(300)); if (my !== gen) return null;
   }
-  status(!H.start && H.mustOpen !== null ? `${NAMES[p]} hap me ${T(H.mustOpen)}` : `Luan ${NAMES[p]}…`);
+  status('');
   const opts = E.movesFor(H, p).length;
   await sleep(PLAYERS.think(SEAT[p], { forced: opts <= 1, options: opts, hard: H.hands[p].length <= 2 })); if (my !== gen) return null;
   const m = E.botChoose(mt, p);
   return m ? {type: 'play', m} : {type: 'pass'};
 }
+async function animPass(p){ bubble(p, 'Pas'); knock(); renderPlate(p); await sleep(D(p === 0 ? 300 : 620)); }
+async function animPlay(p, id){
+  lastId = id;
+  renderChain(); layoutSeat(p);
+  clack(E.isDbl(id));
+  if (H.hands[p].length === 1) { bubble(p, '1 gur', true); await sleep(D(520)); }
+  else await sleep(D(p === 0 ? 260 : 330));
+}
 async function runHand(){
   const my = ++gen;
-  mode = 'idle'; humanResolve = null; sel = -1; refresh();
-  H = E.deal(mt); meta(); setTurn(-1);
+  stopInput(); refresh(); setTimer(-1);
+  H = E.deal(mt); meta(); setTurn(-1); status('');
   resetTiles(); renderPlates();
   await dealAnim(my); if (my !== gen) return;
   while (true) {
     const p = H.cur; setTurn(p);
     const act = p === 0 ? await humanTurn() : await botTurn(p, my);
     if (my !== gen || !act) return;
-    if (act.type === 'draw') {                 // human draws one tile, then gets the turn back
+    if (act.type === 'draw') {
       const id = E.draw(mt, 0); snap(.25, 2400, .04);
-      hintMove = null; layoutSeat(0); layoutBone();
-      els[id].el.classList.add('hint'); setTimeout(() => els[id].el.classList.remove('hint'), D(900));
+      layoutSeat(0); layoutBone();
       await sleep(D(220)); continue;
     }
     if (act.type === 'pass') {
       const ev = E.pass(mt, p);
-      bubble(p, 'Pas'); knock(); renderPlate(p);
-      if (p !== 0) status(`${NAMES[p]} pason`);
-      await sleep(D(p === 0 ? 300 : 620));
+      await animPass(p);
       if (ev.over) return endHand(ev.result, my);
       continue;
     }
     const ev = E.play(mt, p, act.m);
-    lastId = act.m.id;
-    renderChain(); layoutSeat(p);
-    clack(E.isDbl(act.m.id));
-    if (p !== 0) status(`${NAMES[p]} luajti ${T(act.m.id)}`);
-    if (ev.over) { bubble(p, 'Domino!', true, 1600); chime(); await sleep(D(900)); return endHand(ev.result, my); }
-    if (H.hands[p].length === 1) { bubble(p, 'Një gur!', true); await sleep(D(520)); }
-    else await sleep(D(p === 0 ? 260 : 330));
+    if (ev.over) { lastId = act.m.id; renderChain(); layoutSeat(p); clack(true); bubble(p, 'Domino', true, 1600); chime(); await sleep(D(900)); return endHand(ev.result, my); }
+    await animPlay(p, act.m.id);
   }
 }
-async function endHand(res, my){
-  setTurn(-1); mode = 'idle'; refresh();
-  if (res.kind === 'bllok') status('Askush s\'ka lëvizje · <em>loja u bllokua</em>');
-  else status(res.p === 0 ? '<em>Domino!</em> Mbarove gurët' : `<em>${NAMES[res.p]}</em> mbaroi gurët`);
+async function endHand(res, my, online){
+  setTurn(-1); stopInput(); refresh(); setTimer(-1);
+  status('');
   await sleep(D(700)); if (my !== gen) return;
   reveal = true; mt.seats.forEach(layoutSeat);
-  for (const p of mt.seats) if (H.hands[p].length) bubble(p, res.zeroAlone.includes(p) ? '0|0 vetëm = 10' : `${res.left[p]} pikë`, res.zeroAlone.includes(p), 2200);
+  for (const p of mt.seats) if (H.hands[p].length) bubble(p, res.zeroAlone.includes(p) ? '0|0 = 10' : `${res.left[p]}`, res.zeroAlone.includes(p), 2200);
   if (res.winTeam !== null) mt.seats.forEach(p => $('#pl' + p).classList.toggle('win', mt.teamOf[p] === res.winTeam));
   meta();
   await sleep(D(2300)); if (my !== gen) return;
-  showResult(res);
+  showResult(res, online);
 }
-function showResult(res){
+function showResult(res, online){
   for (let p = 0; p < 4; p++) $('#pl' + p).classList.remove('win');
   const done = res.matchWinner !== null, we = res.winTeam === 0;
-  let title, lead;
-  if (done) {
-    title = res.matchWinner === 0 ? (mt.teams ? 'Fituat lojën!' : 'Fitove lojën!') : (mt.teams ? `Fituan ${NAMES[1]} dhe ${NAMES[3]}` : `Fitoi ${NAMES[2]}`);
-    lead = `${sideName(res.matchWinner)} ${mt.teams ? 'arritën' : (res.matchWinner === 0 ? 'arrite' : 'arriti')} ${res.scores[res.matchWinner]} pikë pas ${mt.handNo} duarsh.`;
-  } else if (res.winTeam === null) {
-    title = 'Barazim, askush s\'merr pikë';
-    lead = 'Loja u bllokua dhe të dyja anët kishin njësoj pikë në dorë.';
-  } else {
-    const takes = mt.teams ? 'marrin' : 'merr';
-    title = we ? (mt.teams ? 'E fituat dorën!' : 'Fitove dorën!') : `${sideName(res.winTeam)} ${mt.teams ? 'fituan' : 'fitoi'} dorën`;
-    lead = res.kind === 'domino'
-      ? `${res.p === 0 ? 'Mbarove' : NAMES[res.p] + ' mbaroi'} gurët. ${mt.teams ? sideName(res.winTeam) + ' marrin' : (we ? 'Merr' : NAMES[2] + ' merr')} ${res.gain} pikë nga gurët që u mbetën kundërshtarëve.`
-      : `Askush s'kishte lëvizje. Më pak pikë në dorë kishin ${sideName(res.winTeam)}, ndaj ${takes} ${res.gain}.`;
-  }
-  $('#endTitle').textContent = title; $('#endLead').textContent = lead;
+  let title;
+  if (done) title = res.matchWinner === 0 ? (mt.teams ? 'Fituat lojën' : 'Fitove lojën') : (mt.teams ? 'Fituan ata' : `Fitoi ${NAMES[2]}`);
+  else if (res.winTeam === null) title = 'Barazim';
+  else title = we ? (mt.teams ? 'E fituat dorën' : 'Fitove dorën') : (mt.teams ? 'E fituan ata' : `Dorën e fitoi ${NAMES[2]}`);
+  $('#endTitle').textContent = title;
+  $('#endLead').textContent = `${res.kind === 'bllok' ? 'Bllok' : 'Domino'} · deri në ${mt.target}`;
   const note = $('#endNote');
   note.hidden = !res.zeroAlone.length;
-  note.textContent = res.zeroAlone.length ? res.zeroAlone.map(p => p === 0 ? 'Të mbeti vetëm 0|0' : `${NAMES[p]} i mbeti vetëm 0|0`).join(', ') + ': vlen 10 pikë.' : '';
-  const rows = [0, 1].map(t => {
-    const who = mt.seats.filter(p => mt.teamOf[p] === t);
-    const parts = mt.teams ? `<small>${who.map(p => `${NAMES[p]} ${res.left[p]}`).join(' · ')}</small>` : '';
-    return `<tr class="${t === 0 ? 'me' : ''} ${t === res.winTeam ? 'w' : ''}"><td>${sideName(t)}${t === res.winTeam ? ' <span class="star">★</span>' : ''}${parts}</td><td class="n">${res.teamLeft[t]}</td><td class="n">${t === res.winTeam ? '+' + res.gain : '0'}</td><td class="n">${res.scores[t]}</td></tr>`;
-  });
-  $('#resTable').innerHTML = '<tr><th>Ana</th><th class="n">Mbetën në dorë</th><th class="n">Kjo dorë</th><th class="n">Gjithsej</th></tr>' + rows.join('');
-  $('#bNext').textContent = done ? 'Lojë e re' : 'Dora tjetër';
-  $('#bNext').onclick = () => { audio(); $('#ovEnd').hidden = true; if (done) newMatch(); else runHand(); };
+  note.textContent = res.zeroAlone.length ? '0|0 vetëm në dorë vlen 10.' : '';
+  const sideLbl = t => mt.teams ? (t === 0 ? 'Ne' : 'Ata') : (t === 0 ? 'Ti' : NAMES[2]);
+  const rows = [0, 1].map(t => `<tr class="${t === 0 ? 'me' : ''} ${t === res.winTeam ? 'w' : ''}"><td></td><td class="n">${res.teamLeft[t]}</td><td class="n">${t === res.winTeam ? '+' + res.gain : '0'}</td><td class="n">${res.scores[t]}</td></tr>`);
+  $('#resTable').innerHTML = '<tr><th>Ana</th><th class="n">Në dorë</th><th class="n">Kjo dorë</th><th class="n">Gjithsej</th></tr>' + rows.join('');
+  [...$('#resTable').querySelectorAll('tr')].slice(1).forEach((tr, t) => tr.firstChild.textContent = sideLbl(t));
+  if (online) onlineEndButtons(done);
+  else {
+    $('#bNext').textContent = done ? 'Lojë e re' : 'Dora tjetër';
+    $('#bNext').onclick = () => { audio(); $('#ovEnd').hidden = true; if (done) newMatch(); else runHand(); };
+  }
   $('#ovEnd').hidden = false;
   if (we) chime();
 }
+let localCfg = { teams: true };
 function newMatch(){
-  if (!seated) seatPlayers(); seated = false;
-  gen++; humanResolve = null;
-  mt = E.newMatch({teams: ST.dteams !== '1v1', stock: ST.dstock === 'po', target: target()});
+  gen++; stopInput();
+  mt = E.newMatch({teams: localCfg.teams, stock: localCfg.stock, target: localCfg.target});
   H = null; renderPlates(); meta();
   runHand();
+}
+// seats from the menu: you first, then the others in table order (4 seats, or you + the one across in 1 kundër 1)
+function startLocal(cfg, seats){
+  localCfg = cfg;
+  const at = cfg.teams ? [0, 1, 2, 3] : [0, 2];
+  seats.forEach((s, k) => { const p = at[k]; NAMES[p] = p ? s.name : 'Ti'; FEM[p] = !!s.fem; if (s.color) AVC[p] = s.color; SEAT[p] = { speed: .88 + Math.random() * .24 }; });
+  if (!cfg.teams) { NAMES[1] = NAMES[3] = ''; }
+  audio(); $('#ovEnd').hidden = true; $('#bNew').hidden = false;
+  newMatch(); showRotHint();
+}
+function stopTable(){
+  gen++; stopInput(); mt = null; H = null; dealt = null; resetTiles(); setTurn(-1); setTimer(-1); meta(); status('');
+  for (let p = 1; p < 4; p++) { NAMES[p] = ''; renderPlate(p); }
+  $('#boneCnt').hidden = true;
+  ['#ovEnd','#ovMenu','#ovRules','#ovSet','#ovDeck'].forEach(s => { const o = $(s); if (o) o.hidden = true; });
 }
 
 /* ---------- settings & panels ---------- */
@@ -999,14 +785,11 @@ function applySettings(){
   stage.style.setProperty('--felt-c', f[0]); stage.style.setProperty('--felt-e', f[1]);
   stage.style.setProperty('--t', ST.speed === 'fast' ? '.22s' : '.34s');
   $('#bSound').classList.toggle('off', ST.sound !== 'on');
-  $$('.seg').forEach(sg => sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', ST[sg.dataset.k] === b.dataset.v)));
-  $$('.stockRow').forEach(r => r.hidden = ST.dteams !== '1v1');
+  $$('.seg[data-k]').forEach(sg => sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', ST[sg.dataset.k] === b.dataset.v)));
   $$('.cust').forEach(i => { i.hidden = ST.dtarget !== 'custom'; if (document.activeElement !== i) i.value = ST.dcustom; });
-  const n = target();
-  $('#startLead').innerHTML = (!NAMES[1] ? 'Fiton kush arrin i pari ' : ST.dteams === '1v1' ? `Kundërshtari: ${NAMES[2]}. Fiton kush arrin i pari ` : `Partneri: ${NAMES[2]}. Kundër: ${NAMES[1]} dhe ${NAMES[3]}. Fiton ekipi që arrin i pari `) + `<span style="white-space:nowrap">${n} pikë</span>.`;
-  $$('.tgt').forEach(s => s.textContent = n);
+  $$('.tgt').forEach(s => s.textContent = target());
 }
-$$('.seg').forEach(sg => sg.addEventListener('click', e => {
+$$('.seg[data-k]').forEach(sg => sg.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const k = sg.dataset.k, old = ST[k]; ST[k] = b.dataset.v; save(); applySettings(); audio();
   if (k === 'dtarget' && ST.dtarget === 'custom') { const i = sg.parentNode.querySelector('.cust'); if (i) { i.focus(); i.select(); } }
@@ -1018,11 +801,11 @@ $$('.cust').forEach(i => {
 });
 $('#bSet').onclick = () => { $('#ovSet').hidden = false; };
 $('#bSetClose').onclick = () => { $('#ovSet').hidden = true; };
-$('#bNew').onclick = () => { $('#ovSet').hidden = true; $('#ovEnd').hidden = true; $('#ovStart').hidden = true; newMatch(); };
+$('#bNew').onclick = () => { $('#ovSet').hidden = true; $('#ovEnd').hidden = true; if (!NET.online) newMatch(); };
 $('#bSound').onclick = () => { ST.sound = ST.sound === 'on' ? 'off' : 'on'; save(); applySettings(); audio(); clack(); };
-$('#bRules').onclick = $('#bRules0').onclick = () => { $('#ovRules').hidden = false; };
+$('#bRules').onclick = () => { $('#ovRules').hidden = false; };
 $('#bRulesClose').onclick = () => { $('#ovRules').hidden = true; };
-$('#bHome').onclick = () => { gen++; if (window.parent !== window) { try { parent.postMessage({vw: 'home'}, '*'); } catch(e) {} } else location.href = './'; };
+$('#bHome').onclick = () => { stopTable(); NET.leave(); };
 function fillDeck(){ $('#deckGrid').innerHTML = FACE.join('') + BACK; }
 $('#bDeck').onclick = () => { $('#ovDeck').hidden = false; };
 $('#bDeckClose').onclick = () => { $('#ovDeck').hidden = true; };
@@ -1030,31 +813,214 @@ const fsOK = document.fullscreenEnabled || document.webkitFullscreenEnabled;
 if (!fsOK) $('#bFull').hidden = true;
 $('#bFull').onclick = async () => {
   try {
-    if (document.fullscreenElement) { await document.exitFullscreen(); return; }
+    if (document.fullscreenElement || document.webkitFullscreenElement) { await (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
     await (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen).call(document.documentElement);
     try { await screen.orientation.lock('landscape'); } catch(e) {}
   } catch(e) {}
   setTimeout(doFit, 200);
 };
+function showRotHint(){ let seen = false; try { seen = localStorage.getItem('vw-rot-seen') === '1'; } catch(e) {} if (rotated && !seen) $('#ovRot').hidden = false; }
 $('#bRotOk').onclick = () => { $('#ovRot').hidden = true; try { localStorage.setItem('vw-rot-seen', '1'); } catch(e) {} };
-$('#bStart').onclick = () => { audio(); $('#ovStart').hidden = true; newMatch(); };
+
+/* ---------- online ----------
+   The room server deals and checks every move (worker/games/domino.js). This page keeps its own copy of
+   the hand: your tiles and the line of play are real; the others' tiles and the stock are stand-ins that
+   become the real tile the moment it's played. Moves are applied here by hand (not through the engine's
+   checks, which would look at stand-ins). */
+const ON = { me: 0, seq: 0, busy: false, again: false, asked: '', skew: 0, myTeam: 0, known: new Set() };
+const lpos = s => (s - ON.me + 4) % 4;
+const rotT = a => ON.myTeam ? [a[1], a[0]] : a.slice();
+const lteam = t => t == null ? null : t === ON.myTeam ? 0 : 1;
+let lastT = null;
+function seatNames(t){
+  ON.me = t.me;
+  ON.myTeam = t.cfg.teams ? t.me % 2 : (t.me === 0 ? 0 : 1);
+  for (let p = 0; p < 4; p++) NAMES[p] = p ? '' : 'Ti';
+  t.seats.forEach((x, s) => { if (!x) return; const l = lpos(s); NAMES[l] = l ? x.name : 'Ti'; FEM[l] = !!x.fem; if (x.color) AVC[l] = x.color; });
+}
+const standIn = list => list.find(x => !ON.known.has(x));
+function claim(id, list){
+  if (list.includes(id)) return;
+  const src = [H.bone, ...H.hands].find(l => l !== list && l.includes(id));
+  const y = standIn(list);
+  if (!src || y === undefined) return;
+  src[src.indexOf(id)] = y; list[list.indexOf(y)] = id;
+}
+function matchFrom(t){
+  const c = t.cfg;
+  const m = E.newMatch({ teams: c.teams, stock: c.stock, target: c.target });
+  delete m.rand;
+  const s = t.snap || {};
+  m.scores = rotT(s.scores || [0, 0]); m.handNo = s.handNo || 0;
+  m.winner = lteam(s.winner);
+  return m;
+}
+function emptyHand(mine, played){
+  ON.known = new Set([...mine, ...played]);
+  return { hands: [mine.slice(), [], [], []], bone: [], start: null, L: [], R: [], ends: null, cur: 0, passes: 0,
+    lacks: [new Set(), new Set(), new Set(), new Set()], played: new Set(played), mustOpen: null, result: null, dealOrder: [] };
+}
+function fillStandIns(counts, boneN){
+  const free = []; for (let i = 0; i < 28; i++) if (!ON.known.has(i)) free.push(i);
+  for (let p = 1; p < 4; p++) H.hands[p] = free.splice(0, counts[p] || 0);
+  H.bone = free.splice(0, boneN);
+}
+function resync(t){
+  gen++; stopInput(); dealt = null;
+  seatNames(t);
+  mt = matchFrom(t);
+  const s = t.snap || {};
+  resetTiles();
+  if (!s.hand) { H = null; renderPlates(); meta(); return; }
+  const chain = [...(s.start ? [s.start.id] : []), ...s.L.map(x => x.id), ...s.R.map(x => x.id)];
+  H = emptyHand(s.hand, chain);
+  fillStandIns(rot4(s.counts), s.boneN);
+  Object.assign(H, { start: s.start, L: s.L, R: s.R, ends: s.ends, cur: lpos(s.cur), passes: s.passes, mustOpen: s.mustOpen });
+  H.lacks = rot4(s.lacks).map(a => new Set(a || []));
+  mt.hand = H;
+  renderChain(); mt.seats.forEach(layoutSeat); layoutBone(); renderPlates(); meta();
+}
+function rot4(a){ const o = [null, null, null, null]; a.forEach((v, s) => o[lpos(s)] = v); return o.map(v => v == null ? 0 : v); }
+function nextL(p){ return mt.seats[(mt.seats.indexOf(p) + 1) % mt.seats.length]; }
+async function applyEv(ev, my){
+  if (ev.k === 'deal') {
+    $('#ovEnd').hidden = true;
+    mt.handNo = ev.handNo; mt.scores = rotT(ev.scores);
+    H = emptyHand(ev.hand, []);
+    fillStandIns(rot4(ev.counts), ev.boneN);
+    H.cur = lpos(ev.cur); H.mustOpen = ev.mustOpen;
+    // the deal, as this table draws it: round the seats, one tile each
+    const pools = H.hands.map(h => h.slice()), order = [];
+    for (let i = 0; i < mt.seats.length * 7; i++) order.push(pools[mt.seats[i % mt.seats.length]].shift());
+    H.dealOrder = order; mt.hand = H;
+    meta(); status(''); setTurn(-1);
+    resetTiles(); renderPlates();
+    await dealAnim(my);
+    return;
+  }
+  if (!H) throw new Error('no hand');
+  if (ev.k === 'draw') {
+    const p = lpos(ev.p);
+    let id;
+    if (ev.id != null) { ON.known.add(ev.id); claim(ev.id, H.bone); id = ev.id; H.bone.splice(H.bone.indexOf(id), 1); }
+    else { id = standIn(H.bone); H.bone.splice(H.bone.indexOf(id), 1); }
+    H.hands[p].push(id);
+    snap(.2, 2400, .04); layoutSeat(p); layoutBone();
+    await sleep(D(p === 0 ? 220 : 380));
+    return;
+  }
+  if (ev.k === 'pass') {
+    const p = lpos(ev.p);
+    if (H.ends) { H.lacks[p].add(H.ends[0]); H.lacks[p].add(H.ends[1]); }
+    H.passes++; H.cur = nextL(p);
+    await animPass(p);
+    return;
+  }
+  if (ev.k === 'play') {
+    const p = lpos(ev.p), id = ev.id;
+    ON.known.add(id);
+    if (p) claim(id, H.hands[p]);
+    H.hands[p] = H.hands[p].filter(x => x !== id);
+    if (ev.side === 'S') { H.start = { id, left: E.A(id), right: E.B(id) }; H.ends = [E.A(id), E.B(id)]; H.mustOpen = null; }
+    else if (ev.side === 'L') { const inner = H.ends[0], outer = E.other(id, inner); H.L.push({ id, inner, outer }); H.ends[0] = outer; }
+    else { const inner = H.ends[1], outer = E.other(id, inner); H.R.push({ id, inner, outer }); H.ends[1] = outer; }
+    H.played.add(id); H.passes = 0; H.cur = nextL(p);
+    await animPlay(p, id);
+    return;
+  }
+  if (ev.k === 'end') {
+    const r = ev.result;
+    // show everyone's real tiles
+    const hands = rot4(ev.hands.map(h => h || []));
+    hands.forEach((h, p) => { if (!mt.seats.includes(p)) return; h.forEach(id => { ON.known.add(id); claim(id, H.hands[p]); }); H.hands[p] = H.hands[p].filter(x => h.includes(x)); });
+    const res = { kind: r.kind, p: lpos(r.p), winTeam: lteam(r.winTeam), gain: r.gain, left: rot4(r.left), teamLeft: rotT(r.teamLeft), scores: rotT(r.scores),
+      matchWinner: lteam(r.matchWinner), zeroAlone: r.zeroAlone.map(lpos) };
+    mt.scores = res.scores; mt.winner = res.matchWinner;
+    if (r.kind === 'domino') { bubble(res.p, 'Domino', true, 1600); chime(); }
+    await endHand(res, my, true);
+  }
+}
+function onlineEndButtons(done){
+  if (!done) { $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; return; }
+  $('#bNext').textContent = NET.isHost() ? 'Lojë e re' : 'Mbyll';
+  $('#bNext').onclick = () => { $('#ovEnd').hidden = true; if (NET.isHost()) NET.send({ t: 'again' }); };
+}
+// my turn online: the real rules decide (my hand is real), the server double-checks
+function askOrWait(t){
+  if (!H || t.phase !== 'play' || t.step === 'end') { setTurn(-1); setTimer(-1); return; }
+  const a = lpos(t.actor);
+  setTurn(a); setTimer(a, t.turnStart - ON.skew, t.turnMs);
+  H.cur = a;
+  const key = t.seq + ':' + t.step;
+  if (a === 0) {
+    if (ON.asked === key && mode === 'play') return;
+    ON.asked = key;
+    humanTurn().then(act => {
+      if (!NET.online || !act) return;
+      if (act.type === 'play') NET.send({ t: 'act', step: 'turn', kind: 'play', id: act.m.id, side: act.m.side });
+      else NET.send({ t: 'act', step: 'turn', kind: act.type });
+    });
+  } else { if (mode === 'play') stopInput(); layoutSeat(0); refresh(); status(''); }
+}
+async function pump(){
+  if (ON.busy) { ON.again = true; return; }
+  ON.busy = true;
+  try {
+    do {
+      ON.again = false;
+      const t = lastT; if (!t) break;
+      seatNames(t);
+      if (!mt || mt.teams !== !!t.cfg.teams) { mt = matchFrom(t); H = null; }
+      const log = t.log || [], lastSeq = log.length ? log[log.length - 1].seq : 0;
+      let evs = log.filter(e => e.seq > ON.seq);
+      const di = evs.map(e => e.k).lastIndexOf('deal');
+      if (di >= 0) evs = evs.slice(di);
+      const behind = evs.length && evs[0].k !== 'deal' && (!H || evs[0].seq !== ON.seq + 1);
+      if ((!H && di < 0) || behind || (di >= 0 && evs.length > 4)) { resync(t); ON.seq = lastSeq; evs = []; }
+      if (evs.length && mode === 'play') { stopInput(); layoutSeat(0); refresh(); }
+      const my = ++gen;
+      for (const ev of evs) {
+        try { await applyEv(ev, my); }
+        catch (e) { console.warn('resync', e); resync(lastT); ON.seq = (lastT.log || []).reduce((a, x) => Math.max(a, x.seq), 0); break; }
+        if (my !== gen || !NET.online) return;
+        ON.seq = ev.seq;
+      }
+      if (!ON.again && lastT) askOrWait(lastT);
+    } while (ON.again);
+  } finally { ON.busy = false; }
+}
+function onTable(t, S2){
+  const first = !lastT;
+  lastT = t; ON.skew = S2.now - Date.now();
+  if (first) { ON.seq = 0; H = null; mt = null; $('#bNew').hidden = true; audio(); showRotHint(); }
+  pump();
+}
+
+/* ---------- menu, rooms, connection (net.js) ---------- */
+const NET = NETWORK({
+  game: 'domino', title: 'Domino',
+  modes: [{ label: '2 kundër 2', cfg: { teams: true } }, { label: '1 kundër 1', cfg: { teams: false } }],
+  cfg: () => ({ stock: ST.dstock === 'po', target: target() }),
+  seatsFor: cfg => cfg.teams ? [0, 1, 2, 3] : [0, 2],
+  teamsFor: cfg => cfg.teams ? [[0, 2], [1, 3]] : null,
+  onLocal: (cfg, seats) => { lastT = null; startLocal(cfg, seats); },
+  onTable,
+  onLeave: () => { lastT = null; stopTable(); },
+  onError: () => { ON.asked = ''; pump(); },
+});
+window.__dom = { get mt(){ return mt; }, get H(){ return H; }, get mode(){ return mode; }, layoutAt: L => layoutAt(L),
+  move(){ const ms = E.movesFor(H, 0); if (ms.length) submit(ms[0]); else $('#bMain').click(); } };   // for tests
 
 /* ---------- start (nothing to download or generate: draws instantly) ---------- */
 function start(){
   applySettings(); buildArt();
-  $('#brandImg').innerHTML = $('#feltMark').innerHTML = $('#startLogo').innerHTML = logoSVG();
-  mkTiles(); fillDeck(); resetTiles(); seatPlayers(); seated = true; renderPlates();
-  status('Gati për lojë');
+  $('#brandImg').innerHTML = $('#feltMark').innerHTML = logoSVG();
+  mkTiles(); fillDeck(); resetTiles(); renderPlates();
   $('#loading').hidden = true;
-  let seen = false; try { seen = localStorage.getItem('vw-rot-seen') === '1'; } catch(e) {}
-  if (rotated && !seen) $('#ovRot').hidden = false;
 }
-window.__dom = { get mt(){ return mt; }, get H(){ return H; }, layoutAt: L => layoutAt(L) };   // for testing
 start();
 })();
-
 </script>
-<script src="ads.js"></script>
 <script src="table-ui.js"></script>
 </body>
 </html>

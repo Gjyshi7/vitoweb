@@ -12,8 +12,11 @@ import { publicId, cleanName } from "./util.js";
 import mafia from "./games/mafia.js";
 import imposter from "./games/imposter.js";
 import murlan from "./games/murlan.js";
+import spathi from "./games/spathi.js";
+import derri from "./games/derri.js";
+import domino from "./games/domino.js";
 
-export const GAMES = { mafia, imposter, murlan };
+export const GAMES = { mafia, imposter, murlan, spathi, derri, domino };
 const MAX_PLAYERS = 30;
 const MSG_WINDOW_MS = 10_000;   // per-socket message budget
 const MSG_MAX = 40;
@@ -42,13 +45,13 @@ export class Room extends DurableObject {
   }
 
   // ---- called by the Worker (RPC) ----
-  async init(code, game) {
+  async init(code, game, opts = {}) {
     if (!GAMES[game]) return null;
     if (this.s && Date.now() - this.s.touched < this.ttl()) return null; // code still in use
     this.s = {
       code, game, created: Date.now(), touched: Date.now(),
       hostToken: crypto.randomUUID(), hostPid: null, hostOffAt: 0,
-      players: [], round: 0, g: GAMES[game].init(),
+      players: [], round: 0, g: GAMES[game].init(opts),
     };
     await this.save();
     await this.ctx.storage.setAlarm(Date.now() + this.ttl());
@@ -56,7 +59,9 @@ export class Room extends DurableObject {
   }
 
   async info() {
-    return this.s ? { ok: true, game: this.s.game, players: this.s.players.length } : { ok: false };
+    if (!this.s) return { ok: false };
+    const g = this.s.g || {};
+    return { ok: true, game: this.s.game, players: this.s.players.length, open: GAMES[this.s.game].canJoin ? GAMES[this.s.game].canJoin(this.s) : true, cfg: g.cfg || null };
   }
 
   // Rooms delete themselves after ROOM_TTL_MINUTES without any activity (default 6 hours).
@@ -133,7 +138,7 @@ export class Room extends DurableObject {
     // One live connection per player: a second tab or a reconnect replaces the old one.
     for (const w of this.ctx.getWebSockets(p.pid)) { try { w.send('{"t":"replaced"}'); w.close(4002, "replaced"); } catch {} }
     this.ctx.acceptWebSocket(server, [p.pid]);
-    if (game.onJoin) game.onJoin(s, p.pid);
+    if (game.onJoin) game.onJoin(s, p.pid, Date.now());
     await this.save();
     this.broadcast();
     await this.schedule();

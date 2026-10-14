@@ -44,7 +44,7 @@ function phone(code, name, { k = key(), host = "" } = {}) {
 }
 
 async function murlan() {
-  console.log("Murlan");
+  console.log("Murlan (shared table server)");
   const { M } = await import(new URL("../worker/gen/murlan-engine.js", import.meta.url));
   const c = await create("murlan");
   ok(c.status === 200 && c.game === "murlan", `create room (${c.code})`);
@@ -52,52 +52,64 @@ async function murlan() {
   await a.open;
   const b = phone(c.code, "Beni");
   await b.open;
-  ok(await a.until((S) => S.mur && S.mur.seats.filter(Boolean).length === 2, "2 seats"), "2 phones sit down");
+  ok(await a.until((S) => S.tbl && S.tbl.seats.filter(Boolean).length === 2, "2 seats"), "2 phones sit down");
+  b.send({ t: "seat", seat: 2 });
+  ok(await a.until((S) => S.tbl.seats[2] && S.tbl.seats[2].name === "Beni", "seat 2"), "a phone can move to its partner's seat");
   a.send({ t: "start" });
-  ok(await a.until((S) => S.mur.phase === "filling", "filling"), "start fills the empty seats");
-  ok(await a.until((S) => S.mur.phase === "play" && S.mur.seats.every(Boolean), "4 seats", 15000), "4 players at the table, cards dealt");
-  const v = a.S.mur;
-  ok(v.hand.length >= 13 && v.counts.reduce((x, y) => x + y, 0) === 54, "own hand + counts add up to 54");
-  ok(!JSON.stringify(a.S).includes('"bot"'), "nothing on the wire says bot");
+  ok(await a.until((S) => S.tbl.phase === "play" && S.tbl.seats.every(Boolean), "4 seats", 8000), "empty seats filled, cards dealt");
+  const t = a.S.tbl;
+  ok(t.snap.hand.length >= 13 && t.snap.counts.reduce((x, y) => x + y, 0) === 54, "own hand + counts add up to 54");
+  ok(!JSON.stringify(a.S).includes('"bot"') && !JSON.stringify(a.S).includes('"priv"'), "nothing on the wire says bot, nothing private leaks");
   ok(a.S.players.length === 4, "player list shows all 4 seats");
   const late = phone(c.code, "Vonë");
   ok(await late.open.then(() => sleep(400)).then(() => late.closed === 4005 || late.msgs.some((m) => m.t === "refused")), "a 5th phone can't join a running table");
 
-  // both phones play until the hand ends; check that nobody ever sees someone else's cards
   let leak = false, plays = 0;
-  const deal = (S) => S.mur.log.find((e) => e.k === "deal");
   const playTurn = (p) => {
-    const m = p.S && p.S.mur;
-    if (!m || m.phase !== "play" || m.step !== "turn" || m.cur !== m.me || p.sentSeq === m.seq) return;
-    p.sentSeq = m.seq;
-    const moves = M.allMoves(m.hand, m.top, m.must3);
-    if (!moves.length) return p.send({ t: "play", ids: null });
+    const t = p.S && p.S.tbl;
+    if (!t || t.phase !== "play" || t.actor !== t.me || p.sent === t.seq + t.step) return;
+    p.sent = t.seq + t.step;
+    const s = t.snap;
+    if (t.step === "gift") return p.send({ t: "act", step: "gift", card: s.hand.find((x) => x < 32) ?? s.hand[0] });
+    const moves = M.allMoves(s.hand, s.top, s.must3);
+    if (!moves.length) return p.send({ t: "act", step: "turn", ids: null });
     const mv = moves.sort((x, y) => M.size(x) - M.size(y) || x.r - y.r)[0];
-    p.send({ t: "play", ids: M.cardsFor(m.hand, mv, m.must3) }); plays++;
-  };
-  const gift = (p) => {
-    const m = p.S && p.S.mur;
-    if (m && m.step === "gift" && m.exchange && m.exchange.first === m.me && p.giftSeq !== m.seq) { p.giftSeq = m.seq; p.send({ t: "gift", card: m.hand.find((x) => x < 32) ?? m.hand[0] }); }
+    p.send({ t: "act", step: "turn", ids: M.cardsFor(s.hand, mv, s.must3) }); plays++;
   };
   const t0 = Date.now();
   let ended = false;
   while (Date.now() - t0 < 300000) {
     for (const p of [a, b]) {
-      const m = p.S && p.S.mur;
-      if (m && m.log.some((e) => e.k === "deal" && e.hands)) leak = true;
-      playTurn(p); gift(p);
+      const t = p.S && p.S.tbl;
+      if (t && (t.log || []).some((e) => e.k === "deal" && e.hands)) leak = true;
+      playTurn(p);
     }
-    if (a.S.mur.log.some((e) => e.k === "end")) { ended = true; break; }
+    if ((a.S.tbl.log || []).some((e) => e.k === "end")) { ended = true; break; }
     await sleep(60);
   }
+  const deal = (S) => (S.tbl.log || []).find((e) => e.k === "deal");
   ok(ended, `a full hand is played to the end (${plays} plays by the phones)`);
   ok(!leak && deal(a.S) && deal(b.S) && JSON.stringify(deal(a.S).hand) !== JSON.stringify(deal(b.S).hand), "each phone only gets its own deal");
-  b.send({ t: "play", ids: [999] });
+  b.send({ t: "act", step: "turn", ids: [999] });
   await sleep(300);
   ok(b.msgs.some((x) => x.t === "error"), "bad moves are refused");
   b.close();
   ok(await a.until((S) => S.players.length === 4, "still 4"), "a phone that leaves keeps its seat at the table");
   a.close(); late.close();
+}
+
+async function quick() {
+  console.log("Quick match");
+  const q = await (await fetch(BASE + "/api/quick", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: "domino", cfg: { teams: true } }) })).json();
+  ok(/^[A-Z]{4}$/.test(q.code), `quick match gives a table (${q.code})`);
+  const q2 = await (await fetch(BASE + "/api/quick", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: "domino", cfg: { teams: true } }) })).json();
+  ok(q2.code === q.code, "a second phone is sent to the same open table");
+  const q3 = await (await fetch(BASE + "/api/quick", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: "domino", cfg: { teams: false } }) })).json();
+  ok(q3.code !== q.code, "other settings get another table");
+  const solo = phone(q3.code, "Vetëm");
+  await solo.open;
+  ok(await solo.until((S) => S.tbl && S.tbl.phase === "solo", "solo", 12000), "alone after the wait: the table hands over to the phone");
+  solo.close();
 }
 
 async function mafia() {
@@ -270,6 +282,7 @@ async function misc() {
 }
 
 await murlan();
+await quick();
 await mafia();
 await imposter();
 await misc();

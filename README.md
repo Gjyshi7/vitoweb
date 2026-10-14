@@ -6,11 +6,16 @@ The hub with 6 games (Murlan, Spathi, Derri në dorë, Domino, Imposter, Mafia) 
 |---|---|
 | `public/` | The site: hub, 6 games, icons, 404 page. Served as static files (free, unlimited). |
 | `worker/` | The servers. `index.js` = API, `room.js` = one live room per game code, `guard.js` = daily kill switch, `games/` = Murlan, Mafia and Imposter. `gen/` = copies of the page engines, made by `npm run build` (don't edit). |
+| `public/net.js` | Start menu (Luaj online / Krijo dhomë / Hyr), rooms and the connection, shared by the 4 table games. Sits outside the rotated table, so the keyboard is right on an upright phone. |
+| `public/hand.js` | Your hand in every table game: drag sideways to reorder, drag the selected cards up onto the table to play. One finger only; a second finger cancels. |
+| `public/*-engine.js` | The rules of each table game. The server runs the same files (copied to `worker/gen/`). |
+| `worker/games/table.js` | The shared table server: seats, quick match, turn clock (30 s), seats that play by themselves, what each phone may see. `murlan.js`, `spathi.js`, `derri.js`, `domino.js` only describe their rules. |
+| `test/sim.mjs` | Plays whole matches of the 4 table games on the server rules with a fake clock and checks no phone ever gets someone else's cards. `node test/sim.mjs` |
 | `public/players.js` | Names and pace of the other players at the card tables (shared by every game and the server). |
 | `public/table-ui.js` | Top bar (RENDIT, PAUZË), pause menu and the big play buttons, shared by the 4 table games. |
 | `public/ads.js` | Ad slots, off until AdSense approves the site. Open any page with `?ads=preview` to see where they go. |
 | `wrangler.toml` | Cloudflare settings: rooms (Durable Objects), rate limits, kill switch. |
-| `test/smoke.mjs` | 64 checks with fake phones. Run it after every deploy. |
+| `test/smoke.mjs` | 68 checks with fake phones. Run it after every deploy. |
 
 ## 1. Put it online (first time, about 5 minutes)
 
@@ -35,7 +40,7 @@ Cloudflare's drag-and-drop upload only hosts plain files. It cannot create the r
    BASE=https://vitoweb-loja.vitoweb.workers.dev npm test
    ```
 
-   It should end with `64 passed, 0 failed`. It creates 3 test rooms, which delete themselves.
+   It should end with `68 passed, 0 failed`. It creates 3 test rooms, which delete themselves.
 
 **Updating later:** change files, run `npx wrangler deploy` again. Phones in a room drop for a second and reconnect on their own; rooms keep their state.
 
@@ -55,7 +60,7 @@ npx wrangler dev --ip 0.0.0.0
 
 - On the Mac: http://localhost:8787
 - On phones on the same Wi-Fi: `http://<your Mac's IP>:8787` (Mac: System Settings → Wi-Fi → Details → IP address).
-- `npm test` in a second terminal runs the 64 checks against it.
+- `npm test` in a second terminal runs the 68 checks against it.
 
 This runs the real Cloudflare runtime locally, rooms included.
 
@@ -99,7 +104,6 @@ Change in `wrangler.toml`, then `npx wrangler deploy`:
 - Switch to the Workers Paid plan ($5/month) on launch day and set budget alerts.
 - Turnstile (bot check) on room creation, Google login with accounts in D1, AdSense with privacy and terms pages, a bot stress test.
 - Your own domain (for example `loja.vitoweb.al`; Cloudflare advises against running a business on `workers.dev`): Workers & Pages → vitoweb-loja → Domains → Add domain.
-- Online tables for Spathi, Derri and Domino (Murlan has them; the room server is built so each game is one more file in `worker/games/`).
 - Ads: see `public/ads.js`. AdSense needs your own domain, a privacy page and Google's consent message for EU/UK/CH visitors. Turn on H5 Games Ads in AdSense for the break between hands.
 
 ## If something goes wrong

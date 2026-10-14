@@ -109,39 +109,21 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 #loading{position:absolute;inset:0;z-index:500;display:grid;place-items:center;background:var(--room);color:var(--sub);font-size:20px;letter-spacing:.1em}
 @media (prefers-reduced-motion:reduce){.card{transition-duration:.12s}}
 
-/* top bar stays usable over the panels, so you can always go back to the games */
+/* top bar stays usable over the panels, so you can always pause or leave */
 .top{z-index:450}
-/* online table */
-.plate .tbar{position:absolute;left:12px;right:12px;bottom:3px;height:4px;border-radius:2px;background:var(--pink);transform-origin:left center;animation:tbar linear forwards}
+.card{transition:transform var(--t) cubic-bezier(.2,.75,.25,1),box-shadow .15s,filter .2s,opacity .2s}
+.card.gone{opacity:0;pointer-events:none}
+/* the other players' hands: one closed stack with a solid paper edge (can't be counted) */
+.stack{position:absolute;left:0;top:0;width:120px;height:168px;border-radius:9px;z-index:9;pointer-events:none;
+  box-shadow:1px 1px 0 #d9dee8,2px 2px 0 #d9dee8,3px 3px 0 #c9d0dc,4px 4px 0 #c9d0dc,5px 5px 0 #b9c1cf,6px 6px 0 #b9c1cf,7px 7px 0 #aab3c3,8px 8px 0 #aab3c3,9px 9px 0 #9aa4b6,10px 10px 0 #9aa4b6,10px 12px 16px rgba(0,0,0,.45)}
+.stack img{width:100%;height:100%;display:block;border-radius:9px}
+.plate span em{font-style:normal;color:var(--pink);font-weight:700}
+/* your turn: a line above your hand (and your clock, online) */
+#myTurn{position:absolute;left:330px;width:620px;top:536px;height:5px;border-radius:3px;background:rgba(239,90,134,.0);z-index:95;pointer-events:none;transition:background .25s,box-shadow .25s;overflow:hidden}
+#myTurn.on{background:rgba(239,90,134,.35);box-shadow:0 0 18px rgba(239,90,134,.45)}
+.tbar{position:absolute;left:0;right:0;bottom:0;height:100%;border-radius:2px;background:var(--pink);transform-origin:left center;animation:tbar linear forwards}
+.plate .tbar{left:12px;right:12px;bottom:3px;height:4px;top:auto}
 @keyframes tbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
-.online{width:620px}
-.online h2{font-size:40px;margin:0 0 6px}
-.online h2 span{color:var(--pink);letter-spacing:.12em}
-.online p{color:var(--sub);font-size:18px;margin:0 0 12px}
-.online .fld{display:block;margin:10px 0 0}
-.online .fld span{display:block;font-size:15px;color:var(--sub);margin-bottom:6px;letter-spacing:.04em}
-.online input{width:100%;height:56px;border-radius:14px;border:0;padding:0 16px;font:600 22px var(--f-ui);color:var(--ink);background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px var(--line)}
-.online input:focus{outline:2px solid var(--gold);outline-offset:2px}
-.online .row{display:grid;grid-template-columns:1fr 160px;gap:10px;align-items:end;margin-top:6px}
-.online .row .pbtn{margin-top:0}
-.online #onCode{text-transform:uppercase;letter-spacing:.3em;text-align:center}
-.online .or{display:flex;align-items:center;gap:12px;color:var(--sub);font-size:15px;margin:16px 0 4px}
-.online .or:before,.online .or:after{content:"";flex:1;height:1px;background:var(--line)}
-.online .err{color:#ffb3a6;min-height:22px;margin:10px 0 0;font-size:17px}
-.online .seats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 4px}
-.online .seat{display:flex;align-items:center;gap:10px;height:62px;padding:0 12px;border-radius:14px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px var(--line);font-size:19px;font-weight:600;min-width:0}
-.online .seat .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;flex:none}
-.online .seat em{font-style:normal;color:var(--sub);font-weight:500;font-size:16px}
-.online .seat.empty{color:var(--sub);font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.12);background:transparent}
-.online .seat.wait .av{background:rgba(255,255,255,.08)}
-.online .seat.wait .av:after{content:"";width:16px;height:16px;border-radius:50%;border:2px solid var(--sub);border-top-color:transparent;animation:spin .8s linear infinite}
-.online .seat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@keyframes spin{to{transform:rotate(360deg)}}
-.online .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.online .two .pbtn{margin-top:12px}
-.netdot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#e5a13a;margin-right:6px;vertical-align:1px}
-.netdot.on{background:#3fbf7f}
-
 </style>
 </head>
 <body>
@@ -172,54 +154,23 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     </div>
   </div>
 
-  <div class="plate" id="pl2" style="left:640px;top:56px;transform:translateX(-50%)"></div>
+  <div class="plate" id="pl2" style="left:640px;top:64px;transform:translateX(-50%)"></div>
   <div class="plate" id="pl1" style="left:46px;top:214px"></div>
   <div class="plate" id="pl3" style="right:46px;top:214px"></div>
-  <div class="plate" id="pl0" style="left:34px;top:620px"></div>
-  <div class="bubble" id="bb0" style="left:150px;top:590px"></div>
+  <div class="plate" id="pl0" hidden></div>
+  <div class="bubble" id="bb0" style="left:640px;top:505px"></div>
   <div class="bubble" id="bb1" style="left:330px;top:250px"></div>
-  <div class="bubble" id="bb2" style="left:830px;top:92px"></div>
+  <div class="bubble" id="bb2" style="left:830px;top:100px"></div>
   <div class="bubble" id="bb3" style="left:950px;top:250px"></div>
 
   <div id="cards"></div>
   <div id="cap"></div>
+  <div id="myTurn"></div>
 
   <div class="acts">
-    <button class="btn main" id="bPlay" disabled>LUAJ</button>
     <button class="btn" id="bPass" disabled>PAS</button>
-    <button class="btn" id="bHint" disabled>NDIHMË</button>
+    <button class="btn main" id="bPlay" disabled>LUAJ</button>
   </div>
-
-  <div class="ov" id="ovStart"><div class="panel start">
-    <img id="startLogo" alt="">
-    <h2>Murlan</h2>
-    <p><span id="startWho"></span> Fiton kush arrin i pari 21 pikë.</p>
-    <button class="pbtn" id="bStart">Fillo lojën</button>
-    <button class="pbtn ghost" id="bOnline">Luaj me shokët</button>
-    <button class="linkb" id="bRules0">Rregullat</button>
-  </div></div>
-  <div class="ov" id="ovOnline" hidden><div class="panel online">
-    <div id="onHome">
-      <h2>Luaj me shokët</h2>
-      <p>Krijo një tavolinë dhe dërgoju linkun. Vendet që mbeten bosh i zënë lojtarë të tjerë online.</p>
-      <label class="fld"><span>EMRI YT NË TAVOLINË</span><input id="onName" maxlength="16" autocomplete="nickname" enterkeyhint="go"></label>
-      <button class="pbtn" id="onCreate" type="button">Krijo tavolinë</button>
-      <div class="or">ose hyr me kod</div>
-      <div class="row"><input id="onCode" maxlength="4" placeholder="KODI" autocapitalize="characters" autocomplete="off" inputmode="text" enterkeyhint="go"><button class="pbtn ghost" id="onJoin" type="button">Hyr</button></div>
-      <p class="err" id="onErr"></p>
-      <button class="linkb" id="onBack" type="button">Kthehu</button>
-    </div>
-    <div id="onLobby" hidden>
-      <h2>Tavolina <span id="onCodeTxt"></span></h2>
-      <p id="onLead"></p>
-      <div class="seats" id="onSeats"></div>
-      <div class="two"><button class="pbtn ghost" id="onShare" type="button">Dërgo linkun</button><button class="pbtn" id="onStart" type="button">Fillo lojën</button></div>
-      <p class="err" id="onErr2"></p>
-      <div class="adslot" data-ad="lobby"></div>
-      <button class="linkb" id="onLeave" type="button">Dil nga tavolina</button>
-    </div>
-  </div></div>
-
 
   <div class="ov" id="ovRules" hidden><div class="panel rules">
     <h2>Rregullat</h2>
@@ -238,6 +189,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
       <li>Kush pason mund të luajë sërish në të njëjtin raund. Kur pasojnë të gjithë, hap ai që luajti i fundit.</li>
       <li><b>Dora e parë</b> hapet me 3♠. Pas saj, i fundit i jep të parit letrën më të lartë dhe merr mbrapsht një letër nga 3 te 10. Kush ka të dy xhokerët nuk e bën shkëmbimin.</li>
       <li><b>Pikët:</b> 3, 2, 1, 0 për dorë. Loja shkon deri në 21. Nëse dy e kalojnë njëkohësisht, caku bëhet 31, 41, pastaj 51.</li>
+      <li><b>2 kundër 2:</b> partneri ulet përballë. Ekipi merr pikët e të dy lojtarëve. Fiton ekipi që arrin i pari 21.</li>
     </ul>
     <button class="pbtn ghost" id="bRulesClose">Mbyll</button>
   </div></div>
@@ -270,8 +222,8 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div class="ov" id="ovRot" hidden><div class="panel rot">
     <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M17 11v2"/></svg>
     <h2>Ktheje telefonin anash</h2>
-    <p>Tavolina luhet horizontalisht. Nuk ka nevojë të ndezësh rrotullimin automatik: loja kthehet vetë.</p>
-    <button class="pbtn" id="bRotOk">Në rregull</button>
+    
+    <button class="pbtn" id="bRotOk">OK</button>
   </div></div>
 
   <div id="loading">Duke përgatitur letrat…</div>
@@ -281,6 +233,9 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 <script src="cards.js"></script>
 <script src="engine.js"></script>
 <script src="players.js"></script>
+<script src="hand.js"></script>
+<script src="ads.js"></script>
+<script src="net.js"></script>
 <script>
 (() => {
 'use strict';
@@ -318,22 +273,22 @@ async function buildArt(){
   if (!BACK) BACK = await ART.toURL(ART.drawBack());
 }
 
-/* ---------- seats & geometry ---------- */
-const NAMES = ['Ti','','',''];
-const FEM = [false, false, false, false];
-const AVC = ['#b02a63','','',''];
-const SEAT = [null, null, null, null];        // the other three players: name, pace
-function seatPlayers(){
-  PLAYERS.seats(3).forEach((s, i) => { SEAT[i + 1] = s; NAMES[i + 1] = s.name; FEM[i + 1] = s.fem; AVC[i + 1] = s.color; });
-  const st = $('#startWho'); if (st) st.textContent = `Në tavolinë: ${NAMES[1]}, ${NAMES[2]} dhe ${NAMES[3]}.`;
+/* ---------- seats ----------
+   Seat 0 is always you, at the bottom. In 2 kundër 2 your partner sits across (seat 2). */
+const NAMES = ['Ti','','',''], FEM = [false, false, false, false], AVC = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62'];
+const SEAT = [null, null, null, null];                   // pace of each player (local table)
+function setSeats(list){                                  // [{name, fem, color}] by seat, you first
+  list.forEach((s, i) => { if (!s) return; NAMES[i] = i ? s.name : 'Ti'; FEM[i] = !!s.fem; if (s.color) AVC[i] = s.color; SEAT[i] = { speed: .88 + Math.random() * .24 }; });
 }
 const PILE = [640, 330], DISCARD = [330, 338], DECK = [640, 338];
+const SEATPOS = [null, [140, 400, 90], [640, 180, 180], [1140, 400, -90]];
 const els = [];
 let mt = null, H = null, gen = 0, dealt = null, reveal = -1, discardN = 0;
 let mode = 'idle', sel = new Set(), playable = null, giftOpts = [], humanResolve = null, giftResolve = null, fast = false;
 let pile = [];
 const D = ms => ms * (ST.speed === 'fast' ? .55 : 1) * (fast ? .5 : 1);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const teams = () => !!(mt && mt.teams);
 
 function mkCards(){
   const box = $('#cards'); box.textContent = '';
@@ -342,83 +297,101 @@ function mkCards(){
     const im = document.createElement('img'); im.alt = ''; im.draggable = false; d.appendChild(im);
     box.appendChild(d); els[i] = {el: d, img: im, up: null};
   }
+  for (let p = 1; p < 4; p++) {
+    const s = document.createElement('div'); s.className = 'stack'; s.id = 'st' + p; s.hidden = true;
+    const im = document.createElement('img'); im.alt = ''; s.appendChild(im);
+    const [x, y, r] = SEATPOS[p];
+    s.style.transform = `translate3d(${x - CW / 2}px,${y - CH / 2}px,0) rotate(${r}deg) scale(.5)`;
+    box.appendChild(s);
+  }
 }
 function put(id, x, y, rot = 0, sc = 1, z = 1, up = false){
   const c = els[id];
   if (c.up !== up) { c.img.src = up ? FACE[id] : BACK; c.up = up; }
+  if (up) c.el.classList.remove('gone');
   c.el.style.transform = `translate3d(${x - CW / 2}px,${y - CH / 2}px,0) rotate(${rot}deg) scale(${sc})`;
   c.el.style.zIndex = z;
 }
 const handOf = p => dealt ? dealt[p] : H ? H.hands[p] : [];
 const byRank = (a, b) => M.rankOf(a) - M.rankOf(b) || a - b;
 
-/* the other players' hands always look the same: a fan of FAN backs, so nobody can count them.
-   Real cards fill the first slots (any extra ones sit exactly on the last slot), decoy backs fill the rest.
-   Only the last card shows as what it is: one card. */
-const FAN = 5, decoys = [null, [], [], []];
-function decoy(p, k){
-  let d = decoys[p][k];
-  if (!d) { d = document.createElement('div'); d.className = 'card decoy'; const im = document.createElement('img'); im.alt = ''; im.draggable = false; d.appendChild(im); $('#cards').appendChild(d); decoys[p][k] = d; }
-  if (BACK && d.firstChild.getAttribute('src') !== BACK) d.firstChild.src = BACK;
-  return d;
-}
-function fanSlot(p, k){ const o = k - (FAN - 1) / 2; return p === 2 ? [640 + o * 16, 180, 180] : p === 1 ? [140, 400 + o * 16, 90] : [1140, 400 + o * 16, -90]; }
-function layoutFan(p, ids, up){
-  const n = ids.length;
-  ids.forEach((id, i) => {
-    els[id].el.classList.remove('mine','sel','dim','old','last');
-    const k = n === 1 ? (FAN - 1) / 2 : Math.min(i, FAN - 1), [x, y, r] = fanSlot(p, k);
-    put(id, x, y, r, .5, 10 + Math.min(i, FAN), false);
-  });
-  for (let k = 0; k < FAN; k++) {
-    const d = decoy(p, k), on = !up && n >= 2 && k >= n;
-    d.style.display = on ? '' : 'none';
-    if (on) { const [x, y, r] = fanSlot(p, k); d.style.transform = `translate3d(${x - CW / 2}px,${y - CH / 2}px,0) rotate(${r}deg) scale(.5)`; d.style.zIndex = 10 + k; }
+/* The other players' hands: one closed stack with a solid edge, so it reads as "cards" but can't be
+   counted. Their real cards wait invisibly under it and appear the moment they're played.
+   The last card shows as a single card (and the plate says 1 letër). */
+function layoutOther(p){
+  const h = handOf(p), n = h.length, [x, y, r] = SEATPOS[p], st = $('#st' + p);
+  if (reveal === p) {
+    st.hidden = true;
+    h.slice().sort(byRank).forEach((id, i, a) => { els[id].el.classList.remove('mine','sel','dim','old','last','gone'); put(id, 640 + (i - (a.length - 1) / 2) * 34, 330, 0, .72, 300 + i, true); });
+    return;
   }
+  const stacked = n >= 2 && !dealt;
+  st.hidden = !stacked;
+  if (stacked && BACK && st.firstChild.getAttribute('src') !== BACK) st.firstChild.src = BACK;
+  h.forEach((id, i) => {
+    const e = els[id].el;
+    e.classList.remove('mine','sel','dim','old','last');
+    e.classList.toggle('gone', stacked);
+    put(id, x, y, r, .5, 10 + i, false);
+  });
 }
 function layoutSeat(p){
-  const h = handOf(p), n = h.length;
-  if (p === 0) {
-    const ids = orderHand(h, byRank, !!dealt);
-    const step = n > 1 ? Math.min(74, (680 - CW) / (n - 1)) : 0;
-    ids.forEach((id, i) => {
-      const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
-      const x = 640 + (i - (n - 1) / 2) * step, y = 632 + t * t * 10 - (sel.has(id) ? 34 : 0);
-      const e = els[id].el;
-      e.classList.add('mine'); e.classList.remove('old','last');
-      e.classList.toggle('sel', sel.has(id));
-      e.classList.toggle('dim', (mode === 'gift' && !giftOpts.includes(id)) || (mode === 'play' && !!playable && !playable.has(id)));
-      if (!isDragged(id)) put(id, x, y, t * 4, 1, 100 + i, true);
-    });
-  } else {
-    const up = reveal === p;
-    if (up) {
-      const ids = h.slice().sort(byRank);
-      ids.forEach((id, i) => { els[id].el.classList.remove('mine','sel','dim','old','last'); put(id, 640 + (i - (ids.length - 1) / 2) * 34, 330, 0, .72, 300 + i, true); });
-      layoutFan(p, [], true);
-    } else layoutFan(p, h, false);
-  }
-  renderPlate(p);
+  if (p) { layoutOther(p); renderPlate(p); return; }
+  const ids = orderHand(handOf(0), byRank, !!dealt).filter(id => !HAND.lifted(id)), n = ids.length;
+  ids.forEach((id, i) => {
+    const g = HAND_GEOM(i, n), y = g.y - (sel.has(id) ? 34 : 0);
+    const e = els[id].el;
+    e.classList.add('mine'); e.classList.remove('old','last','gone');
+    e.classList.toggle('sel', sel.has(id));
+    e.classList.toggle('dim', (mode === 'gift' && !giftOpts.includes(id)) || (mode === 'play' && !!playable && !playable.has(id)));
+    if (!isDragged(id)) put(id, g.x, y, g.rot, 1, 100 + i, true);
+  });
 }
 function renderPlate(p){
+  if (!p) return;
   const el = $('#pl' + p);
-  el.hidden = !NAMES[p];                      // an empty seat at an online table
-  const n = handOf(p).length, pts = mt ? mt.scores[p] : 0;
-  const placeIdx = H && !dealt ? H.order.indexOf(p) : -1;
-  let sub;
-  if (placeIdx >= 0 && H.active.some(Boolean)) sub = `<span>Vendi ${placeIdx + 1} · ${pts} pikë</span>`;
-  else if (p !== 0) sub = n === 1 && !dealt ? `<span class="low">1 letër · ${pts} pikë</span>` : `<span>${pts} pikë</span>`;   // how many the others hold stays hidden
-  else sub = `<span class="${n > 0 && n <= 2 && !dealt ? 'low' : ''}">${n === 1 ? '1 letër' : n + ' letra'} · ${pts} pikë</span>`;
-  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${(NAMES[p] || "?")[0].toUpperCase()}</div><div><b>${NAMES[p]}</b>${sub}</div>`;
-  el.classList.toggle('out', placeIdx >= 0 && H.active.some(Boolean));
+  el.hidden = !NAMES[p];
+  const n = handOf(p).length;
+  const place = H && !dealt ? H.order.indexOf(p) : -1, out = place >= 0 && H.active.some(Boolean);
+  const bits = [];
+  if (out) bits.push(`Vendi ${place + 1}`);
+  else if (n === 1 && !dealt) bits.push('<em>1 letër</em>');
+  if (teams()) { if (p === 2) bits.push('partneri'); }
+  else if (mt) bits.push(`${mt.scores[p]} pikë`);
+  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${(NAMES[p] || '?')[0].toUpperCase()}</div><div><b></b><span>${bits.join(' · ')}</span></div>`;
+  el.querySelector('b').textContent = NAMES[p];
+  el.classList.toggle('out', out);
+  if (TIMER.p === p) addTimer(el);
 }
-const renderPlates = () => { for (let p = 0; p < 4; p++) renderPlate(p); };
-function setTurn(p){ for (let i = 0; i < 4; i++) $('#pl' + i).classList.toggle('turn', i === p); }
-function status(txt, err){ const s = $('#status'); s.innerHTML = txt; s.classList.toggle('err', !!err); }
-function meta(){ $('#meta').innerHTML = mt ? `<b>Dora ${mt.handNo}</b> · deri në ${mt.target}` : ''; }
+const renderPlates = () => { for (let p = 1; p < 4; p++) renderPlate(p); };
+let turnSeat = -1;
+function setTurn(p){ turnSeat = p; for (let i = 1; i < 4; i++) $('#pl' + i).classList.toggle('turn', i === p); $('#myTurn').classList.toggle('on', p === 0); }
+function status(txt){ $('#status').innerHTML = txt || ''; }
+function meta(){
+  const m = $('#meta');
+  if (!mt) { m.innerHTML = ''; return; }
+  m.innerHTML = mt.teams
+    ? `<span class="us">Ne<b>${mt.team[0]}</b></span><span>Ata<b>${mt.team[1]}</b></span><i>/ ${mt.target}</i>`
+    : `<span class="us">Ti<b>${mt.scores[0]}</b></span><i>/ ${mt.target}</i>`;
+}
 function bubble(p, txt, gold){
   const b = $('#bb' + p); b.textContent = txt; b.classList.toggle('gold', !!gold); b.classList.add('on');
   clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('on'), D(1150));
+}
+
+/* turn clock (online): a bar under the plate of whoever plays, or above your hand */
+const TIMER = { p: -1, start: 0, ms: 0 };
+function addTimer(el){
+  const used = Math.max(0, Date.now() - TIMER.start);
+  if (used >= TIMER.ms) return;
+  el.querySelectorAll('.tbar').forEach(x => x.remove());
+  el.insertAdjacentHTML('beforeend', `<i class="tbar" style="animation-duration:${TIMER.ms}ms;animation-delay:-${used}ms"></i>`);
+}
+function setTimer(p, start, ms){
+  TIMER.p = p; TIMER.start = start; TIMER.ms = ms;
+  document.querySelectorAll('.tbar').forEach(x => x.remove());
+  if (p < 0) return;
+  addTimer(p === 0 ? $('#myTurn') : $('#pl' + p));
 }
 
 /* ---------- sound ---------- */
@@ -460,8 +433,7 @@ function renderPile(){
       put(id, cx + (i - (ids.length - 1) / 2) * step, cy, g.rot, sc, 60 + k * 16 + i, true);
     });
   });
-  const top = pile[n - 1];
-  const cap = $('#cap');
+  const top = pile[n - 1], cap = $('#cap');
   cap.textContent = top ? `${NAMES[top.p]} · ${M.name(top.m)}` : '';
   cap.classList.toggle('flush', !!top && top.m.t === 6);
 }
@@ -475,7 +447,7 @@ async function clearPile(){
   await sleep(D(300));
 }
 
-/* ---------- human input ---------- */
+/* ---------- your moves ---------- */
 function computePlayable(){
   if (mode !== 'play') { playable = null; return; }
   const hand = H.hands[0];
@@ -488,29 +460,16 @@ function computePlayable(){
     hand.forEach(id => { if (ranks.has(M.rankOf(id))) playable.add(id); });
   }
 }
+// the status line says whose turn it is and nothing else (plus 3♠ on the first lead: a rule, not advice)
 function refresh(){
   const mine = mode === 'play', gift = mode === 'gift';
   let ok = false;
-  if (mine) {
-    if (sel.size) {
-      const chk = G.checkPlay(H, 0, [...sel]);
-      ok = chk.ok;
-      status(chk.ok ? `Gati: <em>${M.name(chk.m)}</em>` : chk.why, !chk.ok);
-    } else if (playable && !playable.size) status('Nuk ke me çfarë ta mundësh · shtyp PAS');
-    else if (H.must3) status('Radha jote · hap me <em>3♠</em>');
-    else if (!H.top) status('Radha jote · hap çfarë të duash');
-    else status(`Radha jote · mund <em>${M.name(H.top)}</em> ose pas`);
-  }
-  if (gift) {
-    ok = sel.size === 1;
-    status(ok ? 'Shtyp JEP për ta dhënë' : `Zgjidh një letër nga 3 te 10 për ${NAMES[H.exchange.last]}`);
-  }
+  if (mine) { ok = sel.size > 0 && G.checkPlay(H, 0, [...sel]).ok; status(H.must3 ? 'Radha jote · hap me <em>3♠</em>' : 'Radha jote'); }
+  if (gift) { ok = sel.size === 1 && giftOpts.includes([...sel][0]); status(`Kthe një letër · <em>${NAMES[H.exchange.last]}</em>`); }
   $('#bPlay').textContent = gift ? 'JEP' : 'LUAJ';
   $('#bPlay').disabled = !ok;
   $('#bPass').disabled = !(mine && H.top);
-  $('#bHint').disabled = !(mine || gift);
 }
-let lastTap = {id: -1, t: 0};
 $('#cards').addEventListener('click', e => {
   audio();
   const c = e.target.closest('.card.mine'); if (!c || !H) return;
@@ -521,16 +480,9 @@ $('#cards').addEventListener('click', e => {
     sel = new Set(sel.has(id) ? [] : [id]); snap(.15, 2600, .04); layoutSeat(0); refresh(); return;
   }
   if (mode !== 'play') return;
-  const now = performance.now();
-  if (lastTap.id === id && now - lastTap.t < 330) {
-    lastTap = {id: -1, t: 0};
-    if (!sel.has(id)) sel.add(id);
-    const chk = G.checkPlay(H, 0, [...sel]); if (chk.ok) return submitPlay();
-    layoutSeat(0); refresh(); return;
-  }
-  lastTap = {id, t: now};
   if (sel.has(id)) sel.delete(id);
   else {
+    // on a pair or triple, the first tap picks up the matching cards too
     const t = H.top && (H.top.t === 2 || H.top.t === 3) ? H.top.t : 0;
     const same = H.hands[0].filter(x => M.rankOf(x) === M.rankOf(id));
     if (t && !sel.size && same.length >= t) { sel.add(id); same.filter(x => x !== id).slice(0, t - 1).forEach(x => sel.add(x)); }
@@ -539,106 +491,69 @@ $('#cards').addEventListener('click', e => {
   snap(.15, 2600, .04); layoutSeat(0); refresh();
 });
 function submitPlay(){
-  if (mode === 'gift' && sel.size === 1 && giftResolve) { const g = [...sel][0]; mode = 'idle'; sel.clear(); refresh(); return giftResolve(g); }
+  if (mode === 'gift' && sel.size === 1 && giftResolve) { const g = [...sel][0]; if (!giftOpts.includes(g)) return; mode = 'idle'; sel.clear(); refresh(); return giftResolve(g); }
   if (mode !== 'play' || !humanResolve) return;
   const ids = [...sel]; if (!G.checkPlay(H, 0, ids).ok) return;
   mode = 'idle'; sel.clear(); playable = null; refresh(); humanResolve(ids);
 }
+function submitPass(){ if (mode === 'play' && H.top && humanResolve) { mode = 'idle'; sel.clear(); playable = null; refresh(); humanResolve(null); } }
 $('#bPlay').onclick = () => { audio(); submitPlay(); };
-$('#bPass').onclick = () => { audio(); if (mode === 'play' && H.top && humanResolve) { mode = 'idle'; sel.clear(); playable = null; refresh(); humanResolve(null); } };
-$('#bHint').onclick = () => {
-  audio();
-  if (mode === 'gift') { let g = M.chooseGift(H.hands[0]); if (!giftOpts.includes(g)) g = giftOpts[0]; sel = new Set([g]); layoutSeat(0); refresh(); return; }
-  if (mode !== 'play') return;
-  const v = G.viewFor(mt, 0); v.budgetMs = 300;
-  const m = M.decide(v);
-  if (!m) { sel.clear(); layoutSeat(0); refresh(); status('Këshilla: <em>pas</em> këtë herë'); return; }
-  sel = new Set(M.cardsFor(H.hands[0], m, H.must3)); layoutSeat(0); refresh();
-};
+$('#bPass').onclick = () => { audio(); submitPass(); };
 addEventListener('keydown', e => {
-  if (!$('#ovStart').hidden) return;
+  if (!$('#menu') || !$('#menu').hidden || document.activeElement && document.activeElement.tagName === 'INPUT') return;
   if (e.key === 'Enter') $('#bPlay').click();
   else if (e.key === ' ') { e.preventDefault(); $('#bPass').click(); }
-  else if (e.key === 'Escape') ['#ovSet','#ovDeck','#ovRules'].forEach(s => $(s).hidden = true);
 });
 const HAND_GEOM = (i, n) => { const step = n > 1 ? Math.min(74, (680 - CW) / (n - 1)) : 0, t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0; return {x: 640 + (i - (n - 1) / 2) * step, y: 632 + t * t * 10, rot: t * 4}; };
 const relayoutHand = () => { if (H) layoutSeat(0); };
-const canDragHand = () => !!H && !dealt;
 
-/* ---------- your hand: drag a card left/right to rearrange it ----------
-   House rule for every VitoWeb card game: the hand order is the player's. Never lock it, never re-sort it on its own.
-   New cards land at the right end; the sort button re-sorts on demand. A tap that doesn't move 8px stays a normal tap. */
-let handOrder = [], dragging = null, dragEndT = 0;
+/* ---------- your hand (hand.js): drag sideways to rearrange, drag up onto the table to play ---------- */
+let handOrder = [];
 function orderHand(hand, sortFn, fresh){
   const set = new Set(hand);
-  if (dragging && !set.has(dragging.id)) { dragging.el.classList.remove('drag'); dragging = null; }
   if (fresh || !handOrder.length) { handOrder = hand.slice().sort(sortFn); return handOrder; }
   handOrder = handOrder.filter(id => set.has(id));
   for (const id of hand) if (!handOrder.includes(id)) handOrder.push(id);
   return handOrder;
 }
-const isDragged = id => !!dragging && dragging.on && dragging.id === id;
+const isDragged = id => HAND.held(id);
 function stagePoint(e){
   const r = fit.getBoundingClientRect();
   const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
   return { x: 640 + (rotated ? dy : dx) / fitScale, y: 360 + (rotated ? -dx : dy) / fitScale };
 }
-function dragTo(p){
-  const d = dragging, n = handOrder.length, x = p.x + d.dx;
-  let best = 0, bd = 1e9;
-  for (let i = 0; i < n; i++) { const q = Math.abs(HAND_GEOM(i, n).x - x); if (q < bd) { bd = q; best = i; } }
-  const cur = handOrder.indexOf(d.id);
-  if (cur < 0) return;
-  if (best !== cur) { handOrder.splice(cur, 1); handOrder.splice(best, 0, d.id); relayoutHand(); snap(.08, 3200, .02); }
-  const g = HAND_GEOM(best, n);
-  put(d.id, Math.max(70, Math.min(1210, x)), g.y - 44, 0, 1.06, 390, true);
-}
-function endDrag(e){
-  const d = dragging; if (!d || (e && e.pointerId !== d.pid)) return;
-  dragging = null;
-  if (d.on) { d.el.classList.remove('drag'); dragEndT = performance.now(); relayoutHand(); snap(.12, 2600, .03); }
-}
-(() => {
-  const box = $('#cards');
-  box.addEventListener('pointerdown', e => {
-    if (e.button > 0 || dragging || !canDragHand()) return;
-    const c = e.target.closest('.card.mine'); if (!c) return;
-    const id = +c.dataset.id; if (!handOrder.includes(id)) return;
-    const p = stagePoint(e);
-    dragging = { id, pid: e.pointerId, x0: p.x, y0: p.y, on: false, el: c, dx: 0 };
-    try { c.setPointerCapture(e.pointerId); } catch(_) {}
-  });
-  box.addEventListener('pointermove', e => {
-    const d = dragging; if (!d || e.pointerId !== d.pid) return;
-    if (!handOrder.includes(d.id)) return endDrag(e);
-    const p = stagePoint(e);
-    if (!d.on) {
-      if (Math.hypot(p.x - d.x0, p.y - d.y0) < 8) return;
-      d.on = true; d.el.classList.add('drag');
-      d.dx = HAND_GEOM(handOrder.indexOf(d.id), handOrder.length).x - d.x0;
-    }
-    e.preventDefault();
-    dragTo(p);
-  });
-  box.addEventListener('pointerup', endDrag);
-  box.addEventListener('pointercancel', endDrag);
-  box.addEventListener('lostpointercapture', endDrag);
-  // a drag must not also count as a tap on the card
-  box.addEventListener('click', e => { if (performance.now() - dragEndT < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
-})();
+HAND.attach({
+  box: $('#cards'), sel: '.card.mine',
+  el: id => els[id].el, point: stagePoint, geom: HAND_GEOM, order: () => handOrder,
+  relayout: relayoutHand, place: (id, x, y, rot, sc, z) => put(id, x, y, rot, sc, z, true),
+  canArrange: () => !!H && !dealt,
+  canLift: () => !!H && !dealt && (mode === 'play' || mode === 'gift'),
+  lift(id){
+    if (mode === 'gift') { if (!giftOpts.includes(id)) return null; sel = new Set([id]); refresh(); return [id]; }
+    if (!sel.has(id)) sel = new Set([id]);
+    refresh();
+    return handOrder.filter(x => sel.has(x));
+  },
+  check: ids => ({ ok: mode === 'gift' ? ids.length === 1 && giftOpts.includes(ids[0]) : G.checkPlay(H, 0, ids).ok }),
+  drop(ids){ sel = new Set(ids); submitPlay(); },
+  unlift(){ refresh(); },
+  zone: { x0: 330, y0: 210, x1: 950, y1: 500 },
+  sound: k => k === 'slide' ? snap(.08, 3200, .02) : k === 'play' ? null : snap(.12, 2600, .03),
+});
 $('#bSort').onclick = () => { audio(); handOrder = []; relayoutHand(); snap(.2, 2400, .05); };
 function humanTurn(){ mode = 'play'; sel.clear(); computePlayable(); layoutSeat(0); refresh(); return new Promise(r => humanResolve = r); }
+function humanGift(){ giftOpts = G.giftOptions(H.hands[0]); mode = 'gift'; sel.clear(); layoutSeat(0); refresh(); return new Promise(r => giftResolve = r).then(g => { giftResolve = null; giftOpts = []; return g; }); }
+function stopInput(){ HAND.cancel(); mode = 'idle'; humanResolve = null; giftResolve = null; sel.clear(); playable = null; giftOpts = []; }
 
 /* ---------- a hand ---------- */
 function resetCards(){
   for (let i = 0; i < 54; i++) { const e = els[i].el; e.className = 'card'; e.style.transition = 'none'; put(i, DECK[0] - i * .25, DECK[1] - i * .5, 0, 1, i, false); }
   $('#cards').offsetWidth; els.forEach(c => c.el.style.transition = '');
-  for (let p = 1; p < 4; p++) layoutFan(p, [], true);
+  for (let p = 1; p < 4; p++) $('#st' + p).hidden = true;
   pile = []; discardN = 0; reveal = -1; handOrder = []; $('#cap').textContent = '';
 }
 async function dealAnim(my){
   dealt = [[], [], [], []]; renderPlates();
-  status('Duke shpërndarë…');
   await sleep(300);
   for (let i = 0; i < 54; i++) {
     if (my !== gen) return;
@@ -647,31 +562,62 @@ async function dealAnim(my){
     if (i % 2 === 0) snap(.18, 2400, .04);
     await sleep(D(34));
   }
-  dealt = null; await sleep(D(350)); renderPlates();
+  await sleep(D(350)); dealt = null;
+  for (let p = 0; p < 4; p++) layoutSeat(p);
 }
-async function flyCard(id, show){ put(id, PILE[0], PILE[1], 0, .9, 400, show); await sleep(D(900)); }
+/* the exchange, seat to seat: the card stops halfway, raised, then lands in the other hand.
+   Face up only for the two players involved. */
+const seatXY = p => p ? SEATPOS[p] : [640, 600, 0];
+async function passCard(id, from, to, show, my){
+  const a = seatXY(from), b = seatXY(to);
+  els[id].el.classList.remove('gone','mine','sel','dim');
+  put(id, a[0], a[1], 0, .7, 420, show);
+  await sleep(40);
+  put(id, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 30, 0, .95, 420, show);
+  snap(.3);
+  await sleep(D(1000)); if (my !== gen) return;
+  layoutSeat(from); layoutSeat(to); snap(.25);
+  await sleep(D(420));
+}
 async function exchange(my){
   const ex = H.exchange; if (!ex) return;
   const { first, last } = ex;
-  if (ex.jokers) { status(`${NAMES[last]} ka të dy xhokerët · pa shkëmbim`); bubble(last, 'Dy xhokerë!', true); await sleep(D(2000)); return; }
+  if (ex.jokers) { status(`${NAMES[last]} ka të dy xhokerët · pa shkëmbim`); bubble(last, 'Dy xhokerë', true); await sleep(D(2000)); return; }
+  status(`Shkëmbimi · <em>${NAMES[last]}</em> → <em>${NAMES[first]}</em>`);
   const up = G.exchangeGive(mt);
-  status(last === 0 ? `Ishe i fundit · letra jote më e lartë shkon te ${NAMES[first]}` : first === 0 ? `${NAMES[last]} ishte i fundit · të jep letrën më të lartë` : `${NAMES[last]} i jep ${NAMES[first]} letrën më të lartë`);
-  await flyCard(up, last === 0 || first === 0); if (my !== gen) return;
-  layoutSeat(first); layoutSeat(last); snap(.3); await sleep(D(450));
+  await passCard(up, last, first, last === 0 || first === 0, my); if (my !== gen) return;
   let gift;
-  if (first === 0) {
-    giftOpts = G.giftOptions(H.hands[0]); mode = 'gift'; sel.clear(); layoutSeat(0); refresh();
-    gift = await new Promise(r => giftResolve = r); giftResolve = null; giftOpts = []; if (my !== gen) return;
-  } else await sleep(PLAYERS.think(SEAT[first], { options: 6 }));
+  if (first === 0) { gift = await humanGift(); if (my !== gen) return; }
+  else await sleep(PLAYERS.think(SEAT[first], { options: 6 }));
   gift = G.exchangeReturn(mt, gift);
-  status(first === 0 ? `I kthen ${NAMES[last]} një letër` : last === 0 ? `${NAMES[first]} të kthen një letër` : `${NAMES[first]} i kthen ${NAMES[last]} një letër`);
-  await flyCard(gift, last === 0 || first === 0); if (my !== gen) return;
-  layoutSeat(first); layoutSeat(last); snap(.3); await sleep(D(450));
+  status(`Shkëmbimi · <em>${NAMES[first]}</em> → <em>${NAMES[last]}</em>`);
+  await passCard(gift, first, last, last === 0 || first === 0, my); if (my !== gen) return;
+  status('');
+}
+async function animatePlay(p, ids, ev){
+  if (!ev || ev.type === 'pass') {
+    bubble(p, 'Pas'); snap(.08, 900, .04); renderPlate(p);
+    await sleep(D(p === 0 ? 260 : 520));
+    if (ev && ev.cleared) { await sleep(D(350)); await clearPile(); await sleep(D(350)); }
+    return;
+  }
+  pile.push({p, ids, m: ev.m, rot: Math.random() * 8 - 4});
+  renderPile(); layoutSeat(p);
+  if (ev.m.t === 6) { thump(); setTimeout(chime, 120); bubble(p, ev.m.r === 14 && ev.m.s === 10 ? 'Royal flush' : 'Flush', true); await sleep(D(500)); }
+  else if (ev.m.t === 4) { thump(); bubble(p, 'Bombë', true); }
+  else snap(.55);
+  if (ev.out) {
+    const first = ev.place === 1;
+    bubble(p, p === 0 ? (first ? 'Dole i pari' : 'Dole') : first ? (FEM[p] ? 'Doli e para' : 'Doli i pari') : 'Doli', first);
+    if (p === 0) { chime(); if (!NET.online) fast = true; }
+    renderPlates(); await sleep(D(850));
+  } else if (H.hands[p].length === 1) { bubble(p, '1 letër', true); await sleep(D(550)); }
+  else await sleep(D(260));
 }
 async function runHand(){
   const my = ++gen;
-  fast = false; mode = 'idle'; sel.clear(); refresh();
-  H = G.deal(mt); meta(); setTurn(-1);
+  fast = false; stopInput(); refresh(); setTimer(-1);
+  H = G.deal(mt); meta(); setTurn(-1); status('');
   resetCards(); renderPlates();
   await dealAnim(my); if (my !== gen) return;
   await exchange(my); if (my !== gen) return;
@@ -680,67 +626,63 @@ async function runHand(){
     let ids;
     if (p === 0) ids = await humanTurn();
     else {
-      status(H.must3 ? `${NAMES[p]} ka 3♠ dhe hap` : `Luan ${NAMES[p]}…`);
+      status('');
       ids = G.botMove(mt, p, { budgetMs: fast ? 120 : 220 });
       const opts = M.allMoves(H.hands[p], H.top, H.must3).length;
-      const wait = fast ? 500 + Math.random() * 500
-        : PLAYERS.think(SEAT[p], { forced: !opts, options: opts, first: !H.top && H.hands[p].length >= 13,
-            hard: !!ids && (ids.length >= 4 || H.hands[p].length - ids.length <= 2) });
-      await sleep(wait); if (my !== gen) return;
+      const wait = fast ? 400 + Math.random() * 400
+        : PLAYERS.think(SEAT[p], { forced: !opts, options: opts, first: !H.top && H.hands[p].length >= 13, hard: H.hands[p].length <= 3 });
+      await sleep(wait);
     }
     if (my !== gen) return;
     const ev = G.act(mt, p, ids);
-    if (ev.type === 'pass') {
-      bubble(p, 'Pas'); snap(.08, 900, .04); renderPlate(p);
-      await sleep(D(p === 0 ? 260 : 520));
-      if (ev.cleared) {
-        await sleep(D(350)); await clearPile();
-        status(`<em>${NAMES[ev.winner]}</em> e mori radhën`);
-        await sleep(D(500));
-      }
-      continue;
-    }
-    pile.push({p, ids, m: ev.m, rot: Math.random() * 8 - 4});
-    renderPile(); layoutSeat(p);
-    if (ev.m.t === 6) { thump(); setTimeout(chime, 120); bubble(p, ev.m.r === 14 && ev.m.s === 10 ? 'Royal flush!' : 'Flush!', true); await sleep(D(500)); }
-    else if (ev.m.t === 4) { thump(); bubble(p, 'Bombë!', true); }
-    else snap(.55);
-    if (ev.out) {
-      const first = ev.place === 1;
-      bubble(p, p === 0 ? (first ? 'Dole i pari!' : 'Dole!') : first ? (FEM[p] ? 'Doli e para!' : 'Doli i pari!') : 'Doli!', first);
-      if (p === 0) { chime(); fast = true; }
-      renderPlates(); await sleep(D(850));
-    } else if (H.hands[p].length === 1) { bubble(p, 'Një letër!', true); await sleep(D(550)); }
-    else await sleep(D(260));
+    await animatePlay(p, ids, ev); if (my !== gen) return;
     if (ev.handOver) return endHand(ev.result, my);
   }
 }
 async function endHand(res, my){
-  setTurn(-1); mode = 'idle'; refresh();
+  setTurn(-1); stopInput(); refresh(); setTimer(-1);
   const lp = res.order[3];
   await sleep(D(500)); if (my !== gen) return;
   await clearPile();
   if (H.hands[lp].length) { reveal = lp; layoutSeat(lp); $('#cap').textContent = `I mbetën ${NAMES[lp]}`; }
-  status(`${NAMES[res.order[0]]} doli ${FEM[res.order[0]] ? 'e para' : 'i pari'}`);
-  renderPlates(); meta();
+  renderPlates(); meta(); status('');
   await sleep(D(1800)); if (my !== gen) return;
   showResult(res);
 }
-function showResult(res){
-  const done = res.winner !== null || res.tie;
-  $('#endTitle').textContent = res.winner !== null ? (res.winner === 0 ? 'Fitove lojën!' : `Fitoi ${NAMES[res.winner]}`) : res.tie ? 'Barazim në 51' : `Dora ${mt.handNo} mbaroi`;
-  $('#endLead').textContent = done ? `Rezultati përfundimtar pas ${mt.handNo} duarsh.` : `Caku është ${res.target} pikë.`;
+// res: seats already as this table shows them (you = 0)
+function showResult(res, online){
+  const done = res.winner !== null || !!res.tie;
+  const hn = mt.handNo;
+  let title;
+  if (res.teams) title = res.winner !== null ? (res.winner === 0 ? 'Fituat lojën' : 'Fituan ata') : res.tie ? 'Barazim në 51' : `Dora ${hn}`;
+  else title = res.winner !== null ? (res.winner === 0 ? 'Fitove lojën' : `Fitoi ${NAMES[res.winner]}`) : res.tie ? 'Barazim në 51' : `Dora ${hn}`;
+  $('#endTitle').textContent = title;
+  $('#endLead').textContent = res.teams ? `Ne ${res.team[0]} · Ata ${res.team[1]} · deri në ${res.target}` : `Deri në ${res.target}`;
   const note = $('#endNote');
-  note.hidden = !res.raised; note.textContent = res.raised ? `Dy lojtarë e kaluan cakun njëkohësisht, ndaj tani loja shkon deri në ${res.target}.` : '';
-  $('#resTable').innerHTML = '<tr><th>Lojtari</th><th>Vendi</th><th class="n">Kjo dorë</th><th class="n">Gjithsej</th></tr>' +
-    res.order.map((p, i) => `<tr class="${p === 0 ? 'me' : ''}"><td>${NAMES[p]}</td><td>${i + 1}</td><td class="n">+${res.pts[p]}</td><td class="n">${res.scores[p]}</td></tr>`).join('');
-  $('#bNext').textContent = done ? 'Lojë e re' : 'Dora tjetër';
-  $('#bNext').onclick = () => { $('#ovEnd').hidden = true; if (done) newMatch(); else runHand(); };
+  note.hidden = !res.raised; note.textContent = res.raised ? `Caku u ngrit në ${res.target}.` : '';
+  $('#resTable').innerHTML = '<tr><th>Lojtari</th><th>Vendi</th><th class="n">Kjo dorë</th><th class="n">' + (res.teams ? 'Ekipi' : 'Gjithsej') + '</th></tr>' +
+    res.order.map((p, i) => `<tr class="${p === 0 || (res.teams && p === 2) ? 'me' : ''}"><td></td><td>${i + 1}</td><td class="n">+${res.pts[p]}</td><td class="n">${res.teams ? res.team[p % 2] : res.scores[p]}</td></tr>`).join('');
+  [...$('#resTable').querySelectorAll('tr')].slice(1).forEach((tr, i) => tr.firstChild.textContent = NAMES[res.order[i]]);
+  if (online) onlineEndButtons(done);
+  else {
+    $('#bNext').textContent = done ? 'Lojë e re' : 'Dora tjetër';
+    $('#bNext').onclick = () => { $('#ovEnd').hidden = true; if (done) newMatch(); else runHand(); };
+  }
   $('#ovEnd').hidden = false;
   if (res.winner === 0) chime();
 }
-let seated = false;
-function newMatch(){ if (!seated) seatPlayers(); seated = false; mt = G.newMatch(); renderPlates(); meta(); humanResolve = null; runHand(); }
+let localCfg = { teams: true };
+function newMatch(){ mt = G.newMatch(Math.random, { teams: localCfg.teams }); renderPlates(); meta(); runHand(); }
+function startLocal(cfg, seats){
+  localCfg = cfg; setSeats(seats); audio();
+  $('#ovEnd').hidden = true; $('#bNew').hidden = false;
+  newMatch(); showRotHint();
+}
+function stopTable(){
+  gen++; stopInput(); mt = null; H = null; resetCards(); setTurn(-1); setTimer(-1); meta(); status('');
+  for (let p = 1; p < 4; p++) { NAMES[p] = ''; renderPlate(p); }
+  ['#ovEnd','#ovMenu','#ovRules','#ovSet','#ovDeck'].forEach(s => { const o = $(s); if (o) o.hidden = true; });
+}
 
 /* ---------- settings & panels ---------- */
 function applySettings(){
@@ -748,20 +690,20 @@ function applySettings(){
   stage.style.setProperty('--felt-c', f[0]); stage.style.setProperty('--felt-e', f[1]);
   stage.style.setProperty('--t', ST.speed === 'fast' ? '.24s' : '.36s');
   $('#bSound').classList.toggle('off', ST.sound !== 'on');
-  document.querySelectorAll('.seg').forEach(sg => sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', ST[sg.dataset.k] === b.dataset.v)));
+  document.querySelectorAll('.seg[data-k]').forEach(sg => sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', ST[sg.dataset.k] === b.dataset.v)));
 }
-document.querySelectorAll('.seg').forEach(sg => sg.addEventListener('click', async e => {
+document.querySelectorAll('.seg[data-k]').forEach(sg => sg.addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
   const k = sg.dataset.k, old = ST[k]; ST[k] = b.dataset.v; save(); applySettings(); audio();
   if (k === 'colors' && old !== ST.colors) { await buildArt(); els.forEach((c, id) => { if (c.up) c.img.src = FACE[id]; }); fillDeck(); }
 }));
 $('#bSet').onclick = () => { $('#ovSet').hidden = false; };
 $('#bSetClose').onclick = () => { $('#ovSet').hidden = true; };
-$('#bNew').onclick = () => { $('#ovSet').hidden = true; $('#ovEnd').hidden = true; newMatch(); };
+$('#bNew').onclick = () => { $('#ovSet').hidden = true; $('#ovEnd').hidden = true; if (!NET.online) newMatch(); };
 $('#bSound').onclick = () => { ST.sound = ST.sound === 'on' ? 'off' : 'on'; save(); applySettings(); audio(); snap(.4); };
-$('#bRules').onclick = $('#bRules0').onclick = () => { $('#ovRules').hidden = false; };
+$('#bRules').onclick = () => { $('#ovRules').hidden = false; };
 $('#bRulesClose').onclick = () => { $('#ovRules').hidden = true; };
-$('#bHome').onclick = () => { gen++; if (window.parent !== window) { try { parent.postMessage({vw: 'home'}, '*'); } catch(e) {} } else location.href = './'; };
+$('#bHome').onclick = () => { stopTable(); NET.leave(); };
 function fillDeck(){
   const order = [0,1,2,3].flatMap(s => [...Array(13)].map((_, r) => r * 4 + s));
   $('#deckGrid').innerHTML = order.map(id => `<img src="${FACE[id]}" alt="">`).join('') +
@@ -773,194 +715,33 @@ const fsOK = document.fullscreenEnabled || document.webkitFullscreenEnabled;
 if (!fsOK) $('#bFull').hidden = true;
 $('#bFull').onclick = async () => {
   try {
-    if (document.fullscreenElement) { await document.exitFullscreen(); return; }
+    if (document.fullscreenElement || document.webkitFullscreenElement) { await (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
     await (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen).call(document.documentElement);
     try { await screen.orientation.lock('landscape'); } catch(e) {}
   } catch(e) {}
   setTimeout(doFit, 200);
 };
+function showRotHint(){
+  let seen = false; try { seen = localStorage.getItem('vw-rot-seen') === '1'; } catch(e) {}
+  if (rotated && !seen) $('#ovRot').hidden = false;
+}
 $('#bRotOk').onclick = () => { $('#ovRot').hidden = true; try { localStorage.setItem('vw-rot-seen', '1'); } catch(e) {} };
-$('#bStart').onclick = () => { audio(); $('#ovStart').hidden = true; newMatch(); };
 
-/* ---------- online: one table, every player on their own phone ----------
-   The room server (worker/games/murlan.js) deals and checks every move. This page keeps a mirror
-   of the hand so the same table, animations and hand dragging work: your cards are real, the
-   others' face-down cards are stand-ins that get swapped for the real ones the moment they're played.
-   Server seats are turned so you always sit at the bottom (seat 0 on this table). */
-const ON = { room: null, ws: null, S: null, seq: 0, seat: -1, busy: false, again: false, want: false, retry: 0, pingT: 0, asked: '', skew: 0, timer: null, ended: 0 };
-const ONERR = {
-  not_your_turn: 'Nuk është radha jote', must_lead: 'Ti hap: nuk mund të pasosh', bad_move: 'Kjo lëvizje nuk lejohet', bad_gift: 'Zgjidh një letër nga 3 te 10',
-  host_cant_leave: 'Hosti nuk mund të dalë', paused: 'Dhomat e reja janë ndalur për pak. Provo më vonë.', busy: 'Serveri është plot. Provo pas pak.',
-  slow_down: 'Shumë kërkesa. Prit një minutë.', bad_game: 'Gabim në lojë.'
-};
-const KEY = (() => {
-  let k = null;
-  try { k = localStorage.getItem('vw.key'); } catch(e) {}
-  if (!k || !/^[a-z0-9-]{16,64}$/i.test(k)) k = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).slice(2) + Date.now().toString(36) + Math.random().toString(36).slice(2)).slice(0, 32);
-  try { localStorage.setItem('vw.key', k); } catch(e) {}
-  return k;
-})();
-const oget = (k, d) => { try { const v = localStorage.getItem('vw.imp.' + k); return v === null ? d : JSON.parse(v); } catch(e) { return d; } };
-const oset = (k, v) => { try { localStorage.setItem('vw.imp.' + k, JSON.stringify(v)); } catch(e) {} };
-const savedName = () => { let n = oget('name', ''); if (!n) { try { n = JSON.parse(localStorage.getItem('mafia.name') || '""'); } catch(e) {} } return n || ''; };
-const osend = o => { if (ON.ws && ON.ws.readyState === 1) ON.ws.send(JSON.stringify(o)); };
-const lpos = s => (s - ON.seat + 4) % 4;
+/* ---------- online ----------
+   The room server deals and checks every move (worker/games/murlan.js). This page keeps a mirror of the
+   hand so the same table, animations and dragging work: your cards are real; the others' hidden cards
+   are stand-ins that get swapped for the real ones the moment they're played.
+   Server seats are turned so you always sit at the bottom: lpos(server seat) = seat on this table. */
+const ON = { me: 0, seq: 0, busy: false, again: false, asked: '', t: null, skew: 0 };
+const lpos = s => (s - ON.me + 4) % 4;
 const rot = a => { const o = [0, 0, 0, 0]; a.forEach((v, s) => o[lpos(s)] = v); return o; };
-const isHost = () => ON.S && ON.S.me === ON.S.hostPid;
-const onShow = which => { $('#onHome').hidden = which !== 'home'; $('#onLobby').hidden = which !== 'lobby'; };
+const rotTeams = a => ON.me % 2 ? [a[1], a[0]] : a.slice();           // your team first
+const lwin = (r, isTeams) => r == null ? null : isTeams ? (ON.me % 2 ? 1 - r : r) : lpos(r);
 
-function onNet(on){
-  const m = $('#meta'); if (!ON.room) return;
-  m.innerHTML = `<span class="netdot${on ? ' on' : ''}"></span>${mt && mt.handNo ? `<b>Dora ${mt.handNo}</b> · deri në ${mt.target}` : `Tavolina <b>${ON.room}</b>`}`;
+function seatNames(t){
+  ON.me = t.me;
+  t.seats.forEach((x, s) => { if (!x) return; const l = lpos(s); NAMES[l] = l ? x.name : 'Ti'; FEM[l] = !!x.fem; if (x.color) AVC[l] = x.color; });
 }
-function oConnect(){
-  if (!ON.room) return;
-  ON.want = true;
-  if (ON.ws && ON.ws.readyState < 2) return;
-  const q = new URLSearchParams({ name: savedName(), k: KEY });
-  const host = oget('host.' + ON.room, ''); if (host) q.set('host', host);
-  const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/${ON.room}?${q}`);
-  ON.ws = sock; onNet(false);
-  sock.onopen = () => { ON.retry = 0; onNet(true); clearInterval(ON.pingT); ON.pingT = setInterval(() => osend({ t: 'ping' }), 25000); };
-  sock.onmessage = e => {
-    let m; try { m = JSON.parse(e.data); } catch(_) { return; }
-    if (m.t === 'state') { ON.S = m; ON.skew = m.now - Date.now(); onLobby(); pump(); }
-    else if (m.t === 'error') { status(m.why || ONERR[m.e] || 'Gabim', true); ON.asked = ''; pump(); }
-    else if (m.t === 'kicked') oLeave('Hosti të nxori nga tavolina.');
-    else if (m.t === 'closed') oLeave('Kjo tavolinë u mbyll.');
-    else if (m.t === 'refused' || m.t === 'replaced') { const code = m.t === 'replaced' ? 4002 : m.code; const h = sock.onclose; sock.onclose = null; try { sock.close(); } catch(_) {} h({ code }); }
-  };
-  sock.onclose = e => {
-    clearInterval(ON.pingT);
-    if (ON.ws !== sock || !ON.want || e.code === 4000 || e.code === 4001) return;
-    if (e.code === 4004) return oLeave('Kjo tavolinë nuk ekziston më.');
-    if (e.code === 4003) return oLeave('Tavolina është plot.');
-    if (e.code === 4005) return oLeave('Loja në këtë tavolinë ka filluar.');
-    if (e.code === 4400 || e.code === 4401) { oLeave(); return openOnline('Shkruaj emrin dhe hyr përsëri.'); }
-    if (e.code === 4002) { onNet(false); status('Tavolina është hapur në një dritare tjetër', true); return; }
-    onNet(false);
-    setTimeout(oConnect, Math.min(5000, 600 * 2 ** ON.retry++));
-  };
-}
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && ON.room) { ON.retry = 0; oConnect(); } });
-addEventListener('online', () => { if (ON.room) { ON.retry = 0; oConnect(); } });
-
-function oEnter(code){
-  gen++; mode = 'idle'; humanResolve = null; giftResolve = null;
-  ON.room = code; ON.seq = 0; ON.seat = -1; ON.S = null; ON.asked = '';
-  const u = new URL(location.href); u.search = '?r=' + code; history.replaceState(null, '', u);
-  $('#ovStart').hidden = true; $('#ovEnd').hidden = true; $('#bNew').hidden = true;
-  $('#onCodeTxt').textContent = code; $('#onLead').textContent = 'Po lidhet…'; $('#onSeats').textContent = '';
-  $('#ovOnline').hidden = false; onShow('lobby');
-  mt = null; H = null; resetCards();
-  for (let p = 1; p < 4; p++) { NAMES[p] = ''; }
-  renderPlates(); setTurn(-1); status('Tavolina online');
-  oConnect();
-}
-function oLeave(msg){
-  ON.want = false; if (ON.ws) try { ON.ws.close(); } catch(e) {}
-  ON.ws = null; ON.S = null; ON.room = null; ON.timer = null; ON.seat = -1;
-  history.replaceState(null, '', location.pathname);
-  gen++; mode = 'idle'; humanResolve = null; giftResolve = null; mt = null; H = null;
-  $('#bNew').hidden = false; $('#ovOnline').hidden = true; $('#ovEnd').hidden = true;
-  resetCards(); seatPlayers(); seated = true; renderPlates(); setTurn(-1); meta();
-  $('#ovStart').hidden = false; status(msg || 'Gati për lojë', !!msg);
-}
-function openOnline(err){
-  $('#ovStart').hidden = true; $('#ovOnline').hidden = false; onShow('home');
-  $('#onName').value = $('#onName').value || savedName();
-  $('#onErr').textContent = err || '';
-  setTimeout(() => ($('#onName').value ? $('#onCode') : $('#onName')).focus(), 60);
-}
-function needName(){
-  const n = $('#onName').value.replace(/[<>]/g, '').trim().slice(0, 16);
-  if (!n) { $('#onErr').textContent = 'Shkruaj emrin fillimisht.'; $('#onName').focus(); return null; }
-  oset('name', n); $('#onErr').textContent = ''; return n;
-}
-$('#bOnline').onclick = () => { audio(); openOnline(); };
-$('#onBack').onclick = () => { $('#ovOnline').hidden = true; $('#ovStart').hidden = false; };
-$('#onCreate').onclick = async () => {
-  audio(); if (!needName()) return;
-  $('#onCreate').disabled = true;
-  try {
-    const r = await fetch('/api/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ game: 'murlan' }) });
-    const j = await r.json();
-    if (!j.code) throw (ONERR[j.error] || 0);
-    oset('host.' + j.code, j.hostToken);
-    oEnter(j.code);
-  } catch(e) { $('#onErr').textContent = typeof e === 'string' ? e : "Tavolina nuk u krijua. Kontrollo internetin dhe provo përsëri."; }
-  $('#onCreate').disabled = false;
-};
-async function oJoin(){
-  audio(); if (!needName()) return;
-  const code = $('#onCode').value.trim().toUpperCase();
-  if (!/^[A-Z]{4}$/.test(code)) { $('#onErr').textContent = 'Kodi ka 4 shkronja.'; return; }
-  try {
-    const j = await (await fetch('/api/room/' + code)).json();
-    if (!j.ok) { $('#onErr').textContent = 'Kjo tavolinë nuk ekziston.'; return; }
-    if (j.game && j.game !== 'murlan') { location.href = j.game + '?r=' + code; return; }
-  } catch(e) { $('#onErr').textContent = "S'ka lidhje. Provo përsëri."; return; }
-  oEnter(code);
-}
-$('#onJoin').onclick = oJoin;
-$('#onCode').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); });
-$('#onCode').addEventListener('keydown', e => { if (e.key === 'Enter') oJoin(); });
-$('#onName').addEventListener('keydown', e => { if (e.key === 'Enter') ($('#onCode').value.length === 4 ? oJoin() : $('#onCreate').click()); });
-const shareLink = () => `${location.origin}${location.pathname}?r=${ON.room}`;
-$('#onShare').onclick = async () => {
-  audio();
-  const text = `Eja luajmë Murlan. Tavolina ${ON.room}`;
-  try { if (navigator.share) { await navigator.share({ title: 'Murlan', text, url: shareLink() }); return; } } catch(e) { return; }
-  try { await navigator.clipboard.writeText(shareLink()); $('#onErr2').textContent = 'Linku u kopjua'; } catch(e) { $('#onErr2').textContent = shareLink(); }
-};
-$('#onStart').onclick = () => { audio(); osend({ t: 'start' }); };
-$('#onLeave').onclick = () => { if (!isHost()) osend({ t: 'leave' }); oLeave(); };
-
-// names and colours of the four seats, turned so that you sit at the bottom
-function seatNames(m){
-  if (m.me < 0) return;
-  ON.seat = m.me;
-  m.seats.forEach((x, s) => {
-    const l = lpos(s);
-    NAMES[l] = s === m.me ? 'Ti' : x ? x.name : '';
-    FEM[l] = !!(x && x.fem); AVC[l] = x ? x.color : '#334';
-  });
-}
-function onLobby(){
-  const S = ON.S, m = S && S.mur; if (!m) return;
-  const inLobby = m.phase === 'lobby' || m.phase === 'filling';
-  if (!inLobby) { if (!$('#onLobby').hidden) $('#ovOnline').hidden = true; return; }
-  $('#ovOnline').hidden = false; onShow('lobby');
-  const filling = m.phase === 'filling';
-  const humans = m.seats.filter(Boolean).length;
-  $('#onSeats').innerHTML = m.seats.map((x, s) => x
-    ? `<div class="seat"><div class="av" style="background:${x.color}">${(x.name[0] || '?').toUpperCase()}</div><b></b>${s === m.me ? '<em>· ti</em>' : ''}</div>`
-    : `<div class="seat empty${filling ? ' wait' : ''}"><div class="av"></div>${filling ? 'Po kërkohet lojtar…' : 'Vend bosh'}</div>`).join('');
-  [...$('#onSeats').children].forEach((el, s) => { const b = el.querySelector('b'); if (b) b.textContent = m.seats[s].name; });
-  $('#onLead').textContent = filling ? 'Po zihen vendet bosh…'
-    : isHost() ? (humans < 4 ? `Dërgoju shokëve linkun. Kur shtyp Fillo, ${4 - humans === 1 ? 'vendi bosh zihet' : 'vendet bosh zihen'} nga lojtarë online.` : 'Tavolina është plot. Fillo kur të jeni gati.')
-    : 'Po pret që hosti të fillojë lojën.';
-  $('#onStart').hidden = !isHost() || filling;
-  $('#onShare').hidden = filling;
-  $('#onLeave').hidden = filling;
-}
-
-// the turn timer under the plate of whoever plays now: the same 30 s clock for every seat
-function onTimer(m){
-  if (m.phase !== 'play' || m.actor < 0 || !m.turnStart) { if (ON.timer) { ON.timer = null; renderPlates(); } return; }
-  ON.timer = { p: lpos(m.actor), start: m.turnStart - ON.skew, ms: m.turnMs };
-}
-const _renderPlate = renderPlate;
-renderPlate = function(p){
-  _renderPlate(p);
-  const t = ON.room && ON.timer;
-  if (t && t.p === p) {
-    const el = Math.max(0, Date.now() - t.start);
-    if (el < t.ms) $('#pl' + p).insertAdjacentHTML('beforeend', `<i class="tbar" style="animation-duration:${t.ms}ms;animation-delay:-${el}ms"></i>`);
-  }
-};
-
-// mirror: make sure seat p holds these ids, swapping stand-ins between the hidden hands
 function ensureIn(p, ids){
   for (const id of ids) {
     if (H.hands[p].includes(id)) continue;
@@ -971,209 +752,185 @@ function ensureIn(p, ids){
     H.hands[p][H.hands[p].indexOf(y)] = id;
   }
 }
-function exMap(ex){ return ex ? { first: lpos(ex.first), last: lpos(ex.last), jokers: !!ex.jokers, up: ex.up ?? undefined, down: ex.down ?? undefined } : null; }
+const exMap = ex => ex ? { first: lpos(ex.first), last: lpos(ex.last), jokers: !!ex.jokers, up: ex.up ?? undefined, down: ex.down ?? undefined } : null;
 function freshHand(o){
   return { hands: o.hands, active: o.active || [true, true, true, true], order: o.order || [], top: o.top || null, topCards: o.topCards || [], last: o.last ?? -1,
     passes: o.passes || 0, cur: o.cur, must3: !!o.must3, played: new Set(), known: [new Map(), new Map(), new Map(), new Map()], trick: [], dealOrder: o.dealOrder || [], exchange: o.exchange || null };
 }
-// hands for the table: yours as they are, stand-ins for the other three out of the cards nobody has seen
 function standIns(mine, counts, skip){
   const used = new Set([...mine, ...skip]);
   const free = []; for (let i = 0; i < 54; i++) if (!used.has(i)) free.push(i);
   return counts.map((n, p) => p === 0 ? mine.slice() : free.splice(0, n));
 }
-
-// redraw everything from the server's snapshot (on joining, after a reconnect, or if the mirror slipped)
-function resync(m){
-  gen++; mode = 'idle'; humanResolve = null; giftResolve = null; sel.clear(); playable = null; dealt = null;
-  seatNames(m);
-  mt = { scores: rot(m.scores || [0, 0, 0, 0]), target: m.target || 21, handNo: m.handNo || 0, dealer: lpos(m.dealer || 0), lastOrder: null,
-    winner: m.winner == null ? null : lpos(m.winner), tie: m.tie ? m.tie.map(lpos) : null, hand: null };
+function matchFrom(s){
+  return { teams: !!s.teams, teamOf: s.teams ? [0, 1, 0, 1] : [0, 1, 2, 3], scores: rot(s.scores || [0, 0, 0, 0]), team: rotTeams(s.team || [0, 0]),
+    target: s.target || 21, handNo: s.handNo || 0, dealer: lpos(s.dealer || 0), lastOrder: null, winner: lwin(s.winner, s.teams), tie: s.tie ? s.tie.map(x => lwin(x, s.teams)) : null, hand: null };
+}
+// draw the table as it is now (joining, reconnecting, or if the mirror ever slipped)
+function resync(t){
+  gen++; stopInput(); dealt = null;
+  seatNames(t);
+  const s = t.snap || {};
+  mt = matchFrom(s);
   resetCards();
-  if (!m.hand) { H = null; renderPlates(); onNet(true); return; }
-  const trick = (m.trick || []).map(t => ({ p: lpos(t.p), ids: t.ids, m: t.m, rot: Math.random() * 8 - 4 }));
-  const onTable = trick.flatMap(t => t.ids);
-  const counts = rot(m.counts);
-  const hands = standIns(m.hand, counts, onTable);
-  H = freshHand({ hands, active: rot(m.active), order: m.order.map(lpos), top: m.top, topCards: m.topCards, last: m.last >= 0 ? lpos(m.last) : -1,
-    passes: m.passes, cur: lpos(m.cur), must3: m.must3, exchange: exMap(m.exchange) });
-  H.trick = trick.map(t => ({ p: t.p, ids: t.ids, m: t.m }));
+  if (!s.hand) { H = null; renderPlates(); meta(); return; }
+  const trick = (s.trick || []).map(x => ({ p: lpos(x.p), ids: x.ids, m: x.m, rot: Math.random() * 8 - 4 }));
+  const onTable = trick.flatMap(x => x.ids);
+  const hands = standIns(s.hand, rot(s.counts), onTable);
+  H = freshHand({ hands, active: rot(s.active), order: s.order.map(lpos), top: s.top, topCards: s.topCards, last: s.last >= 0 ? lpos(s.last) : -1,
+    passes: s.passes, cur: lpos(s.cur), must3: s.must3, exchange: exMap(s.exchange) });
+  H.trick = trick.map(x => ({ p: x.p, ids: x.ids, m: x.m }));
   mt.hand = H;
-  // cards already played and cleared lie on the discard pile
   const inHands = new Set(hands.flat());
   for (let id = 0; id < 54; id++) if (!inHands.has(id) && !onTable.includes(id)) put(id, DISCARD[0] + (Math.random() * 8 - 4), DISCARD[1] - discardN * .35, Math.random() * 16 - 8, .62, 5 + discardN++, false);
   pile = trick; renderPile();
-  if (m.step === 'end' && m.left && m.result) { const lp = lpos(m.result.order[3]); ensureIn(lp, m.left); reveal = lp; }
+  if (s.result && s.left) { const lp = lpos(s.result.order[3]); ensureIn(lp, s.left); reveal = lp; }
   for (let p = 0; p < 4; p++) layoutSeat(p);
-  renderPlates(); onNet(true);
+  renderPlates(); meta();
 }
-
-async function playEv(ev, my){
-  const p = lpos(ev.k === 'play' || ev.k === 'pass' ? ev.p : 0);
-  if (ev.k === 'pass') {
-    G.act(mt, p, null);
-    bubble(p, 'Pas'); snap(.08, 900, .04); renderPlate(p);
-    await sleep(D(p === 0 ? 260 : 420));
-    if (ev.cleared) { await sleep(D(300)); await clearPile(); status(`<em>${NAMES[lpos(ev.winner)]}</em> e mori radhën`); await sleep(D(400)); }
-    return;
-  }
-  if (p !== 0) ensureIn(p, ev.ids);
-  const r = G.act(mt, p, ev.ids);
-  pile.push({ p, ids: ev.ids, m: r.m, rot: Math.random() * 8 - 4 });
-  renderPile(); layoutSeat(p);
-  if (r.m.t === 6) { thump(); setTimeout(chime, 120); bubble(p, r.m.r === 14 && r.m.s === 10 ? 'Royal flush!' : 'Flush!', true); await sleep(D(500)); }
-  else if (r.m.t === 4) { thump(); bubble(p, 'Bombë!', true); }
-  else snap(.55);
-  if (r.out) {
-    const first = r.place === 1;
-    bubble(p, p === 0 ? (first ? 'Dole i pari!' : 'Dole!') : first ? (FEM[p] ? 'Doli e para!' : 'Doli i pari!') : 'Doli!', first);
-    if (p === 0) chime();
-    renderPlates(); await sleep(D(700));
-  } else if (H.hands[p].length === 1) { bubble(p, 'Një letër!', true); await sleep(D(450)); }
-  else await sleep(D(200));
-}
-
-async function applyEv(ev, m, my){
+async function applyEv(ev, my){
   if (ev.k === 'deal') {
-    $('#ovEnd').hidden = true; reveal = -1;
-    mt = { scores: rot(ev.scores), target: ev.target, handNo: ev.handNo, dealer: lpos(ev.dealer), lastOrder: null, winner: null, tie: null, hand: null };
-    const counts = rot(ev.counts);
-    const hands = standIns(ev.hand, counts, []);
+    $('#ovEnd').hidden = true; reveal = -1; fast = false;
+    mt = matchFrom(ev); mt.handNo = ev.handNo;
+    const hands = standIns(ev.hand, rot(ev.counts), []);
     const pools = hands.map(h => h.slice()), order = [];
     for (let i = 0; i < 54; i++) { const p = (mt.dealer + 1 + i) % 4; order.push(pools[p].shift()); }
     H = freshHand({ hands, cur: lpos(ev.cur), must3: ev.handNo === 1, dealOrder: order, exchange: exMap(ev.ex) });
-    mt.hand = H; meta(); onNet(true);
+    mt.hand = H; meta(); status('');
     resetCards(); renderPlates(); setTurn(-1);
     await dealAnim(my);
     return;
   }
   if (!H) throw new Error('no hand');
-  if (ev.k === 'jokers') {
-    status(`${NAMES[lpos(ev.last)]} ka të dy xhokerët · pa shkëmbim`); bubble(lpos(ev.last), 'Dy xhokerë!', true); await sleep(D(1800));
-    return;
-  }
+  if (ev.k === 'jokers') { status(`${NAMES[lpos(ev.last)]} ka të dy xhokerët · pa shkëmbim`); bubble(lpos(ev.last), 'Dy xhokerë', true); await sleep(D(1800)); return; }
   if (ev.k === 'give' || ev.k === 'ret') {
     const F = lpos(ev.from), T = lpos(ev.to);
     let card = ev.card;
-    if (card == null) card = H.hands[F][(Math.random() * H.hands[F].length) | 0]; else if (F !== 0) ensureIn(F, [card]);
+    if (card == null) card = H.hands[F][(Math.random() * H.hands[F].length) | 0]; else if (F) ensureIn(F, [card]);
     H.hands[F] = H.hands[F].filter(x => x !== card); H.hands[T].push(card);
-    if (ev.k === 'give') {
-      H.exchange.up = card;
-      status(F === 0 ? `Ishe i fundit · letra jote më e lartë shkon te ${NAMES[T]}` : T === 0 ? `${NAMES[F]} ishte i fundit · të jep letrën më të lartë` : `${NAMES[F]} i jep ${NAMES[T]} letrën më të lartë`);
-    } else {
-      H.exchange.down = card;
-      status(F === 0 ? `I kthen ${NAMES[T]} një letër` : T === 0 ? `${NAMES[F]} të kthen një letër` : `${NAMES[F]} i kthen ${NAMES[T]} një letër`);
-    }
-    await flyCard(card, F === 0 || T === 0);
-    layoutSeat(F); layoutSeat(T); snap(.3); await sleep(D(350));
+    if (ev.k === 'give') H.exchange.up = card; else H.exchange.down = card;
+    status(`Shkëmbimi · <em>${NAMES[F]}</em> → <em>${NAMES[T]}</em>`);
+    await passCard(card, F, T, F === 0 || T === 0, my);
     return;
   }
-  if (ev.k === 'play' || ev.k === 'pass') return playEv(ev, my);
+  if (ev.k === 'pass') {
+    const p = lpos(ev.p), r = G.act(mt, p, null);
+    await animatePlay(p, null, r);
+    return;
+  }
+  if (ev.k === 'play') {
+    const p = lpos(ev.p);
+    if (p) ensureIn(p, ev.ids);
+    const r = G.act(mt, p, ev.ids);
+    await animatePlay(p, ev.ids, r);
+    return;
+  }
   if (ev.k === 'end') {
     const r = ev.result;
-    const res = mapRes(r);
-    mt.scores = res.scores; mt.target = res.target; mt.winner = res.winner; mt.tie = res.tie;
+    const res = { order: r.order.map(lpos), pts: rot(r.pts), scores: rot(r.scores), team: rotTeams(r.team || [0, 0]), teams: !!r.teams, target: r.target, raised: r.raised,
+      winner: lwin(r.winner, r.teams), tie: r.tie ? r.tie.map(x => lwin(x, r.teams)) : null };
+    Object.assign(mt, { scores: res.scores, team: res.team, target: res.target, winner: res.winner, tie: res.tie });
     const lp = res.order[3];
     ensureIn(lp, ev.left);
-    setTurn(-1); ON.timer = null;
+    setTurn(-1); setTimer(-1); stopInput(); refresh();
     await sleep(D(400)); await clearPile();
     if (H.hands[lp].length) { reveal = lp; layoutSeat(lp); $('#cap').textContent = `I mbetën ${NAMES[lp]}`; }
-    status(`${NAMES[res.order[0]]} doli ${FEM[res.order[0]] ? 'e para' : 'i pari'}`);
-    renderPlates(); meta(); onNet(true);
+    renderPlates(); meta();
     await sleep(D(1400));
-    onlineEnd(res);
-    return;
+    showResult(res, true);
   }
 }
-
-// whose move is it now: yours (open the hand), or someone else's (show their timer)
-function askOrWait(m){
-  onTimer(m);
-  if (m.phase === 'over') { setTurn(-1); if ($('#ovEnd').hidden && m.result) onlineEnd(mapRes(m.result)); else onResultButtons(); return; }
-  if (m.phase !== 'play' || !H) return;
-  if (m.step === 'end') { setTurn(-1); return; }
-  const a = lpos(m.actor);
-  setTurn(a); renderPlates();
-  const key = m.seq + ':' + m.step;
-  if (a === 0 && m.step === 'turn') {
+function onlineEndButtons(done){
+  if (!done) { $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; return; }
+  $('#bNext').textContent = NET.isHost() ? 'Lojë e re' : 'Mbyll';
+  $('#bNext').onclick = () => { $('#ovEnd').hidden = true; if (NET.isHost()) NET.send({ t: 'again' }); };
+}
+// whose move it is now: yours (open your hand), or someone else's (their clock)
+function askOrWait(t){
+  if (!H || t.phase !== 'play') { setTurn(-1); setTimer(-1); return; }
+  if (t.step === 'end') { setTurn(-1); setTimer(-1); return; }
+  const a = lpos(t.actor);
+  setTurn(a);
+  setTimer(a, t.turnStart - ON.skew, t.turnMs);
+  const key = t.seq + ':' + t.step;
+  if (a === 0 && t.step === 'turn') {
     if (ON.asked === key && mode === 'play') return;
     ON.asked = key;
-    humanTurn().then(ids => { if (ON.room) osend({ t: 'play', ids }); });
-  } else if (a === 0 && m.step === 'gift') {
+    humanTurn().then(ids => { if (NET.online) NET.send({ t: 'act', step: 'turn', ids }); });
+  } else if (a === 0 && t.step === 'gift') {
     if (ON.asked === key && mode === 'gift') return;
     ON.asked = key;
-    giftOpts = G.giftOptions(H.hands[0]); mode = 'gift'; sel.clear(); layoutSeat(0); refresh();
-    new Promise(r => giftResolve = r).then(card => { giftResolve = null; giftOpts = []; if (ON.room) osend({ t: 'gift', card }); });
-  } else if (m.step === 'turn') {
-    status(H.must3 ? `${NAMES[a]} ka 3♠ dhe hap` : `Luan ${NAMES[a]}…`);
-  } else if (m.step === 'gift') status(`${NAMES[a]} po zgjedh letrën për ${NAMES[lpos(m.exchange.last)]}…`);
+    status(`Kthe një letër · <em>${NAMES[lpos(t.snap.exchange.last)]}</em>`);
+    humanGift().then(card => { if (NET.online) NET.send({ t: 'act', step: 'gift', card }); });
+  } else { if (mode === 'play' || mode === 'gift') stopInput(); refresh(); status(t.step === 'gift' ? `Shkëmbimi · <em>${NAMES[a]}</em>` : ''); }
 }
-function onResultButtons(){
-  $('#bNext').textContent = isHost() ? 'Lojë e re me të njëjtët' : 'Mbyll';
-  $('#bNext').onclick = () => { $('#ovEnd').hidden = true; if (isHost()) osend({ t: 'again' }); };
-  if (!isHost()) $('#endLead').textContent = 'Hosti mund të nisë një lojë të re me të njëjtën tavolinë.';
-}
-
+let lastT = null;
 async function pump(){
   if (ON.busy) { ON.again = true; return; }
   ON.busy = true;
   try {
     do {
       ON.again = false;
-      const m = ON.S && ON.S.mur;
-      if (!m || m.me < 0) break;
-      seatNames(m);
-      if (m.phase === 'lobby' || m.phase === 'filling') { renderPlates(); ON.seq = 0; break; }
-      const log = m.log || [];
-      const lastSeq = log.length ? log[log.length - 1].seq : 0;
+      const t = lastT; if (!t) break;
+      seatNames(t);
+      const log = t.log || [], lastSeq = log.length ? log[log.length - 1].seq : 0;
       let evs = log.filter(e => e.seq > ON.seq);
       const di = evs.map(e => e.k).lastIndexOf('deal');
       if (di >= 0) evs = evs.slice(di);
-      // joining mid-hand, or we missed something: draw the table as it is now instead of replaying
       const behind = evs.length && evs[0].k !== 'deal' && (!H || evs[0].seq !== ON.seq + 1);
-      if (!H && di < 0 || behind || (di >= 0 && evs.length > 4)) { resync(m); ON.seq = lastSeq; evs = []; }
-      if (evs.length && (mode === 'play' || mode === 'gift')) { mode = 'idle'; humanResolve = null; giftResolve = null; sel.clear(); playable = null; layoutSeat(0); refresh(); }
+      if ((!H && di < 0) || behind || (di >= 0 && evs.length > 4)) { resync(t); ON.seq = lastSeq; evs = []; }
+      if (evs.length && (mode === 'play' || mode === 'gift')) { stopInput(); layoutSeat(0); refresh(); }
       const my = ++gen;
       for (const ev of evs) {
-        try { await applyEv(ev, m, my); }
-        catch (e) { console.warn('resync', e); resync(ON.S.mur); ON.seq = (ON.S.mur.log || []).reduce((a, x) => Math.max(a, x.seq), 0); break; }
-        if (my !== gen || !ON.room) return;
+        try { await applyEv(ev, my); }
+        catch (e) { console.warn('resync', e); resync(lastT); ON.seq = (lastT.log || []).reduce((a, x) => Math.max(a, x.seq), 0); break; }
+        if (my !== gen || !NET.online) return;
         ON.seq = ev.seq;
       }
-      if (!ON.again && ON.S) askOrWait(ON.S.mur);
+      if (!ON.again && lastT) {
+        askOrWait(lastT);
+        if (lastT.phase === 'over' && $('#ovEnd').hidden && lastT.snap && lastT.snap.result) {
+          const r = lastT.snap.result;
+          showResult({ order: r.order.map(lpos), pts: rot(r.pts), scores: rot(r.scores), team: rotTeams(r.team || [0, 0]), teams: !!r.teams, target: r.target, raised: false,
+            winner: lwin(r.winner, r.teams), tie: r.tie ? r.tie.map(x => lwin(x, r.teams)) : null }, true);
+        }
+      }
     } while (ON.again);
   } finally { ON.busy = false; }
 }
-const mapRes = r => ({ order: r.order.map(lpos), pts: rot(r.pts), scores: rot(r.scores), target: r.target, raised: r.raised,
-  winner: r.winner == null ? null : lpos(r.winner), tie: r.tie ? r.tie.map(lpos) : null });
-function onlineEnd(res){
-  showResult(res);
-  const done = res.winner !== null || res.tie;
-  if (!done) { $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; $('#endLead').textContent += ' Dora tjetër nis vetë pas pak.'; }
-  else onResultButtons();
+function onTable(t, S){
+  const first = !lastT;
+  lastT = t; ON.skew = S.now - Date.now();
+  if (first) { ON.seq = 0; H = null; $('#bNew').hidden = true; audio(); showRotHint(); }
+  pump();
 }
 
-window.__mur = { get mode(){ return mode; }, get H(){ return H; }, get on(){ return ON; }, pick(ids){ sel = new Set(ids); submitPlay(); } };   // for tests
+/* ---------- menu, rooms, connection (net.js) ---------- */
+const NET = NETWORK({
+  game: 'murlan', title: 'Murlan',
+  modes: [{ label: '2 kundër 2', cfg: { teams: true } }, { label: 'Secili për vete', cfg: { teams: false } }],
+  seatsFor: () => [0, 1, 2, 3],
+  teamsFor: cfg => cfg.teams ? [[0, 2], [1, 3]] : null,
+  onLocal: (cfg, seats) => { lastT = null; startLocal(cfg, seats); },
+  onTable,
+  onLeave: () => { lastT = null; stopTable(); },
+  onError: () => { ON.asked = ''; pump(); },
+});
+
+window.__mur = { get mode(){ return mode; }, get H(){ return H; }, get mt(){ return mt; }, pick(ids){ sel = new Set(ids); submitPlay(); }, pass: submitPass };   // for tests
+
 async function start(){
   applySettings();
   try { await Promise.race([document.fonts.load(`700 70px ${ART.FONT}`), sleep(1500)]); } catch(e) {}
   await buildArt();
-  const mu = await ART.logoURL(300); $('#brandImg').src = mu; $('#feltMark').src = mu; $('#startLogo').src = mu;
+  const mu = await ART.logoURL(300); $('#brandImg').src = mu; $('#feltMark').src = mu;
   mkCards(); fillDeck(); resetCards();
-  seatPlayers(); seated = true;
   renderPlates();
-  status('Gati për lojë');
   $('#loading').hidden = true;
-  let seen = false; try { seen = localStorage.getItem('vw-rot-seen') === '1'; } catch(e) {}
-  if (rotated && !seen) $('#ovRot').hidden = false;
-  // opened from a shared link: go straight to that table
-  const code = (new URLSearchParams(location.search).get('r') || '').toUpperCase();
-  if (/^[A-Z]{4}$/.test(code)) { if (savedName()) oEnter(code); else { openOnline(); $('#onCode').value = code; } }
 }
 start();
 })();
 </script>
-<script src="ads.js"></script>
 <script src="table-ui.js"></script>
 </body>
 </html>

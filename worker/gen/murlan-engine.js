@@ -190,11 +190,13 @@ const M = (() => {
     }
     S.cur = nextActive(S, p);
   }
+  // what a finished simulation is worth to `me`: my place, plus my partner's in 2 kundër 2
   function rollout(S, me, rand) {
+    const mate = S.mate;
     for (let g = 0; g < 500; g++) {
-      if (S.place[me]) return POINTS[S.place[me] - 1];
+      if (S.place[me] && (mate < 0 || S.place[mate])) return POINTS[S.place[me] - 1] + (mate < 0 ? 0 : POINTS[S.place[mate] - 1]);
       const p = S.cur;
-      let oppMin = 99; for (let q = 0; q < 4; q++) if (q !== p && S.active[q] && S.n[q] < oppMin) oppMin = S.n[q];
+      let oppMin = 99; for (let q = 0; q < 4; q++) if (q !== p && (mate < 0 || (q & 1) !== (p & 1)) && S.active[q] && S.n[q] < oppMin) oppMin = S.n[q];
       simApply(S, p, policy(S.c[p], S.top, oppMin, S.n[p], rand));
     }
     return 1;
@@ -205,7 +207,8 @@ const M = (() => {
     const cands = allMoves(view.hand, view.top, view.must3);
     if (!cands.length) return null;
     for (const m of cands) if (size(m) === myN) return m;
-    let oppMin = 99; for (let q = 0; q < 4; q++) if (q !== me && view.active[q] && view.n[q] < oppMin) oppMin = view.n[q];
+    const mate = view.teams ? (me + 2) % 4 : -1;
+    let oppMin = 99; for (let q = 0; q < 4; q++) if (q !== me && q !== mate && view.active[q] && view.n[q] < oppMin) oppMin = view.n[q];
     const urgent = oppMin <= 2;
     const scored = cands.map(m => { apply(myC, m, -1); const v = evalHand(myC) + (urgent ? 0 : controlCost(m)) - size(m) * .05; apply(myC, m, 1); return { m, v }; }).sort((a, b) => a.v - b.v);
     const list = scored.slice(0, view.top ? 10 : 16);
@@ -233,7 +236,7 @@ const M = (() => {
       }
       for (let i = 0; i < list.length; i++) {
         const S = { c: base.map(c => Int8Array.from(c)), n: view.n.slice(), active: view.active.slice(), ac: view.active.filter(Boolean).length,
-          top: view.top, last: view.last, passes: view.passes, cur: me, place: [0, 0, 0, 0], fin: 4 - view.active.filter(Boolean).length };
+          top: view.top, last: view.last, passes: view.passes, cur: me, place: view.place ? view.place.slice() : [0, 0, 0, 0], fin: 4 - view.active.filter(Boolean).length, mate };
         S.n[me] = myN;
         simApply(S, me, list[i].m);
         tot[i] += rollout(S, me, rand);
@@ -259,8 +262,13 @@ const M = (() => {
 /* ===== Murlan match state (pure) ===== */
 const G = (() => {
   const { rankOf, classify, beats, POINTS, shuffle, highest, chooseGift, decide } = M;
-  function newMatch(rand) {
-    return { rand: rand || Math.random, scores: [0, 0, 0, 0], target: 21, handNo: 0, dealer: ((rand || Math.random)() * 4) | 0, lastOrder: null, winner: null, tie: null, hand: null };
+  /* opts.teams: 2 kundër 2. Partners sit across (seats 0+2 and 1+3); a team scores both partners' places.
+     mt.winner / mt.tie are seats in a free-for-all and teams (0 or 1) in 2 kundër 2. */
+  function newMatch(rand, opts) {
+    opts = opts || {};
+    const teams = !!opts.teams;
+    return { rand: rand || Math.random, teams, teamOf: teams ? [0, 1, 0, 1] : [0, 1, 2, 3], scores: [0, 0, 0, 0], team: [0, 0],
+      target: 21, handNo: 0, dealer: ((rand || Math.random)() * 4) | 0, lastOrder: null, winner: null, tie: null, hand: null };
   }
   function deal(mt) {
     mt.handNo++;
@@ -350,17 +358,22 @@ const G = (() => {
     const H = mt.hand;
     const pts = [0, 0, 0, 0]; H.order.forEach((p, i) => pts[p] = POINTS[i]);
     for (let p = 0; p < 4; p++) mt.scores[p] += pts[p];
+    if (mt.teams) for (let p = 0; p < 4; p++) mt.team[mt.teamOf[p]] += pts[p];
     mt.lastOrder = H.order.slice();
-    let reached = mt.scores.map((s, p) => s >= mt.target ? p : -1).filter(p => p >= 0);
+    // who reached the target: players, or the two teams in 2 kundër 2. Two at once: the target goes up by 10, up to 51.
+    const sc = mt.teams ? mt.team : mt.scores;
+    const reachedAt = t => sc.map((s, i) => s >= t ? i : -1).filter(i => i >= 0);
+    let reached = reachedAt(mt.target);
     const oldTarget = mt.target;
-    while (reached.length >= 2 && mt.target < 51) { mt.target += 10; reached = mt.scores.map((s, p) => s >= mt.target ? p : -1).filter(p => p >= 0); }
+    while (reached.length >= 2 && mt.target < 51) { mt.target += 10; reached = reachedAt(mt.target); }
     if (reached.length === 1) mt.winner = reached[0];
     else if (reached.length >= 2) mt.tie = reached;
-    H.result = { order: H.order.slice(), pts, scores: mt.scores.slice(), target: mt.target, raised: mt.target !== oldTarget, winner: mt.winner, tie: mt.tie };
+    H.result = { order: H.order.slice(), pts, scores: mt.scores.slice(), team: mt.team.slice(), teams: mt.teams, target: mt.target, raised: mt.target !== oldTarget, winner: mt.winner, tie: mt.tie };
   }
   function viewFor(mt, p) {
     const H = mt.hand;
-    return { me: p, hand: H.hands[p].slice(), n: H.hands.map(h => h.length), active: H.active.slice(), top: H.top, last: H.last, passes: H.passes, played: H.played, known: H.known[p], must3: H.must3 };
+    const place = [0, 0, 0, 0]; H.order.forEach((q, i) => place[q] = i + 1);
+    return { me: p, hand: H.hands[p].slice(), n: H.hands.map(h => h.length), active: H.active.slice(), top: H.top, last: H.last, passes: H.passes, played: H.played, known: H.known[p], must3: H.must3, teams: !!mt.teams, place };
   }
   function botMove(mt, p, opts) {
     const v = viewFor(mt, p); Object.assign(v, opts || {});

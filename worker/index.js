@@ -1,7 +1,8 @@
 // VitoWeb Loja — Worker entry.
 // The pages and games in ../public are served by Cloudflare's static assets before this code runs.
 // This code only runs for /api/* and /ws/* (see run_worker_first in wrangler.toml):
-//   POST /api/create            {game}  -> {code, hostToken, game}   new room
+//   POST /api/create            {game, cfg}  -> {code, hostToken, game}   new private room
+//   POST /api/quick             {game, cfg}  -> {code, game}              a public table to sit at (quick match)
 //   GET  /api/room/CODE                 -> {ok, game}                does the room exist, which game
 //   GET  /ws/CODE?name=&k=&host=        -> websocket into the room
 //   GET  /api/health                    -> {ok}
@@ -47,6 +48,21 @@ export default {
   },
 };
 
+async function newRoom(env, game, opts) {
+  const guard = env.GUARD.get(env.GUARD.idFromName("guard"));
+  const max = Number(env.MAX_NEW_ROOMS_PER_DAY) || 2000;
+  const paused = String(env.PAUSE_NEW_ROOMS || "0") === "1";
+  const gate = await guard.allowRoom(game, max, paused);
+  if (!gate.ok) return { error: gate.reason === "paused" ? "paused" : "busy" };
+  for (let i = 0; i < 8; i++) {
+    const code = roomCode();
+    const stub = env.ROOM.get(env.ROOM.idFromName(code));
+    const r = await stub.init(code, game, opts);
+    if (r) return { code, game, hostToken: r.hostToken };
+  }
+  return { error: "busy" };
+}
+
 async function route(req, env, url) {
   const path = url.pathname;
   const ip = req.headers.get("CF-Connecting-IP") || "local";
@@ -90,20 +106,34 @@ async function route(req, env, url) {
     try { body = await req.json(); } catch {}
     const game = String(body.game || "");
     if (!GAMES[game]) return withCookie(json({ error: "bad_game" }, 400));
+    const cfg = body.cfg && typeof body.cfg === "object" ? body.cfg : {};
+    const r = await newRoom(env, game, { cfg });
+    return withCookie(json(r, r.code ? 200 : 503));
+  }
 
+  // quick match: an open public table with the same settings, or a new one that others will find
+  if (path === "/api/quick") {
+    if (req.method !== "POST") return json({ error: "method" }, 405);
+    if (badOrigin(req, url)) return json({ error: "origin" }, 403);
+    if (await limited(env.RL_IP, "ip:" + ip)) return withCookie(json({ error: "slow_down" }, 429));
+    if (await limited(env.RL_CREATE, "quick:" + (readCookie(req) || ip))) return withCookie(json({ error: "slow_down" }, 429));
+    let body = {};
+    try { body = await req.json(); } catch {}
+    const game = String(body.game || "");
+    if (!GAMES[game] || !GAMES[game].canJoin) return withCookie(json({ error: "bad_game" }, 400));
+    const cfg = GAMES[game].init({ cfg: body.cfg && typeof body.cfg === "object" ? body.cfg : {} }).cfg;
+    const key = game + ":" + JSON.stringify(cfg);
     const guard = env.GUARD.get(env.GUARD.idFromName("guard"));
-    const max = Number(env.MAX_NEW_ROOMS_PER_DAY) || 2000;
-    const paused = String(env.PAUSE_NEW_ROOMS || "0") === "1";
-    const gate = await guard.allowRoom(game, max, paused);
-    if (!gate.ok) return withCookie(json({ error: gate.reason === "paused" ? "paused" : "busy" }, 503));
-
-    for (let i = 0; i < 8; i++) {
-      const code = roomCode();
-      const stub = env.ROOM.get(env.ROOM.idFromName(code));
-      const r = await stub.init(code, game);
-      if (r) return withCookie(json({ code, game, hostToken: r.hostToken }));
+    const open = await guard.findPublic(key);
+    if (open) {
+      const info = await env.ROOM.get(env.ROOM.idFromName(open)).info();
+      if (info.ok && info.open) return withCookie(json({ code: open, game }));
+      await guard.closePublic(key, open);
     }
-    return withCookie(json({ error: "busy" }, 503));
+    const r = await newRoom(env, game, { cfg, public: true });
+    if (!r.code) return withCookie(json(r, 503));
+    await guard.addPublic(key, r.code);
+    return withCookie(json({ code: r.code, game }));
   }
 
   const rm = path.match(/^\/api\/room\/([A-Z]{4})$/);

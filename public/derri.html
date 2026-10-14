@@ -115,6 +115,13 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 
 /* top bar stays usable over the panels, so you can always go back to the games */
 .top{z-index:450}
+.acts .btn{font-size:24px!important;letter-spacing:.04em!important}
+.acts .btn.main{font-size:26px!important}
+#myTurn{position:absolute;left:330px;width:620px;top:536px;height:5px;border-radius:3px;z-index:95;pointer-events:none;transition:background .25s,box-shadow .25s;overflow:hidden}
+#myTurn.on{background:rgba(239,90,134,.35);box-shadow:0 0 18px rgba(239,90,134,.45)}
+.tbar{position:absolute;left:0;right:0;bottom:0;height:100%;border-radius:2px;background:var(--pink);transform-origin:left center;animation:tbar linear forwards}
+.plate .tbar{left:12px;right:12px;bottom:3px;height:4px;top:auto}
+@keyframes tbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 </style>
 <style>
 .card.dim{filter:brightness(.5) saturate(.6)}
@@ -187,8 +194,8 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div class="plate" id="pl2" style="left:640px;top:56px;transform:translateX(-50%)"></div>
   <div class="plate" id="pl1" style="left:46px;top:214px"></div>
   <div class="plate" id="pl3" style="right:46px;top:214px"></div>
-  <div class="plate" id="pl0" style="left:34px;top:620px"></div>
-  <div class="bubble" id="bb0" style="left:150px;top:590px"></div>
+  <div class="plate" id="pl0" hidden></div>
+  <div class="bubble" id="bb0" style="left:640px;top:505px"></div>
   <div class="bubble" id="bb1" style="left:330px;top:250px"></div>
   <div class="bubble" id="bb2" style="left:830px;top:92px"></div>
   <div class="bubble" id="bb3" style="left:950px;top:250px"></div>
@@ -197,18 +204,11 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div id="cap"></div>
   <div id="pickTag" hidden></div>
 
+  <div id="myTurn"></div>
   <div class="acts">
-    <button class="btn main" id="bRand" disabled>RASTËSISHT</button>
     <button class="btn" id="bFast">SHPEJTO</button>
+    <button class="btn main" id="bRand" disabled>RASTËSISHT</button>
   </div>
-
-  <div class="ov" id="ovStart"><div class="panel start">
-    <img id="startLogo" alt="">
-    <h2>Derri në dorë</h2>
-    <p><span id="startWho"></span> Bëj çifte, hidhi, dhe mos mbet me K♠ në dorë.</p>
-    <button class="pbtn" id="bStart">Fillo lojën</button>
-    <button class="linkb" id="bRules0">Rregullat</button>
-  </div></div>
 
   <div class="ov" id="ovRules" hidden><div class="panel rules">
     <h2>Rregullat</h2>
@@ -244,8 +244,8 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
   <div class="ov" id="ovRot" hidden><div class="panel rot">
     <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M17 11v2"/></svg>
     <h2>Ktheje telefonin anash</h2>
-    <p>Tavolina luhet horizontalisht. Nuk ka nevojë të ndezësh rrotullimin automatik: loja kthehet vetë.</p>
-    <button class="pbtn" id="bRotOk">Në rregull</button>
+    
+    <button class="pbtn" id="bRotOk">OK</button>
   </div></div>
 
   <div id="loading">Duke përgatitur letrat…</div>
@@ -253,80 +253,10 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 </div></div>
 
 <script src="players.js"></script>
-<script>
-/* ===== Derri në dorë engine (pure, no DOM) =====
-   Same card ids as Murlan: 0..51 -> rank = 3 + (id>>2) (3..15, 11 J, 12 Q, 13 K, 14 A, 15 = 2), suit = id&3 (0 ♠,1 ♥,2 ♦,3 ♣).
-   K♠ = 40 is the pig ("derri"). K♥ 41, K♦ 42, K♣ 43 are removed: 49 cards.
-   Turn rule: the player in turn draws one hidden card from the next player still holding cards (seat p+1, p+2, …).
-   A drawn card that matches a rank in hand is discarded with it at once. Empty hand = out (safe).
-   The last player holding cards holds only the pig and loses. */
-const E = (() => {
-  const PIG = 40, DROP = [41, 42, 43];
-  const rankOf = id => 3 + (id >> 2);
-  const natural = id => { const r = rankOf(id); return r === 14 ? 1 : r === 15 ? 2 : r; };
-  const label = id => ({ 11: 'J', 12: 'Q', 13: 'K', 14: 'A', 15: '2' })[rankOf(id)] || String(rankOf(id));
-  function shuffle(a, rand) { rand = rand || Math.random; for (let i = a.length - 1; i > 0; i--) { const j = (rand() * (i + 1)) | 0; const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
-  function newMatch(rand) { return { rand: rand || Math.random, losses: [0, 0, 0, 0], round: 0, dealer: ((rand || Math.random)() * 4) | 0, hand: null }; }
-  function deal(mt) {
-    mt.round++;
-    if (mt.round > 1) mt.dealer = (mt.dealer + 1) % 4;
-    const deck = shuffle(Array.from({ length: 52 }, (_, i) => i).filter(i => !DROP.includes(i)), mt.rand);
-    const hands = [[], [], [], []];
-    deck.forEach((id, i) => hands[(mt.dealer + 1 + i) % 4].push(id));
-    const H = { hands, order: [], cur: (mt.dealer + 1) % 4, dealOrder: deck, over: false, loser: -1 };
-    mt.hand = H;
-    return H;
-  }
-  function pairsIn(hand) {
-    const open = new Map(), out = [];
-    for (const id of hand) { const r = rankOf(id); if (open.has(r)) { out.push([open.get(r), id]); open.delete(r); } else open.set(r, id); }
-    return out;
-  }
-  const live = (H, p) => H.hands[p].length > 0;
-  function nextLive(H, p) { for (let i = 1; i <= 3; i++) { const q = (p + i) % 4; if (live(H, q)) return q; } return -1; }
-  function checkOver(mt) {
-    const H = mt.hand, alive = [0, 1, 2, 3].filter(q => live(H, q));
-    if (alive.length > 1) return;
-    H.over = true; H.loser = alive.length ? alive[0] : -1;
-    if (H.loser >= 0) { H.order.push(H.loser); mt.losses[H.loser]++; }
-  }
-  function initialDiscard(mt) {
-    const H = mt.hand, pairs = [];
-    for (let p = 0; p < 4; p++) {
-      const pr = pairsIn(H.hands[p]), gone = new Set(pr.flat());
-      H.hands[p] = shuffle(H.hands[p].filter(id => !gone.has(id)), mt.rand);
-      pairs.push(pr);
-    }
-    const outs = [];
-    for (let k = 0; k < 4; k++) { const p = (mt.dealer + 1 + k) % 4; if (!live(H, p)) { H.order.push(p); outs.push(p); } }
-    checkOver(mt);
-    if (!H.over && !live(H, H.cur)) H.cur = nextLive(H, H.cur);
-    return { pairs, outs };
-  }
-  const source = (H, p) => nextLive(H, p);
-  function draw(mt, p, idx) {
-    const H = mt.hand;
-    if (H.over || p !== H.cur) throw new Error('not your turn');
-    const from = source(H, p);
-    if (idx < 0 || idx >= H.hands[from].length) throw new Error('bad index');
-    const card = H.hands[from].splice(idx, 1)[0];
-    const mi = H.hands[p].findIndex(id => rankOf(id) === rankOf(card));
-    let pair = null;
-    if (mi >= 0) { pair = [H.hands[p][mi], card]; H.hands[p].splice(mi, 1); }
-    else H.hands[p].splice((mt.rand() * (H.hands[p].length + 1)) | 0, 0, card);   // a held card lands anywhere: position tells nothing
-    const outs = [];
-    for (const q of [from, p]) if (!live(H, q) && !H.order.includes(q)) { H.order.push(q); outs.push(q); }
-    checkOver(mt);
-    if (!H.over) H.cur = nextLive(H, p);
-    return { p, from, card, pair, outs, over: H.over, loser: H.loser };
-  }
-  /* Picking is blind, so a uniform random index is the best any player can do. */
-  const botPick = (mt, p) => (mt.rand() * mt.hand.hands[source(mt.hand, p)].length) | 0;
-  return { PIG, rankOf, natural, label, shuffle, newMatch, deal, initialDiscard, source, draw, botPick, nextLive };
-})();
-if (typeof module !== 'undefined') module.exports = { E };
-
-</script>
+<script src="derri-engine.js"></script>
+<script src="hand.js"></script>
+<script src="ads.js"></script>
+<script src="net.js"></script>
 <script>
 (() => {
 'use strict';
@@ -500,25 +430,22 @@ function chime(){
     o.connect(g).connect(actx.destination); o.start(t + i * .09); o.stop(t + i * .09 + .55); }); } catch(e) {}
 }
 
-/* ---------- seats & geometry ---------- */
+/* ---------- seats & geometry (seat 0 is you, at the bottom) ---------- */
 const NAMES = ['Ti','','',''];
 const FEM = [false, false, false, false];
-const AVC = ['#b02a63','','',''];
+const AVC = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62'];
 const SEAT = [null, null, null, null];
-const ND = new Proxy([], { get: (_, k) => k === '0' ? 'ti' : NAMES[k] });   // usernames are not declined in sentences
-let seated = false, meOut = false;
-function seatPlayers(){
-  PLAYERS.seats(3).forEach((s, i) => { SEAT[i + 1] = s; NAMES[i + 1] = s.name; FEM[i + 1] = s.fem; AVC[i + 1] = s.color; });
-  $('#startWho').textContent = `Në tavolinë: ${NAMES[1]}, ${NAMES[2]} dhe ${NAMES[3]}.`;
-}
+let meOut = false;
+function setSeats(list){ list.forEach((s, i) => { if (!s) return; NAMES[i] = i ? s.name : 'Ti'; FEM[i] = !!s.fem; if (s.color) AVC[i] = s.color; SEAT[i] = { speed: .88 + Math.random() * .24 }; }); }
 const PILE = [640, 345], DECK = [640, 338];
-const NEAR = [[640, 470], [330, 400], [640, 250], [950, 400]];   // where a seat shows a pair before throwing it
+const NEAR = [[640, 470], [330, 400], [640, 250], [950, 400]];
 const els = [];
 let mt = null, H = null, gen = 0, dealt = null, pileN = 0;
 let mode = 'idle', pickSrc = -1, hov = -1, humanResolve = null, fast = false;
 const D = ms => ms * (ST.speed === 'fast' ? .55 : 1) * (fast ? .45 : 1);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const PIG = E.PIG;
+const ALL = Array.from({length: 52}, (_, i) => i).filter(i => i < 41 || i > 43);
 
 function mkCards(){
   const box = $('#cards'); box.textContent = '';
@@ -545,19 +472,18 @@ function seatSlot(p, i, n){
   if (p === 1) return {x: 140, y: 400 + o * 12, rot: 90, sc: .5};
   return {x: 1140, y: 400 + o * 12, rot: -90, sc: .5};
 }
+const HAND_GEOM = (i, n) => { const step = n > 1 ? Math.min(80, (720 - CW) / (n - 1)) : 0, t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0; return {x: 640 + (i - (n - 1) / 2) * step, y: 632 + t * t * 10, rot: t * 4}; };
 function layoutSeat(p){
   const h = handOf(p), n = h.length;
   if (p === 0) {
     const ids = orderHand(h, byNat, !!dealt);
-    const step = n > 1 ? Math.min(80, (720 - CW) / (n - 1)) : 0;
     ids.forEach((id, i) => {
-      const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
-      const x = 640 + (i - (n - 1) / 2) * step, y = 632 + t * t * 10 - (hov === id ? 38 : 0);
+      const g = HAND_GEOM(i, ids.length), y = g.y - (hov === id ? 38 : 0);
       const e = els[id].el; clean(e); e.classList.add('mine'); e.classList.toggle('hov', hov === id);
-      if (!isDragged(id)) put(id, x, y, t * 4, 1, 100 + i, true);
+      if (!isDragged(id)) put(id, g.x, y, g.rot, 1, 100 + i, true);
     });
   } else if (pickSrc === p) {
-    // the hand you draw from, spread face-down across the middle of the table
+    // the hand you take from, spread face down across the middle of the table
     const step = n > 1 ? Math.min(118, (920 - CW * .92) / (n - 1)) : 0;
     h.forEach((id, i) => {
       const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
@@ -579,47 +505,63 @@ function layoutSeat(p){
 const layoutAll = () => { for (let p = 0; p < 4; p++) layoutSeat(p); };
 
 function renderPlate(p){
+  if (!p) return;
   const el = $('#pl' + p);
+  el.hidden = !NAMES[p];
   const n = handOf(p).length, derr = mt ? mt.losses[p] : 0;
   const place = H && !dealt ? H.order.indexOf(p) : -1;
   const out = place >= 0 && !(H.over && p === H.loser);
-  const first = out ? `Doli` : `${n === 1 ? '1 letër' : n + ' letra'}`;
-  const tally = derr ? ` · <span class="pig">${derr === 1 ? '1 herë derr' : derr + ' herë derr'}</span>` : '';
-  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${(NAMES[p] || "?")[0].toUpperCase()}</div><div><b>${NAMES[p]}</b><span>${first}${tally}</span></div>`;
+  const bits = [out ? 'Doli' : (n === 1 ? '1 letër' : n + ' letra')];
+  if (derr) bits.push(`<span class="pig">${derr} derr</span>`);
+  el.innerHTML = `<div class="av" style="background:${AVC[p]}">${(NAMES[p] || '?')[0].toUpperCase()}</div><div><b></b><span>${bits.join(' · ')}</span></div>`;
+  el.querySelector('b').textContent = NAMES[p];
   el.classList.toggle('out', out);
+  if (TIMER.p === p) addTimer(el);
 }
-const renderPlates = () => { for (let p = 0; p < 4; p++) renderPlate(p); };
-function setTurn(p, src){ for (let i = 0; i < 4; i++) { $('#pl' + i).classList.toggle('turn', i === p); $('#pl' + i).classList.toggle('src', i === src); } }
-function status(txt){ $('#status').innerHTML = txt; }
-function meta(){ $('#meta').innerHTML = mt ? `<b>Dora ${mt.round}</b>` : ''; }
+const renderPlates = () => { for (let p = 1; p < 4; p++) renderPlate(p); };
+function setTurn(p, src){ for (let i = 1; i < 4; i++) { $('#pl' + i).classList.toggle('turn', i === p); $('#pl' + i).classList.toggle('src', i === src); } $('#myTurn').classList.toggle('on', p === 0); }
+function status(txt){ $('#status').innerHTML = txt || ''; }
+function meta(){
+  const m = $('#meta');
+  m.innerHTML = mt ? `<span>Dora<b>${mt.round}</b></span><span class="us">Ti<b>${mt.losses[0]}</b></span><i>derr</i>` : '';
+}
 function bubble(p, txt, gold){
   const b = $('#bb' + p); b.textContent = txt; b.classList.toggle('gold', !!gold); b.classList.add('on');
   clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('on'), D(1300));
 }
-const from0 = q => q === 0 ? 'ti' : ND[q];
+const TIMER = { p: -1, start: 0, ms: 0 };
+function addTimer(el){
+  const used = Math.max(0, Date.now() - TIMER.start);
+  if (used >= TIMER.ms) return;
+  el.querySelectorAll('.tbar').forEach(x => x.remove());
+  el.insertAdjacentHTML('beforeend', `<i class="tbar" style="animation-duration:${TIMER.ms}ms;animation-delay:-${used}ms"></i>`);
+}
+function setTimer(p, start, ms){
+  TIMER.p = p; TIMER.start = start; TIMER.ms = ms;
+  document.querySelectorAll('.tbar').forEach(x => x.remove());
+  if (p >= 0) addTimer(p === 0 ? $('#myTurn') : $('#pl' + p));
+}
 
 /* ---------- discard pile (pairs are thrown face up, like at a real table) ---------- */
 function throwPair(ids){
   const cx = PILE[0] + (Math.random() * 90 - 45), cy = PILE[1] + (Math.random() * 40 - 20), rot = Math.random() * 30 - 15;
-  ids.forEach((id, k) => {
-    const e = els[id].el; clean(e);
-    put(id, cx + (k ? 20 : -20), cy, rot + (k ? 5 : -5), .62, 5 + pileN++, true);
-  });
+  ids.forEach((id, k) => { const e = els[id].el; clean(e); put(id, cx + (k ? 20 : -20), cy, rot + (k ? 5 : -5), .62, 5 + pileN++, true); });
 }
 async function showPair(p, ids, my){
   const [x, y] = NEAR[p];
   ids.forEach((id, k) => { const e = els[id].el; clean(e); e.classList.add('pair'); put(id, x + (k ? 44 : -44), y, k ? 4 : -4, p === 0 ? 1 : .8, 340 + k, true); });
-  $('#cap').textContent = `${NAMES[p]} · çift ${E.label(ids[0])}`;
+  $('#cap').textContent = `${NAMES[p]} · ${E.label(ids[0])}`;
   snap(.3, 2600, .05);
   await sleep(D(p === 0 ? 650 : 480)); if (my !== gen) return;
   throwPair(ids); snap(.4); await sleep(D(220));
+  $('#cap').textContent = '';
 }
 
-/* ---------- human pick ---------- */
+/* ---------- your turn: tap a card from the hand in the middle (or RASTËSISHT) ---------- */
 function refresh(){
   $('#bRand').disabled = mode !== 'pick';
   $('#bFast').classList.toggle('on', fast);
-  $('#bFast').style.visibility = meOut ? '' : 'hidden';   // speeding the others up only once you're out
+  $('#bFast').style.visibility = meOut && !NET.online ? '' : 'hidden';
 }
 $('#cards').addEventListener('click', e => {
   audio();
@@ -635,80 +577,38 @@ function choose(idx){
 $('#bRand').onclick = () => { audio(); if (mode === 'pick') choose((Math.random() * H.hands[pickSrc].length) | 0); };
 $('#bFast').onclick = () => { audio(); fast = !fast; refresh(); };
 addEventListener('keydown', e => {
-  if (!$('#ovStart').hidden) return;
+  if (!$('#menu') || !$('#menu').hidden) return;
   if (e.key === 'Enter') $('#bRand').click();
-  else if (e.key === 'Escape') ['#ovSet','#ovRules'].forEach(s => $(s).hidden = true);
 });
-const HAND_GEOM = (i, n) => { const step = n > 1 ? Math.min(80, (720 - CW) / (n - 1)) : 0, t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0; return {x: 640 + (i - (n - 1) / 2) * step, y: 632 + t * t * 10, rot: t * 4}; };
 const relayoutHand = () => { if (H) layoutSeat(0); };
-const canDragHand = () => !!H && !dealt;
 
-/* ---------- your hand: drag a card left/right to rearrange it ----------
-   House rule for every VitoWeb card game: the hand order is the player's. Never lock it, never re-sort it on its own.
-   New cards land at the right end; the sort button re-sorts on demand. A tap that doesn't move 8px stays a normal tap. */
-let handOrder = [], dragging = null, dragEndT = 0;
+/* ---------- your hand (hand.js): drag sideways to rearrange ---------- */
+let handOrder = [];
 function orderHand(hand, sortFn, fresh){
   const set = new Set(hand);
-  if (dragging && !set.has(dragging.id)) { dragging.el.classList.remove('drag'); dragging = null; }
   if (fresh || !handOrder.length) { handOrder = hand.slice().sort(sortFn); return handOrder; }
   handOrder = handOrder.filter(id => set.has(id));
   for (const id of hand) if (!handOrder.includes(id)) handOrder.push(id);
   return handOrder;
 }
-const isDragged = id => !!dragging && dragging.on && dragging.id === id;
+const isDragged = id => HAND.held(id);
 function stagePoint(e){
   const r = fit.getBoundingClientRect();
   const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
   return { x: 640 + (rotated ? dy : dx) / fitScale, y: 360 + (rotated ? -dx : dy) / fitScale };
 }
-function dragTo(p){
-  const d = dragging, n = handOrder.length, x = p.x + d.dx;
-  let best = 0, bd = 1e9;
-  for (let i = 0; i < n; i++) { const q = Math.abs(HAND_GEOM(i, n).x - x); if (q < bd) { bd = q; best = i; } }
-  const cur = handOrder.indexOf(d.id);
-  if (cur < 0) return;
-  if (best !== cur) { handOrder.splice(cur, 1); handOrder.splice(best, 0, d.id); relayoutHand(); snap(.08, 3200, .02); }
-  const g = HAND_GEOM(best, n);
-  put(d.id, Math.max(70, Math.min(1210, x)), g.y - 44, 0, 1.06, 390, true);
-}
-function endDrag(e){
-  const d = dragging; if (!d || (e && e.pointerId !== d.pid)) return;
-  dragging = null;
-  if (d.on) { d.el.classList.remove('drag'); dragEndT = performance.now(); relayoutHand(); snap(.12, 2600, .03); }
-}
-(() => {
-  const box = $('#cards');
-  box.addEventListener('pointerdown', e => {
-    if (e.button > 0 || dragging || !canDragHand()) return;
-    const c = e.target.closest('.card.mine'); if (!c) return;
-    const id = +c.dataset.id; if (!handOrder.includes(id)) return;
-    const p = stagePoint(e);
-    dragging = { id, pid: e.pointerId, x0: p.x, y0: p.y, on: false, el: c, dx: 0 };
-    try { c.setPointerCapture(e.pointerId); } catch(_) {}
-  });
-  box.addEventListener('pointermove', e => {
-    const d = dragging; if (!d || e.pointerId !== d.pid) return;
-    if (!handOrder.includes(d.id)) return endDrag(e);
-    const p = stagePoint(e);
-    if (!d.on) {
-      if (Math.hypot(p.x - d.x0, p.y - d.y0) < 8) return;
-      d.on = true; d.el.classList.add('drag');
-      d.dx = HAND_GEOM(handOrder.indexOf(d.id), handOrder.length).x - d.x0;
-    }
-    e.preventDefault();
-    dragTo(p);
-  });
-  box.addEventListener('pointerup', endDrag);
-  box.addEventListener('pointercancel', endDrag);
-  box.addEventListener('lostpointercapture', endDrag);
-  // a drag must not also count as a tap on the card
-  box.addEventListener('click', e => { if (performance.now() - dragEndT < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
-})();
+HAND.attach({
+  box: $('#cards'), sel: '.card.mine',
+  el: id => els[id].el, point: stagePoint, geom: HAND_GEOM, order: () => handOrder,
+  relayout: relayoutHand, place: (id, x, y, rot, sc, z) => put(id, x, y, rot, sc, z, true),
+  canArrange: () => !!H && !dealt, canLift: () => false,
+  sound: k => k === 'slide' ? snap(.08, 3200, .02) : snap(.12, 2600, .03),
+});
 $('#bSort').onclick = () => { audio(); handOrder = []; relayoutHand(); snap(.2, 2400, .05); };
 async function humanPick(src, my){
   pickSrc = src; layoutSeat(src);
-  const tag = $('#pickTag'); tag.innerHTML = `Zgjidh një letër nga <em>${ND[src]}</em>`; tag.hidden = false;
-  status(H.hands[0].includes(PIG) ? 'Radha jote · derri është te ti' : 'Radha jote');
+  const tag = $('#pickTag'); tag.innerHTML = ''; tag.appendChild(document.createTextNode(NAMES[src])); tag.hidden = false;
+  status('Radha jote');
   snap(.2, 2000, .08);
   mode = 'pick'; refresh();
   const idx = await new Promise(r => humanResolve = r);
@@ -717,23 +617,23 @@ async function humanPick(src, my){
   hov = H.hands[src][idx]; layoutSeat(src); await sleep(D(260));
   return idx;
 }
+function stopInput(){ HAND.cancel(); mode = 'idle'; humanResolve = null; $('#pickTag').hidden = true; }
 
-/* ---------- bots ---------- */
+/* ---------- the other players ---------- */
 async function botPickFromMe(p, my){
-  // the bot's hand hovers over yours: a card or two lifts before it takes one
   const hand = H.hands[0], tries = hand.length > 1 ? 1 + ((Math.random() * 2) | 0) : 0;
   for (let k = 0; k < tries; k++) {
     hov = hand[(Math.random() * hand.length) | 0]; layoutSeat(0); snap(.1, 3000, .03);
-    await sleep(fast ? D(420) : 350 + Math.random() * 650); if (my !== gen) return -1;
+    await sleep(fast ? D(420) : 300 + Math.random() * 450); if (my !== gen) return -1;
   }
   const idx = E.botPick(mt, p);
-  hov = hand[idx]; layoutSeat(0); await sleep(fast ? D(380) : 300 + Math.random() * 400);
+  hov = hand[idx]; layoutSeat(0); await sleep(fast ? D(380) : 250 + Math.random() * 300);
   return idx;
 }
 async function botPickFromBot(p, src, my){
   const idx = E.botPick(mt, p);
   hov = H.hands[src][idx]; layoutSeat(src); snap(.12, 2800, .03);
-  await sleep(fast ? D(360) : 450 + Math.random() * 700); if (my !== gen) return -1;
+  await sleep(fast ? D(360) : 350 + Math.random() * 450); if (my !== gen) return -1;
   return idx;
 }
 
@@ -743,23 +643,22 @@ async function animateDraw(ev, my){
   hov = -1; pickSrc = -1;
   els[card].el.classList.remove('pickable','hov');
   if (p === 0) {
-    // your new card turns face up in front of you
     put(card, 640, 470, 0, 1.05, 350, true); snap(.35);
     layoutSeat(from);
     await sleep(D(560)); if (my !== gen) return;
-    if (card === PIG) { bubble(0, 'Ups, derri!', true); status('More derrin'); await sleep(D(700)); }
+    if (card === PIG) { bubble(0, 'Derri', true); await sleep(D(700)); }
   } else {
-    const n = H.hands[p].length, s = p === 0 ? null : seatSlot(p, n, n + 1);
+    const n = H.hands[p].length, s = seatSlot(p, n, n + 1);
     put(card, s.x, s.y, s.rot, .5, 60, false);
     layoutSeat(from); snap(.3);
-    if (from === 0 && card === PIG) { status(`${ND[p]} ta mori derrin!`); bubble(0, 'Hë!', true); }
+    if (from === 0 && card === PIG) bubble(0, 'Derri iku', true);
     await sleep(D(320)); if (my !== gen) return;
   }
   if (pair) { await showPair(p, pair, my); if (my !== gen) return; }
   layoutSeat(p);
   for (const q of ev.outs) {
-    bubble(q, q === 0 ? 'Dole! Je i shpëtuar' : 'Doli!', true);
-    if (q === 0) { chime(); fast = true; meOut = true; refresh(); }
+    bubble(q, q === 0 ? 'Dole' : 'Doli', true);
+    if (q === 0) { chime(); if (!NET.online) fast = true; meOut = true; refresh(); }
     renderPlates(); await sleep(D(700));
   }
 }
@@ -772,7 +671,6 @@ function resetCards(){
 }
 async function dealAnim(my){
   dealt = [[], [], [], []]; renderPlates();
-  status('Duke shpërndarë…');
   await sleep(300);
   for (let i = 0; i < H.dealOrder.length; i++) {
     if (my !== gen) return;
@@ -783,10 +681,9 @@ async function dealAnim(my){
   }
   await sleep(D(450));
 }
-async function firstPairs(my){
-  status('Secili hedh çiftet që ka');
-  const keep = dealt; const res = E.initialDiscard(mt);
-  // show every player's pairs leaving the hand, in deal order
+// everyone throws the pairs they were dealt, in deal order
+async function firstPairs(res, my){
+  const keep = dealt;
   for (let k = 0; k < 4; k++) {
     const p = (mt.dealer + 1 + k) % 4, prs = res.pairs[p];
     if (!prs.length) continue;
@@ -795,31 +692,30 @@ async function firstPairs(my){
     const [x, y] = NEAR[p];
     prs.forEach((pr, j) => pr.forEach((id, t) => put(id, x + (j - (prs.length - 1) / 2) * 34 + (t ? 12 : -12), y + (t ? 8 : 0), 0, p === 0 ? .75 : .6, 330 + j * 2 + t, true)));
     layoutSeat(p); snap(.3);
-    $('#cap').textContent = `${NAMES[p]} · ${prs.length === 1 ? '1 çift' : prs.length + ' çifte'}`;
     await sleep(D(p === 0 ? 900 : 650)); if (my !== gen) return;
     prs.forEach(throwPair); snap(.4);
     await sleep(D(260));
   }
-  dealt = null; layoutAll(); $('#cap').textContent = '';
-  for (const q of res.outs) bubble(q, q === 0 ? 'Dole! Je i shpëtuar' : 'Doli!', true);
-  if (res.outs.includes(0)) { fast = true; meOut = true; refresh(); }
+  dealt = null; layoutAll();
+  for (const q of res.outs) bubble(q, q === 0 ? 'Dole' : 'Doli', true);
+  if (res.outs.includes(0)) { if (!NET.online) fast = true; meOut = true; refresh(); }
   await sleep(D(500));
 }
 async function runRound(){
   const my = ++gen;
-  fast = false; meOut = false; mode = 'idle'; humanResolve = null; refresh();
-  H = E.deal(mt); meta(); setTurn(-1, -1);
+  fast = false; meOut = false; stopInput(); refresh(); setTimer(-1);
+  H = E.deal(mt); meta(); setTurn(-1, -1); status('');
   resetCards(); renderPlates();
   await dealAnim(my); if (my !== gen) return;
-  await firstPairs(my); if (my !== gen) return;
+  await firstPairs(E.initialDiscard(mt), my); if (my !== gen) return;
   while (!H.over) {
     const p = H.cur, src = E.source(H, p);
     setTurn(p, src);
     let idx;
     if (p === 0) idx = await humanPick(src, my);
     else {
-      status(`${ND[p]} merr nga ${from0(src)}`);
-      await sleep(fast ? D(300 + Math.random() * 300) : PLAYERS.think(SEAT[p], { forced: true }) * .8); if (my !== gen) return;
+      status('');
+      await sleep(fast ? D(300 + Math.random() * 300) : PLAYERS.think(SEAT[p], { forced: true }) * .7); if (my !== gen) return;
       idx = src === 0 ? await botPickFromMe(p, my) : await botPickFromBot(p, src, my);
     }
     if (my !== gen || idx < 0) return;
@@ -829,30 +725,39 @@ async function runRound(){
   }
   return endRound(my);
 }
-async function endRound(my){
-  setTurn(-1, -1); mode = 'idle'; refresh();
+async function endRound(my, online){
+  setTurn(-1, -1); stopInput(); refresh(); setTimer(-1);
   const L = H.loser;
   await sleep(D(400)); if (my !== gen) return;
-  clean(els[PIG].el); els[PIG].el.classList.add('pigshow');
-  put(PIG, 640, 320, 0, 1.3, 360, true);
+  if (L >= 0) {
+    clean(els[PIG].el); els[PIG].el.classList.add('pigshow');
+    put(PIG, 640, 320, 0, 1.3, 360, true);
+    bubble(L, 'Derri', true);
+    thump(); if (L !== 0) chime();
+  }
   $('#cap').textContent = '';
-  bubble(L, L === 0 ? 'Mbeta me derrin!' : 'Derri!', true);
-  status(L === 0 ? 'Mbete me derrin në dorë' : `Derri mbeti te ${ND[L]}`);
-  renderPlates(); thump();
-  if (L !== 0) chime();
+  renderPlates(); meta();
   await sleep(2000); if (my !== gen) return;
-  showResult();
+  showResult(online);
 }
-function showResult(){
+function showResult(online){
   const L = H.loser;
-  $('#endTitle').textContent = L === 0 ? 'Mbete me derrin' : `${NAMES[L]} mbeti me derrin`;
-  $('#endLead').textContent = L === 0 ? `Dora ${mt.round}: K♠ mbeti në dorën tënde.` : `Dora ${mt.round}: ti shpëtove.`;
-  $('#resTable').innerHTML = '<tr><th>Lojtari</th><th>Kjo dorë</th><th class="n">Herë derr</th></tr>' +
-    H.order.map((p, i) => `<tr class="${p === 0 ? 'me' : ''}"><td>${NAMES[p]}</td><td>${p === L ? 'Derri' : 'Doli ' + (FEM[p] ? ['e para','e dyta','e treta'] : ['i pari','i dyti','i treti'])[i]}</td><td class="n">${mt.losses[p]}</td></tr>`).join('');
-  $('#bNext').onclick = () => { $('#ovEnd').hidden = true; runRound(); };
+  $('#endTitle').textContent = L === 0 ? 'Mbete me derrin' : L > 0 ? `${NAMES[L]} mbeti me derrin` : `Dora ${mt.round}`;
+  $('#endLead').textContent = `Dora ${mt.round}`;
+  $('#resTable').innerHTML = '<tr><th>Lojtari</th><th>Kjo dorë</th><th class="n">Derr</th></tr>' +
+    H.order.map((p, i) => `<tr class="${p === 0 ? 'me' : ''}"><td></td><td>${p === L ? 'Derri' : 'Doli ' + (FEM[p] ? ['e para','e dyta','e treta'] : ['i pari','i dyti','i treti'])[i]}</td><td class="n">${mt.losses[p]}</td></tr>`).join('');
+  [...$('#resTable').querySelectorAll('tr')].slice(1).forEach((tr, i) => tr.firstChild.textContent = NAMES[H.order[i]]);
+  if (online) { $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; }
+  else { $('#bNext').textContent = 'Dora tjetër'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; runRound(); }; }
   $('#ovEnd').hidden = false;
 }
-function newMatch(){ gen++; if (!seated) seatPlayers(); seated = false; mt = E.newMatch(); renderPlates(); meta(); runRound(); }
+function newMatch(){ gen++; mt = E.newMatch(); renderPlates(); meta(); runRound(); }
+function startLocal(cfg, seats){ setSeats(seats); audio(); $('#ovEnd').hidden = true; $('#bNew').hidden = false; newMatch(); showRotHint(); }
+function stopTable(){
+  gen++; stopInput(); mt = null; H = null; dealt = null; resetCards(); setTurn(-1, -1); setTimer(-1); meta(); status('');
+  for (let p = 1; p < 4; p++) { NAMES[p] = ''; renderPlate(p); }
+  ['#ovEnd','#ovMenu','#ovRules','#ovSet'].forEach(s => { const o = $(s); if (o) o.hidden = true; });
+}
 
 /* ---------- settings & panels ---------- */
 function applySettings(){
@@ -860,32 +765,179 @@ function applySettings(){
   stage.style.setProperty('--felt-c', f[0]); stage.style.setProperty('--felt-e', f[1]);
   stage.style.setProperty('--t', ST.speed === 'fast' ? '.24s' : '.36s');
   $('#bSound').classList.toggle('off', ST.sound !== 'on');
-  document.querySelectorAll('.seg').forEach(sg => sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', ST[sg.dataset.k] === b.dataset.v)));
+  document.querySelectorAll('.seg[data-k]').forEach(sg => sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', ST[sg.dataset.k] === b.dataset.v)));
 }
-document.querySelectorAll('.seg').forEach(sg => sg.addEventListener('click', async e => {
+document.querySelectorAll('.seg[data-k]').forEach(sg => sg.addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
   const k = sg.dataset.k, old = ST[k]; ST[k] = b.dataset.v; save(); applySettings(); audio();
   if (k === 'colors' && old !== ST.colors) { await buildArt(); els.forEach((c, id) => { if (c.up) c.img.src = FACE[id]; }); }
 }));
 $('#bSet').onclick = () => { $('#ovSet').hidden = false; };
 $('#bSetClose').onclick = () => { $('#ovSet').hidden = true; };
-$('#bNew').onclick = () => { $('#ovSet').hidden = true; $('#ovEnd').hidden = true; newMatch(); };
+$('#bNew').onclick = () => { $('#ovSet').hidden = true; $('#ovEnd').hidden = true; if (!NET.online) newMatch(); };
 $('#bSound').onclick = () => { ST.sound = ST.sound === 'on' ? 'off' : 'on'; save(); applySettings(); audio(); snap(.4); };
-$('#bRules').onclick = $('#bRules0').onclick = () => { $('#ovRules').hidden = false; };
+$('#bRules').onclick = () => { $('#ovRules').hidden = false; };
 $('#bRulesClose').onclick = () => { $('#ovRules').hidden = true; };
-$('#bHome').onclick = () => { gen++; if (window.parent !== window) { try { parent.postMessage({vw: 'home'}, '*'); } catch(e) {} } else location.href = './'; };
+$('#bHome').onclick = () => { stopTable(); NET.leave(); };
 const fsOK = document.fullscreenEnabled || document.webkitFullscreenEnabled;
 if (!fsOK) $('#bFull').hidden = true;
 $('#bFull').onclick = async () => {
   try {
-    if (document.fullscreenElement) { await document.exitFullscreen(); return; }
+    if (document.fullscreenElement || document.webkitFullscreenElement) { await (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
     await (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen).call(document.documentElement);
     try { await screen.orientation.lock('landscape'); } catch(e) {}
   } catch(e) {}
   setTimeout(doFit, 200);
 };
+function showRotHint(){ let seen = false; try { seen = localStorage.getItem('vw-rot-seen') === '1'; } catch(e) {} if (rotated && !seen) $('#ovRot').hidden = false; }
 $('#bRotOk').onclick = () => { $('#ovRot').hidden = true; try { localStorage.setItem('vw-rot-seen', '1'); } catch(e) {} };
-$('#bStart').onclick = () => { audio(); $('#ovStart').hidden = true; newMatch(); };
+
+/* ---------- online ----------
+   The room server deals and checks every move (worker/games/derri.js). This page keeps its own copy of
+   the round: your hand is real; the others' hands are stand-ins (face down) that turn into the real card
+   when it becomes visible (a pair thrown, a card taken from you or by you). */
+const ON = { me: 0, seq: 0, busy: false, again: false, asked: '', skew: 0 };
+const lpos = s => (s - ON.me + 4) % 4;
+const rot = a => { const o = [0, 0, 0, 0]; a.forEach((v, s) => o[lpos(s)] = v); return o; };
+let lastT = null;
+function seatNames(t){
+  ON.me = t.me;
+  t.seats.forEach((x, s) => { if (!x) return; const l = lpos(s); NAMES[l] = l ? x.name : 'Ti'; FEM[l] = !!x.fem; if (x.color) AVC[l] = x.color; });
+}
+// make seat q hold the real card `id`, trading places with one of q's stand-ins (instantly, so nothing seems to move)
+function claim(id, q, prefer){
+  if (H.hands[q].includes(id)) return;
+  const from = [1, 2, 3].find(x => x !== q && H.hands[x].includes(id));
+  const y = prefer != null && H.hands[q].includes(prefer) && !ON.known.has(prefer) ? prefer : H.hands[q].find(x => !ON.known.has(x));
+  if (from === undefined || y === undefined) return;
+  H.hands[from][H.hands[from].indexOf(id)] = y;
+  H.hands[q][H.hands[q].indexOf(y)] = id;
+  const a = els[id].el, b = els[y].el;
+  a.style.transition = b.style.transition = 'none';
+  const ta = a.style.transform, za = a.style.zIndex; a.style.transform = b.style.transform; a.style.zIndex = b.style.zIndex; b.style.transform = ta; b.style.zIndex = za;
+  a.offsetWidth; a.style.transition = b.style.transition = '';
+}
+function handsFrom(mine, counts){
+  ON.known = new Set(mine);
+  const free = ALL.filter(i => !ON.known.has(i));
+  return counts.map((n, p) => p === 0 ? mine.slice() : free.splice(0, n));
+}
+function matchFrom(s){ return { losses: rot(s.losses || [0, 0, 0, 0]), round: s.round || 0, dealer: lpos(s.dealer || 0), hand: null, rand: Math.random }; }
+function resync(t){
+  gen++; stopInput(); dealt = null;
+  seatNames(t);
+  const s = t.snap || {};
+  mt = matchFrom(s);
+  resetCards();
+  if (!s.hand) { H = null; renderPlates(); meta(); return; }
+  H = { hands: handsFrom(s.hand, rot(s.counts)), order: s.order.map(lpos), cur: lpos(s.cur), dealOrder: [], over: !!s.over, loser: s.loser >= 0 ? lpos(s.loser) : -1 };
+  mt.hand = H;
+  // cards no longer in anyone's hand were thrown as pairs: they lie on the pile
+  const held = new Set(H.hands.flat());
+  for (const id of ALL) if (!held.has(id)) { put(id, PILE[0] + (Math.random() * 90 - 45), PILE[1] + (Math.random() * 40 - 20), Math.random() * 30 - 15, .62, 5 + pileN++, true); }
+  layoutAll(); renderPlates(); meta();
+}
+async function applyEv(ev, my){
+  if (ev.k === 'deal') {
+    $('#ovEnd').hidden = true; meOut = false;
+    mt = matchFrom(ev);
+    const hands = handsFrom(ev.hand, rot(ev.counts));
+    const pools = hands.map(h => h.slice()), order = [];
+    for (let i = 0; i < 49; i++) { const p = (mt.dealer + 1 + i) % 4; order.push(pools[p].shift()); }
+    H = { hands, order: [], cur: 0, dealOrder: order, over: false, loser: -1 };
+    mt.hand = H; meta(); status('');
+    resetCards(); renderPlates(); setTurn(-1, -1);
+    await dealAnim(my);
+    return;
+  }
+  if (!H) throw new Error('no hand');
+  if (ev.k === 'pairs') {
+    const pairs = rot(ev.pairs);
+    pairs.forEach((prs, p) => prs.flat().forEach(id => { ON.known.add(id); if (p) claim(id, p); }));
+    dealt = H.hands.map(h => h.slice());                 // the hands as dealt, real pair cards in place
+    for (let p = 0; p < 4; p++) { const gone = new Set(pairs[p].flat()); H.hands[p] = H.hands[p].filter(id => !gone.has(id)); }
+    H.order = ev.outs.map(lpos);
+    H.cur = lpos(ev.cur);
+    await firstPairs({ pairs, outs: ev.outs.map(lpos) }, my);
+    return;
+  }
+  if (ev.k === 'draw') {
+    const p = lpos(ev.p), from = lpos(ev.from);
+    let card = ev.card;
+    if (card == null && ev.pair) card = ev.pair[1];
+    if (card != null) { ON.known.add(card); if (from) claim(card, from, p === 0 ? hov : null); }
+    else card = H.hands[from][(Math.random() * H.hands[from].length) | 0];
+    const pair = ev.pair ? [ev.pair[0], card] : null;
+    if (pair) { ON.known.add(pair[0]); if (p) claim(pair[0], p); }
+    // the card leaves `from`, lands with `p` (or goes out with its match)
+    H.hands[from] = H.hands[from].filter(x => x !== card);
+    if (pair) H.hands[p] = H.hands[p].filter(x => x !== pair[0]);
+    else H.hands[p].push(card);
+    for (const q of ev.outs.map(lpos)) if (!H.order.includes(q)) H.order.push(q);
+    H.cur = lpos(ev.cur);
+    await animateDraw({ p, from, card, pair, outs: ev.outs.map(lpos) }, my);
+    return;
+  }
+  if (ev.k === 'end') {
+    mt.losses = rot(ev.losses); H.over = true; H.loser = lpos(ev.loser); H.order = ev.order.map(lpos);
+    if (H.loser > 0) claim(PIG, H.loser);
+    await endRound(my, true);
+  }
+}
+function askOrWait(t){
+  if (!H || t.phase !== 'play' || t.step === 'end') { setTurn(-1, -1); setTimer(-1); return; }
+  const a = lpos(t.actor), src = E.source(H, a);
+  setTurn(a, src); setTimer(a, t.turnStart - ON.skew, t.turnMs);
+  const key = t.seq + ':' + t.step;
+  if (a === 0) {
+    if (ON.asked === key && mode === 'pick') return;
+    ON.asked = key;
+    humanPick(src, gen).then(idx => { if (NET.online && idx >= 0) NET.send({ t: 'act', step: 'pick', idx: Math.min(idx, H.hands[src].length - 1) }); });
+  } else { if (mode === 'pick') { stopInput(); pickSrc = -1; layoutAll(); } refresh(); status(''); }
+}
+async function pump(){
+  if (ON.busy) { ON.again = true; return; }
+  ON.busy = true;
+  try {
+    do {
+      ON.again = false;
+      const t = lastT; if (!t) break;
+      seatNames(t);
+      const log = t.log || [], lastSeq = log.length ? log[log.length - 1].seq : 0;
+      let evs = log.filter(e => e.seq > ON.seq);
+      const di = evs.map(e => e.k).lastIndexOf('deal');
+      if (di >= 0) evs = evs.slice(di);
+      const behind = evs.length && evs[0].k !== 'deal' && (!H || evs[0].seq !== ON.seq + 1);
+      if ((!H && di < 0) || behind || (di >= 0 && evs.length > 4)) { resync(t); ON.seq = lastSeq; evs = []; }
+      if (evs.length && mode === 'pick') { stopInput(); pickSrc = -1; }
+      const my = ++gen;
+      for (const ev of evs) {
+        try { await applyEv(ev, my); }
+        catch (e) { console.warn('resync', e); resync(lastT); ON.seq = (lastT.log || []).reduce((a, x) => Math.max(a, x.seq), 0); break; }
+        if (my !== gen || !NET.online) return;
+        ON.seq = ev.seq;
+      }
+      if (!ON.again && lastT) askOrWait(lastT);
+    } while (ON.again);
+  } finally { ON.busy = false; }
+}
+function onTable(t, S2){
+  const first = !lastT;
+  lastT = t; ON.skew = S2.now - Date.now();
+  if (first) { ON.seq = 0; H = null; $('#bNew').hidden = true; audio(); showRotHint(); }
+  pump();
+}
+
+/* ---------- menu, rooms, connection (net.js) ---------- */
+const NET = NETWORK({
+  game: 'derri', title: 'Derri në dorë',
+  seatsFor: () => [0, 1, 2, 3],
+  onLocal: (cfg, seats) => { lastT = null; startLocal(cfg, seats); },
+  onTable,
+  onLeave: () => { lastT = null; stopTable(); },
+  onError: () => { ON.asked = ''; pump(); },
+});
+window.__derri = { get mode(){ return mode; }, get H(){ return H; }, pick(i){ choose(i); } };   // for tests
 
 /* ---------- start ---------- */
 async function start(){
@@ -893,19 +945,14 @@ async function start(){
   try { await Promise.race([document.fonts.load(`700 70px ${FONT}`), sleep(1500)]); } catch(e) {}
   await buildArt();
   const mk = document.createElement('canvas'); mk.width = 300; mk.height = 300; logo(mk.getContext('2d'), 150, 150, 210, 'color');
-  const mu = await toURL(mk); $('#brandImg').src = mu; $('#feltMark').src = mu; $('#startLogo').src = mu;
+  const mu = await toURL(mk); $('#brandImg').src = mu; $('#feltMark').src = mu;
   mkCards(); resetCards();
-  seatPlayers(); seated = true;
   renderPlates();
-  status('Gati për lojë');
   $('#loading').hidden = true;
-  let seen = false; try { seen = localStorage.getItem('vw-rot-seen') === '1'; } catch(e) {}
-  if (rotated && !seen) $('#ovRot').hidden = false;
 }
 start();
 })();
 </script>
-<script src="ads.js"></script>
 <script src="table-ui.js"></script>
 </body>
 </html>

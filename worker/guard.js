@@ -25,6 +25,26 @@ export class Guard extends DurableObject {
     return { ...res, count: d.total };
   }
 
+  // ---- quick match: public tables still waiting for people, one list per game + settings ----
+  // Kept in memory: losing it on a restart only means the next person opens a new table.
+  async findPublic(key) {
+    const now = Date.now();
+    this.pub = this.pub || new Map();
+    const list = (this.pub.get(key) || []).filter((x) => x.until > now);
+    this.pub.set(key, list);
+    return list.length ? list[0].code : null;
+  }
+  async addPublic(key, code) {
+    this.pub = this.pub || new Map();
+    const list = this.pub.get(key) || [];
+    list.push({ code, until: Date.now() + 6_500 });   // a public table waits 7 s, then starts
+    this.pub.set(key, list);
+  }
+  async closePublic(key, code) {
+    this.pub = this.pub || new Map();
+    this.pub.set(key, (this.pub.get(key) || []).filter((x) => x.code !== code));
+  }
+
   async stats() {
     const all = await this.ctx.storage.list({ prefix: "d:" });
     const days = {};
