@@ -3,7 +3,9 @@
 //   lobby and seats, quick match (public tables), turn clock, players who drop, seats that play by
 //   themselves, the event log every phone replays, and what each phone is allowed to see.
 //
-// Phases:  lobby -> play -> over      (or lobby -> solo: only one person at the table, the phone plays it locally)
+// Phases:  lobby -> play -> over -> (play again | closed)   (or lobby -> solo: only one person at the table, the phone plays it locally)
+// Votes:   'choice' after a hand the table must decide on (spec.pending / spec.choose, e.g. Murlan's tie at the target),
+//          'again' when a match ends (anyone can say yes early, during the match). Bots never vote.
 //
 // spec = {
 //   seatList(cfg)            seats in play, e.g. [0,1,2,3] or [0,2]
@@ -24,13 +26,20 @@ import { publicId } from "../util.js";
 
 const COLORS = ["#2c6e8f", "#7a4fa8", "#2f8a62", "#a8662c", "#8f2c4f", "#3d5aa8", "#5f7a2c", "#2c8f86", "#8a4f2f", "#6b4fa8"];
 const ME_COLOR = "#b02a63";
-const TURN_MS = 30_000;
+const TURN_MS = 15_000;        // a game can set its own (spec.turnMs)
 const OFFLINE_MS = 6_000;      // a phone that is gone this long plays its turn on autopilot
+const AWAY_PUB_MS = 60_000;    // gone this long at a quick-match table: the seat goes to someone else
+const AWAY_ROOM_MS = 180_000;  // the same at a table with friends
 const END_MS = 9_000;          // result screen between hands
 const PUBLIC_WAIT_MS = 7_000;  // a quick-match table waits this long for people, then starts
 const LOG_KEEP = 400;
+const GUARD_MS = 900;          // a card is about to be taken from a person's hand: their hand settles first
+const HOLD_MS = 3_000;         // "PRIT": the holder asks for this long to rearrange, once per turn
+const CHOICE_MS = 15_000;      // a tie at the target: the table has this long to choose
+const AGAIN_MS = 25_000;       // end of a match: this long to say yes to another
 
 export function makeTable(spec) {
+  const turnMs = spec.turnMs || TURN_MS;
   const seatOf = (g, pid) => g.seats.findIndex((x) => x && x.pid === pid);
   const humansAt = (g) => g.seats.filter((x) => x && !x.bot).length;
   const nameOf = (s, i) => {
@@ -110,14 +119,26 @@ export function makeTable(spec) {
     const g = s.g;
     const a = spec.actor(g.mt);
     if (!a) {                                    // hand over
-      g.step = "end"; g.actor = -1; g.stepAt = at; g.due = at + END_MS;
-      if (spec.matchOver(g.mt)) { g.phase = "over"; g.due = 0; }
+      g.actor = -1; g.stepAt = at;
+      const need = spec.pending && spec.pending(g.mt);
+      if (need) { g.step = "choice"; g.vote = { kind: need, votes: {}, until: at + CHOICE_MS }; g.due = g.vote.until; return; }
+      g.step = "end"; g.due = at + END_MS;
+      if (spec.matchOver(g.mt)) overNow(s, at);
       return;
     }
     g.actor = a.seat; g.step = a.step; g.stepAt = at;
+    g.turnId = (g.turnId || 0) + 1; g.holdUntil = 0; g.extra = 0;
     const x = g.seats[a.seat];
-    g.due = x.bot ? at + PLAYERS.think(x, spec.think(g.mt, a.seat, a.step)) : at + TURN_MS;
+    g.due = x.bot ? at + PLAYERS.think(x, spec.think(g.mt, a.seat, a.step)) : at + turnMs;
+    if (x.bot && holderOf(g) >= 0) g.due = Math.max(g.due, at + GUARD_MS + 300);
   }
+  // the seat whose hand the actor takes from (Derri), when it's a person: they get a moment, and PRIT
+  function holderOf(g) {
+    if (!spec.holder || g.actor < 0 || !g.mt) return -1;
+    const h = spec.holder(g.mt, g.actor, g.step);
+    return h >= 0 && g.seats[h] && !g.seats[h].bot ? h : -1;
+  }
+  const settling = (g, now) => holderOf(g) >= 0 && (now < g.stepAt + GUARD_MS || g.holdUntil > now);
   function apply(s, now, seat, step, msg) {
     const g = s.g;
     const r = spec.act(g.mt, seat, step, msg, emitter(g));
@@ -125,11 +146,67 @@ export function makeTable(spec) {
     nextTurn(s, now + ((r && r.wait) || 0));
     return { ok: true };
   }
+  // ---- votes ----
+  const humans = (g) => g.seats.filter((x) => x && !x.bot).map((x) => x.pid);
+  function overNow(s, at) {
+    const g = s.g;
+    g.phase = "over"; g.step = "end";
+    const votes = {};
+    for (const pid of humans(g)) if (g.pre && g.pre[pid]) votes[pid] = "yes";   // said yes during the match
+    g.vote = { kind: "again", votes, until: at + AGAIN_MS };
+    g.due = g.vote.until;
+    settle(s, at);
+  }
+  // decide a vote once everyone at the table has voted, or when time is up
+  function settle(s, now, timeUp) {
+    const g = s.g, v = g.vote;
+    if (!v) return;
+    const hs = humans(g), voted = hs.filter((p) => v.votes[p]);
+    if (voted.length < hs.length && !timeUp) return;
+    const count = (x) => voted.filter((p) => v.votes[p] === x).length;
+    if (v.kind === "again") {
+      const yes = voted.filter((p) => v.votes[p] === "yes");
+      g.vote = null; g.pre = {};
+      if (!yes.length) { g.phase = "closed"; g.due = 0; g.seq += 1; return; }
+      // whoever said no (or nothing) gives the seat to someone new
+      g.seats = g.seats.map((x) => (x && !x.bot && !yes.includes(x.pid) ? { ...newBot(s), color: x.color } : x));
+      g.left = [...(g.left || []), ...hs.filter((p) => !yes.includes(p))];
+      startMatch(s, now);
+      return;
+    }
+    // a choice: the most votes wins; a draw (or nobody voting) keeps the classic rule (the first option)
+    const opts = spec.options ? spec.options(v.kind) : [];
+    let pick = opts[0];
+    for (const o of opts) if (count(o) > count(pick)) pick = o;
+    g.vote = null;
+    spec.choose(g.mt, v.kind, pick, emitter(g));
+    g.step = "end"; g.stepAt = now; g.due = now + 2500;
+    if (spec.matchOver(g.mt)) overNow(s, now);
+  }
+
+  // someone who has been gone too long loses the seat (the table carries on under the same name)
+  function awayCheck(s, now, online) {
+    const g = s.g;
+    if (g.phase !== "play" || g.actor < 0) return;
+    const x = g.seats[g.actor];
+    if (!x || x.bot || online.has(x.pid)) return;
+    g.away = g.away || {};
+    const since = g.away[x.pid] || (g.away[x.pid] = now - OFFLINE_MS);
+    if (now - since < (g.pub ? AWAY_PUB_MS : AWAY_ROOM_MS)) return;
+    g.seats[g.actor] = { ...x, name: nameOf(s, g.actor), bot: true, speed: 0.95 + Math.random() * 0.15 };
+    g.left = [...(g.left || []), x.pid];
+    g.why = { ...(g.why || {}), [x.pid]: "away" };
+    delete g.away[x.pid];
+  }
+
   function autoMove(s, now) {
     const g = s.g;
     if (g.phase === "lobby") return begin(s, now);
+    if (g.phase === "over") return settle(s, now, true);
     if (g.phase !== "play") return;
+    if (g.step === "choice") return settle(s, now, true);
     if (g.step === "end") return dealHand(s, now);
+    if (settling(g, now)) { g.due = Math.max(g.stepAt + GUARD_MS, g.holdUntil) + 300; return; }
     const msg = spec.auto(g.mt, g.actor, g.step);
     const r = apply(s, now, g.actor, g.step, msg);
     if (r.error) { console.error("auto move refused", g.step, r.error); g.due = now + 5000; }
@@ -138,7 +215,7 @@ export function makeTable(spec) {
   function wakeAt(s, online) {
     const g = s.g;
     if (g.phase === "lobby") return g.pub && online.size ? g.startAt : 0;
-    if (g.phase !== "play" || !g.due) return 0;
+    if ((g.phase !== "play" && g.phase !== "over") || !g.due) return 0;
     const someone = g.seats.some((x) => x && !x.bot && online.has(x.pid));
     if (!someone) return 0;                      // nobody watching: the table waits for them
     if (g.actor >= 0) {
@@ -200,13 +277,45 @@ export function makeTable(spec) {
           begin(s, now);
           return { changed: true };
         }
-        case "again": {
-          if (!me.isHost || g.phase !== "over") return null;
-          startMatch(s, now);
+        case "vote": {
+          if (seat < 0) return null;
+          const v = String(msg.v || "");
+          if (msg.kind === "again" && g.phase === "play") {          // early: "let's play again after this"
+            g.pre = g.pre || {}; g.pre[me.pid] = v === "yes"; g.seq += 1;
+            return { changed: true };
+          }
+          if (!g.vote || msg.kind !== g.vote.kind) return null;
+          const ok = g.vote.kind === "again" ? ["yes", "no"] : (spec.options ? spec.options(g.vote.kind) : []);
+          if (!ok.includes(v)) return null;
+          g.vote.votes[me.pid] = v; g.seq += 1;
+          settle(s, now);
           return { changed: true };
+        }
+        case "hold": {                              // PRIT / GATI from the hand someone is taking from
+          if (g.phase !== "play" || seat < 0 || holderOf(g) !== seat) return null;
+          const bot = g.seats[g.actor].bot;
+          if (msg.done) {
+            if (!(g.holdUntil > now)) return null;
+            g.holdUntil = now;
+            if (bot) g.due = Math.min(g.due, now + 700);
+          } else {
+            if (g.holdTurn === g.turnId) return null;
+            g.holdTurn = g.turnId; g.holdUntil = now + HOLD_MS;
+            if (bot) g.due = Math.max(g.due, g.holdUntil + 700);
+            else { g.due += HOLD_MS; g.extra = HOLD_MS; }
+          }
+          g.seq += 1;
+          return { changed: true };
+        }
+        case "order": {                             // your own arrangement: positions are what the others pick from
+          if (g.phase !== "play" || seat < 0 || !spec.order) return null;
+          if (holderOf(g) === seat && now > g.stepAt + GUARD_MS && !(g.holdUntil + 400 > now)) return null;   // too late, they're choosing
+          spec.order(g.mt, seat, msg.ids);
+          return null;
         }
         case "act": {
           if (g.phase !== "play" || seat < 0 || g.actor !== seat || g.step === "end") return { error: "not_your_turn" };
+          if (settling(g, now)) return { error: "wait" };
           if (msg.step && msg.step !== g.step) return { error: "not_your_turn" };
           const r = apply(s, now, seat, g.step, msg);
           return r.error ? { error: r.error, why: r.why } : { changed: true };
@@ -219,9 +328,12 @@ export function makeTable(spec) {
 
     onTick(s, now, online) {
       let changed = false;
+      const g = s.g;
+      if (g.away) for (const pid of Object.keys(g.away)) if (online.has(pid)) delete g.away[pid];
       for (let i = 0; i < 8; i++) {
         const w = wakeAt(s, online);
         if (!w || w > now) break;
+        awayCheck(s, now, online);
         autoMove(s, now);
         changed = true;
       }
@@ -243,9 +355,16 @@ export function makeTable(spec) {
         phase: g.phase, cfg: g.cfg, pub: g.pub, startAt: g.startAt, seq: g.seq, me, seats, seatList: spec.seatList(g.cfg),
       };
       if (g.phase === "lobby" || g.phase === "solo" || !g.mt) return { tbl: t };
+      const hs = humans(g);
+      if (g.vote) t.vote = { kind: g.vote.kind, until: g.vote.until, mine: g.vote.votes[pid] || null, n: hs.length,
+        tally: Object.values(g.vote.votes).reduce((o, x) => ((o[x] = (o[x] || 0) + 1), o), {}) };
+      t.pre = !!(g.pre && g.pre[pid]);
+      if (g.left && g.left.includes(pid)) { t.out = true; if (g.why && g.why[pid]) t.why = g.why[pid]; }   // didn't stay for the new match, or was gone too long
       Object.assign(t, {
         step: g.step, actor: g.actor,
-        turnStart: g.actor >= 0 ? g.stepAt : 0, turnMs: TURN_MS,
+        turnStart: g.actor >= 0 ? g.stepAt : 0, turnMs: turnMs + (g.extra || 0),
+        hold: g.holdUntil > Date.now() ? { seat: holderOf(g), until: g.holdUntil } : null,
+        holdUsed: g.holdTurn === g.turnId, guardUntil: holderOf(g) >= 0 ? g.stepAt + GUARD_MS : 0,
         snap: spec.snap(g.mt, me),
         log: g.log.map((e) => {
           if (!e.priv) return e;

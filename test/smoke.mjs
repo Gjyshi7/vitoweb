@@ -223,37 +223,26 @@ async function imposter() {
   host.send({ t: "pause" });
   ok(await host.until((S) => S.timer.paused && S.timer.left >= 118, "paused"), "host pauses the timer");
 
-  host.send({ t: "vote" });
-  await host.until((S) => S.phase === "vote", "vote");
-  host.send({ t: "pick", pid: imps[0].S.me });
-  await host.until((S) => S.vote === imps[0].S.me, "pick");
+  const before = host.S.timer.left;
+  host.send({ t: "more" });
+  ok(await host.until((S) => !S.timer.paused && S.timer.left === before + 60, "more"), "+1 minute adds 60 s and restarts the clock");
+  ok(!imps[0].S.result && !JSON.stringify(imps[0].S).includes(word), "while they talk, nothing reveals the imposter");
+  ps[1].send({ t: "reveal" });
+  await sleep(200);
+  ok(host.S.phase === "talk", "a guest can't reveal");
   host.send({ t: "reveal" });
-  ok(await crew[0].until((S) => S.phase === "result" && S.result.caught, "result"), "imposter caught");
-  ok(imps[0].S.result.word === word, "after the reveal everyone sees the word");
-  host.send({ t: "guess", yes: false });
-  await host.until((S) => S.result.awarded, "awarded");
-  const sc = (p) => host.S.scores.find((x) => x.pid === p.S.me).score;
-  ok(crew.every((p) => sc(p) === 1) && sc(imps[0]) === 0, "missed guess: each of the others +1");
-
-  host.send({ t: "deal" });
-  await Promise.all([...ps, late].map((p) => p.until((S) => S.round === 2 && S.card, "round 2")));
-  ok(late.S.card !== null, "late joiner gets a card next round");
-  const imp2 = [...ps, late].find((p) => p.S.card.imp);
-  const innocent = [...ps, late].find((p) => !p.S.card.imp);
-  host.send({ t: "talk" });
-  await host.until((S) => S.phase === "talk", "talk2");
-  host.send({ t: "vote" });
-  await host.until((S) => S.phase === "vote", "vote2");
-  host.send({ t: "pick", pid: innocent.S.me });
-  await host.until((S) => S.vote === innocent.S.me, "pick2");
-  host.send({ t: "reveal" });
-  await host.until((S) => S.phase === "result", "result2");
-  ok(!host.S.result.caught && host.S.result.awarded && host.S.result.gain[imp2.S.me] === 2, "imposter not caught: +2");
+  ok(await crew[0].until((S) => S.phase === "result", "result"), "host reveals");
+  ok(crew[0].S.result.imps.join() === imps[0].S.me && imps[0].S.result.word === word, "after the reveal everyone sees who it was and the word");
 
   host.send({ t: "lobby" });
   await host.until((S) => S.phase === "lobby", "lobby");
-  host.send({ t: "resetScores" });
-  ok(await host.until((S) => S.scores.every((x) => x.score === 0), "reset"), "host resets the scores");
+  host.send({ t: "config", config: { imps: 0 } });
+  await host.until((S) => S.cfg.imps === 0, "random count");
+  host.send({ t: "deal" });
+  await Promise.all([...ps, late].map((p) => p.until((S) => S.round === 2 && S.card, "round 2")));
+  ok(late.S.card !== null, "late joiner gets a card next round");
+  const all = [...ps, late], nImp = all.filter((p) => p.S.card.imp).length;
+  ok(nImp >= 1 && nImp <= 2 && all.every((p) => p.S.card.n === null), `"1 ose 2": ${nImp} imposter(s), nobody is told how many`);
 
   ps[1].send({ t: "leave" });
   await sleep(300);

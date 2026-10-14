@@ -9,7 +9,7 @@ const withRand = (mt, fn) => { mt.rand = Math.random; try { return fn(); } final
 
 function snap(mt, me) {
   const H = mt.hand;
-  const o = { teams: mt.teams, scores: mt.scores, team: mt.team, target: mt.target, handNo: mt.handNo, dealer: mt.dealer, winner: mt.winner, tie: mt.tie };
+  const o = { teams: mt.teams, scores: mt.scores, team: mt.team, target: mt.target, handNo: mt.handNo, dealer: mt.dealer, winner: mt.winner, tie: mt.tie, golden: !!mt.golden };
   if (!H) return o;
   const ex = H.exchange, inEx = ex && (me === ex.first || me === ex.last);
   Object.assign(o, {
@@ -88,7 +88,14 @@ const spec = {
     return { forced: !opts, options: opts, first: !H.top && H.hands[seat].length >= 13, hard: H.hands[seat].length <= 3 };
   },
 
-  matchOver: (mt) => mt.winner !== null || !!mt.tie,
+  matchOver: (mt) => mt.winner !== null,
+  // both sides past the target in the same hand: the table chooses +10 (the classic rule, also the default) or a golden hand
+  pending: (mt) => (mt.tie ? "tie" : null),
+  options: () => ["raise", "golden"],
+  choose(mt, kind, how, emit) {
+    G.choose(mt, how);
+    emit({ k: "choice", how, target: mt.target, winner: mt.winner });
+  },
   snap,
 };
 

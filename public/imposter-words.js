@@ -11,4 +11,4 @@ export const WORDS = {
   'Kafshë': ['qen','mace','ujk','ari','shqiponjë','dele','dhi','kalë','gomar','lepur','breshkë','delfin','peshkaqen','bletë','gjel','lopë']
 };
 export const CATS = Object.keys(WORDS);
-export const TIMES = [0, 120, 180, 300];
+export const TIMES = [0, 60, 120, 180, 300];

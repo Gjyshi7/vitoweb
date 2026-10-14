@@ -198,7 +198,6 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     <h2>Cilësimet</h2>
     <p>Ruhen në këtë shfletues.</p>
     <div class="set">Tavolina<div class="seg" data-k="felt"><button data-v="blu">Blu</button><button data-v="jeshile">Jeshile</button><button data-v="bordo">Bordo</button></div></div>
-    <div class="set">Ngjyrat e letrave<div class="seg" data-k="colors"><button data-v="2">2 ngjyra</button><button data-v="4">4 ngjyra</button></div></div>
     <div class="set">Animacionet<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
     <div class="set">Zëri<div class="seg" data-k="sound"><button data-v="on">Po</button><button data-v="off">Jo</button></div></div>
     <div class="row2"><button class="pbtn ghost" id="bNew">Lojë e re</button><button class="pbtn" id="bSetClose">Mbyll</button></div>
@@ -268,7 +267,7 @@ doFit();
 const CW = 120, CH = 168;
 let FACE = [], BACK = '';
 async function buildArt(){
-  const urls = await Promise.all(Array.from({length: 54}, (_, i) => ART.toURL(ART.drawFace(i, ST.colors))));
+  const urls = await Promise.all(Array.from({length: 54}, (_, i) => ART.toURL(ART.drawFace(i, "2"))));
   FACE.forEach(u => URL.revokeObjectURL(u)); FACE = urls;
   if (!BACK) BACK = await ART.toURL(ART.drawBack());
 }
@@ -286,7 +285,7 @@ const els = [];
 let mt = null, H = null, gen = 0, dealt = null, reveal = -1, discardN = 0;
 let mode = 'idle', sel = new Set(), playable = null, giftOpts = [], humanResolve = null, giftResolve = null, fast = false;
 let pile = [];
-const D = ms => ms * (ST.speed === 'fast' ? .55 : 1) * (fast ? .5 : 1);
+const D = ms => ms * (ST.speed === 'fast' ? .55 : 1);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const teams = () => !!(mt && mt.teams);
 
@@ -370,9 +369,9 @@ function status(txt){ $('#status').innerHTML = txt || ''; }
 function meta(){
   const m = $('#meta');
   if (!mt) { m.innerHTML = ''; return; }
-  m.innerHTML = mt.teams
-    ? `<span class="us">Ne<b>${mt.team[0]}</b></span><span>Ata<b>${mt.team[1]}</b></span><i>/ ${mt.target}</i>`
-    : `<span class="us">Ti<b>${mt.scores[0]}</b></span><i>/ ${mt.target}</i>`;
+  m.innerHTML = (mt.teams
+    ? `<span class="us">Ne<b>${mt.team[0]}</b></span><span>Ata<b>${mt.team[1]}</b></span>`
+    : `<span class="us">Ti<b>${mt.scores[0]}</b></span>`) + (mt.golden ? '<span class="gold">GOL I ARTË</span>' : `<i>/ ${mt.target}</i>`);
 }
 function bubble(p, txt, gold){
   const b = $('#bb' + p); b.textContent = txt; b.classList.toggle('gold', !!gold); b.classList.add('on');
@@ -392,6 +391,14 @@ function setTimer(p, start, ms){
   document.querySelectorAll('.tbar').forEach(x => x.remove());
   if (p < 0) return;
   addTimer(p === 0 ? $('#myTurn') : $('#pl' + p));
+}
+
+/* turn clock at a table on this phone: the same as online, and a turn that runs out plays itself */
+const TURN_MS = 15000;
+let clockT = 0, clockN = 0;
+function clock(p, onOut){
+  clearTimeout(clockT); setTimer(p, Date.now(), TURN_MS);
+  if (onOut) { const n = ++clockN; clockT = setTimeout(() => { if (n === clockN && !NET.online) onOut(); }, TURN_MS); }
 }
 
 /* ---------- sound ---------- */
@@ -543,7 +550,7 @@ HAND.attach({
 $('#bSort').onclick = () => { audio(); handOrder = []; relayoutHand(); snap(.2, 2400, .05); };
 function humanTurn(){ mode = 'play'; sel.clear(); computePlayable(); layoutSeat(0); refresh(); return new Promise(r => humanResolve = r); }
 function humanGift(){ giftOpts = G.giftOptions(H.hands[0]); mode = 'gift'; sel.clear(); layoutSeat(0); refresh(); return new Promise(r => giftResolve = r).then(g => { giftResolve = null; giftOpts = []; return g; }); }
-function stopInput(){ HAND.cancel(); mode = 'idle'; humanResolve = null; giftResolve = null; sel.clear(); playable = null; giftOpts = []; }
+function stopInput(){ clearTimeout(clockT); HAND.cancel(); mode = 'idle'; humanResolve = null; giftResolve = null; sel.clear(); playable = null; giftOpts = []; }
 
 /* ---------- a hand ---------- */
 function resetCards(){
@@ -579,14 +586,27 @@ async function passCard(id, from, to, show, my){
   layoutSeat(from); layoutSeat(to); snap(.25);
   await sleep(D(420));
 }
+// the last player holds both jokers: shows them, there's no exchange and the winner of the last hand leads
+const NEARJ = [[640, 470], [330, 400], [640, 250], [950, 400]];
+async function showJokers(last, my){
+  status(`${NAMES[last]} ka të dy xhokerët · pa shkëmbim`);
+  const [x, y] = NEARJ[last];
+  [52, 53].forEach((id, k) => { els[id].el.classList.remove('gone','mine','sel','dim'); put(id, x + (k ? 46 : -46), y, k ? 5 : -5, last === 0 ? 1 : .85, 430 + k, true); });
+  bubble(last, 'Dy xhokerë', true); thump();
+  await sleep(D(2200)); if (my !== gen) return;
+  layoutSeat(last);
+  await sleep(D(300));
+  status('');
+}
 async function exchange(my){
   const ex = H.exchange; if (!ex) return;
   const { first, last } = ex;
-  if (ex.jokers) { status(`${NAMES[last]} ka të dy xhokerët · pa shkëmbim`); bubble(last, 'Dy xhokerë', true); await sleep(D(2000)); return; }
+  if (ex.jokers) { await showJokers(last, my); return; }
   status(`Shkëmbimi · <em>${NAMES[last]}</em> → <em>${NAMES[first]}</em>`);
   const up = G.exchangeGive(mt);
   await passCard(up, last, first, last === 0 || first === 0, my); if (my !== gen) return;
   let gift;
+  clock(first, first === 0 ? () => { if (mode === 'gift' && giftResolve) giftResolve(M.chooseGift(H.hands[0])); } : null);
   if (first === 0) { gift = await humanGift(); if (my !== gen) return; }
   else await sleep(PLAYERS.think(SEAT[first], { options: 6 }));
   gift = G.exchangeReturn(mt, gift);
@@ -609,7 +629,7 @@ async function animatePlay(p, ids, ev){
   if (ev.out) {
     const first = ev.place === 1;
     bubble(p, p === 0 ? (first ? 'Dole i pari' : 'Dole') : first ? (FEM[p] ? 'Doli e para' : 'Doli i pari') : 'Doli', first);
-    if (p === 0) { chime(); if (!NET.online) fast = true; }
+    if (p === 0) chime();
     renderPlates(); await sleep(D(850));
   } else if (H.hands[p].length === 1) { bubble(p, '1 letër', true); await sleep(D(550)); }
   else await sleep(D(260));
@@ -623,14 +643,14 @@ async function runHand(){
   await exchange(my); if (my !== gen) return;
   while (true) {
     const p = H.cur; setTurn(p);
+    clock(p, p === 0 ? () => { if (mode !== 'play' || !humanResolve) return; const r = humanResolve, ids = G.botMove(mt, 0, { budgetMs: 120 }); stopInput(); layoutSeat(0); refresh(); r(ids); } : null);
     let ids;
     if (p === 0) ids = await humanTurn();
     else {
       status('');
-      ids = G.botMove(mt, p, { budgetMs: fast ? 120 : 220 });
+      ids = G.botMove(mt, p, { budgetMs: 220 });
       const opts = M.allMoves(H.hands[p], H.top, H.must3).length;
-      const wait = fast ? 400 + Math.random() * 400
-        : PLAYERS.think(SEAT[p], { forced: !opts, options: opts, first: !H.top && H.hands[p].length >= 13, hard: H.hands[p].length <= 3 });
+      const wait = PLAYERS.think(SEAT[p], { forced: !opts, options: opts, first: !H.top && H.hands[p].length >= 13, hard: H.hands[p].length <= 3 });
       await sleep(wait);
     }
     if (my !== gen) return;
@@ -651,25 +671,43 @@ async function endHand(res, my){
 }
 // res: seats already as this table shows them (you = 0)
 function showResult(res, online){
-  const done = res.winner !== null || !!res.tie;
+  const done = res.winner !== null;
   const hn = mt.handNo;
   let title;
-  if (res.teams) title = res.winner !== null ? (res.winner === 0 ? 'Fituat lojën' : 'Fituan ata') : res.tie ? 'Barazim në 51' : `Dora ${hn}`;
-  else title = res.winner !== null ? (res.winner === 0 ? 'Fitove lojën' : `Fitoi ${NAMES[res.winner]}`) : res.tie ? 'Barazim në 51' : `Dora ${hn}`;
+  if (res.teams) title = res.winner !== null ? (res.winner === 0 ? 'Fituat lojën' : 'Fituan ata') : res.choice ? `Barazim në ${res.target}` : `Dora ${hn}`;
+  else title = res.winner !== null ? (res.winner === 0 ? 'Fitove lojën' : `Fitoi ${NAMES[res.winner]}`) : res.choice ? `Barazim në ${res.target}` : `Dora ${hn}`;
   $('#endTitle').textContent = title;
   $('#endLead').textContent = res.teams ? `Ne ${res.team[0]} · Ata ${res.team[1]} · deri në ${res.target}` : `Deri në ${res.target}`;
   const note = $('#endNote');
-  note.hidden = !res.raised; note.textContent = res.raised ? `Caku u ngrit në ${res.target}.` : '';
+  note.hidden = !res.choice && !res.golden;
+  note.textContent = res.choice ? 'Të dyja anët e kaluan cakun.' : res.golden ? 'Gol i artë' : '';
   $('#resTable').innerHTML = '<tr><th>Lojtari</th><th>Vendi</th><th class="n">Kjo dorë</th><th class="n">' + (res.teams ? 'Ekipi' : 'Gjithsej') + '</th></tr>' +
     res.order.map((p, i) => `<tr class="${p === 0 || (res.teams && p === 2) ? 'me' : ''}"><td></td><td>${i + 1}</td><td class="n">+${res.pts[p]}</td><td class="n">${res.teams ? res.team[p % 2] : res.scores[p]}</td></tr>`).join('');
   [...$('#resTable').querySelectorAll('tr')].slice(1).forEach((tr, i) => tr.firstChild.textContent = NAMES[res.order[i]]);
   if (online) onlineEndButtons(done);
-  else {
-    $('#bNext').textContent = done ? 'Lojë e re' : 'Dora tjetër';
-    $('#bNext').onclick = () => { $('#ovEnd').hidden = true; if (done) newMatch(); else runHand(); };
+  else if (res.choice) {
+    // both sides past the target: +10, or the next hand decides
+    ENDP.set([
+      { label: `Deri në ${mt.target + 10}`, primary: true, click: () => { G.choose(mt, 'raise'); afterChoice(); } },
+      { label: 'Gol i artë', click: () => { G.choose(mt, 'golden'); afterChoice(); } },
+    ]);
+  } else if (done) {
+    ENDP.set([
+      { label: 'Luaj sërish', primary: true, click: () => { ENDP.reset(); $('#ovEnd').hidden = true; newMatch(); } },
+      { label: 'Dil', click: () => { ENDP.reset(); $('#bHome').click(); } },
+    ]);
+  } else {
+    ENDP.reset();
+    $('#bNext').textContent = 'Dora tjetër';
+    $('#bNext').onclick = () => { $('#ovEnd').hidden = true; runHand(); };
   }
   $('#ovEnd').hidden = false;
   if (res.winner === 0) chime();
+}
+function afterChoice(){
+  ENDP.reset(); meta();
+  if (mt.winner !== null) { const r = Object.assign({}, H.result, { winner: mt.winner, target: mt.target, choice: false }); showResult(r); return; }
+  $('#ovEnd').hidden = true; runHand();
 }
 let localCfg = { teams: true };
 function newMatch(){ mt = G.newMatch(Math.random, { teams: localCfg.teams }); renderPlates(); meta(); runHand(); }
@@ -764,7 +802,7 @@ function standIns(mine, counts, skip){
 }
 function matchFrom(s){
   return { teams: !!s.teams, teamOf: s.teams ? [0, 1, 0, 1] : [0, 1, 2, 3], scores: rot(s.scores || [0, 0, 0, 0]), team: rotTeams(s.team || [0, 0]),
-    target: s.target || 21, handNo: s.handNo || 0, dealer: lpos(s.dealer || 0), lastOrder: null, winner: lwin(s.winner, s.teams), tie: s.tie ? s.tie.map(x => lwin(x, s.teams)) : null, hand: null };
+    target: s.target || 21, handNo: s.handNo || 0, dealer: lpos(s.dealer || 0), lastOrder: null, winner: lwin(s.winner, s.teams), tie: s.tie ? s.tie.map(x => lwin(x, s.teams)) : null, golden: !!s.golden, hand: null };
 }
 // draw the table as it is now (joining, reconnecting, or if the mirror ever slipped)
 function resync(t){
@@ -802,7 +840,7 @@ async function applyEv(ev, my){
     return;
   }
   if (!H) throw new Error('no hand');
-  if (ev.k === 'jokers') { status(`${NAMES[lpos(ev.last)]} ka të dy xhokerët · pa shkëmbim`); bubble(lpos(ev.last), 'Dy xhokerë', true); await sleep(D(1800)); return; }
+  if (ev.k === 'jokers') { const L = lpos(ev.last); if (L) ensureIn(L, [52, 53]); await showJokers(L, my); return; }
   if (ev.k === 'give' || ev.k === 'ret') {
     const F = lpos(ev.from), T = lpos(ev.to);
     let card = ev.card;
@@ -825,11 +863,28 @@ async function applyEv(ev, my){
     await animatePlay(p, ev.ids, r);
     return;
   }
+  if (ev.k === 'choice') {
+    mt.target = ev.target; mt.golden = ev.how === 'golden'; mt.tie = null;
+    if (ev.winner != null) mt.winner = mt.teams ? (ON.me % 2 ? 1 - ev.winner : ev.winner) : lpos(ev.winner);
+    meta();
+    if (mt.winner !== null) {
+      // +10 settled it: one side is now the only one past the new target
+      $('#endTitle').textContent = mt.teams ? (mt.winner === 0 ? 'Fituat lojën' : 'Fituan ata') : (mt.winner === 0 ? 'Fitove lojën' : `Fitoi ${NAMES[mt.winner]}`);
+      $('#endNote').hidden = false; $('#endNote').textContent = `Caku u ngrit në ${ev.target}.`;
+      ENDP.reset(); $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; };
+      if (mt.winner === 0) chime();
+      return;
+    }
+    $('#ovEnd').hidden = true;
+    status(ev.how === 'golden' ? 'Gol i artë: fiton kush del i pari' : `Caku: ${ev.target}`);
+    await sleep(D(1600)); status('');
+    return;
+  }
   if (ev.k === 'end') {
     const r = ev.result;
-    const res = { order: r.order.map(lpos), pts: rot(r.pts), scores: rot(r.scores), team: rotTeams(r.team || [0, 0]), teams: !!r.teams, target: r.target, raised: r.raised,
-      winner: lwin(r.winner, r.teams), tie: r.tie ? r.tie.map(x => lwin(x, r.teams)) : null };
-    Object.assign(mt, { scores: res.scores, team: res.team, target: res.target, winner: res.winner, tie: res.tie });
+    const res = { order: r.order.map(lpos), pts: rot(r.pts), scores: rot(r.scores), team: rotTeams(r.team || [0, 0]), teams: !!r.teams, target: r.target,
+      choice: !!r.choice, golden: !!r.golden, winner: lwin(r.winner, r.teams), tie: r.tie ? r.tie.map(x => lwin(x, r.teams)) : null };
+    Object.assign(mt, { scores: res.scores, team: res.team, target: res.target, winner: res.winner, tie: res.tie, golden: false });
     const lp = res.order[3];
     ensureIn(lp, ev.left);
     setTurn(-1); setTimer(-1); stopInput(); refresh();
@@ -840,11 +895,8 @@ async function applyEv(ev, my){
     showResult(res, true);
   }
 }
-function onlineEndButtons(done){
-  if (!done) { $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; return; }
-  $('#bNext').textContent = NET.isHost() ? 'Lojë e re' : 'Mbyll';
-  $('#bNext').onclick = () => { $('#ovEnd').hidden = true; if (NET.isHost()) NET.send({ t: 'again' }); };
-}
+// online, the buttons under the result are the table's votes (net.js); until they arrive, a plain close
+function onlineEndButtons(){ ENDP.reset(); $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; }
 // whose move it is now: yours (open your hand), or someone else's (their clock)
 function askOrWait(t){
   if (!H || t.phase !== 'play') { setTurn(-1); setTimer(-1); return; }
@@ -891,7 +943,7 @@ async function pump(){
         askOrWait(lastT);
         if (lastT.phase === 'over' && $('#ovEnd').hidden && lastT.snap && lastT.snap.result) {
           const r = lastT.snap.result;
-          showResult({ order: r.order.map(lpos), pts: rot(r.pts), scores: rot(r.scores), team: rotTeams(r.team || [0, 0]), teams: !!r.teams, target: r.target, raised: false,
+          showResult({ order: r.order.map(lpos), pts: rot(r.pts), scores: rot(r.scores), team: rotTeams(r.team || [0, 0]), teams: !!r.teams, target: r.target, choice: false,
             winner: lwin(r.winner, r.teams), tie: r.tie ? r.tie.map(x => lwin(x, r.teams)) : null }, true);
         }
       }
@@ -911,6 +963,7 @@ const NET = NETWORK({
   modes: [{ label: '2 kundër 2', cfg: { teams: true } }, { label: 'Secili për vete', cfg: { teams: false } }],
   seatsFor: () => [0, 1, 2, 3],
   teamsFor: cfg => cfg.teams ? [[0, 2], [1, 3]] : null,
+  voteOptions: (kind, t) => [{ v: 'raise', label: `Deri në ${((t.snap && t.snap.target) || 21) + 10}` }, { v: 'golden', label: 'Gol i artë' }],
   onLocal: (cfg, seats) => { lastT = null; startLocal(cfg, seats); },
   onTable,
   onLeave: () => { lastT = null; stopTable(); },

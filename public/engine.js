@@ -275,7 +275,7 @@ const G = (() => {
     const deck = shuffle(Array.from({ length: 54 }, (_, i) => i), mt.rand);
     const hands = [[], [], [], []];
     deck.forEach((id, i) => hands[(mt.dealer + 1 + i) % 4].push(id));
-    const H = { hands, active: [true, true, true, true], order: [], top: null, topCards: [], last: -1, passes: 0, cur: 0,
+    const H = { hands, active: [true, true, true, true], order: [], top: null, topCards: [], last: -1, passes: 0, cur: 0, golden: !!mt.golden,
       played: new Set(), known: [new Map(), new Map(), new Map(), new Map()], must3: false, trick: [], dealOrder: deck };
     mt.hand = H;
     if (mt.handNo === 1) { H.cur = hands.findIndex(h => h.includes(0)); H.must3 = true; H.exchange = null; }
@@ -359,15 +359,31 @@ const G = (() => {
     for (let p = 0; p < 4; p++) mt.scores[p] += pts[p];
     if (mt.teams) for (let p = 0; p < 4; p++) mt.team[mt.teamOf[p]] += pts[p];
     mt.lastOrder = H.order.slice();
-    // who reached the target: players, or the two teams in 2 kundër 2. Two at once: the target goes up by 10, up to 51.
-    const sc = mt.teams ? mt.team : mt.scores;
-    const reachedAt = t => sc.map((s, i) => s >= t ? i : -1).filter(i => i >= 0);
-    let reached = reachedAt(mt.target);
-    const oldTarget = mt.target;
-    while (reached.length >= 2 && mt.target < 51) { mt.target += 10; reached = reachedAt(mt.target); }
-    if (reached.length === 1) mt.winner = reached[0];
-    else if (reached.length >= 2) mt.tie = reached;
-    H.result = { order: H.order.slice(), pts, scores: mt.scores.slice(), team: mt.team.slice(), teams: mt.teams, target: mt.target, raised: mt.target !== oldTarget, winner: mt.winner, tie: mt.tie };
+    // Who wins the match. Players, or the two teams in 2 kundër 2.
+    //  - golden hand (chosen after a tie): whoever goes out first wins, whatever the points
+    //  - one side past the target: it wins
+    //  - two at once: the table chooses (G.choose): the target goes up by 10, or a golden hand
+    const side = p => mt.teams ? mt.teamOf[p] : p;
+    let choice = false;
+    if (mt.golden) { mt.winner = side(H.order[0]); mt.golden = false; }
+    else {
+      const reached = (mt.teams ? mt.team : mt.scores).map((s, i) => s >= mt.target ? i : -1).filter(i => i >= 0);
+      if (reached.length === 1) mt.winner = reached[0];
+      else if (reached.length >= 2) { choice = true; mt.tie = reached; }
+    }
+    H.result = { order: H.order.slice(), pts, scores: mt.scores.slice(), team: mt.team.slice(), teams: mt.teams, target: mt.target, winner: mt.winner, tie: mt.tie, choice, golden: !!H.golden };
+  }
+  /* after a tie at the target: 'raise' = target +10 (again until only one side is past it), 'golden' = the next hand decides */
+  function choose(mt, how) {
+    if (!mt.tie) return;
+    if (how === 'golden') mt.golden = true;
+    else {
+      const sc = mt.teams ? mt.team : mt.scores;
+      do mt.target += 10; while (sc.filter(s => s >= mt.target).length >= 2);
+      const reached = sc.map((s, i) => s >= mt.target ? i : -1).filter(i => i >= 0);
+      if (reached.length === 1) mt.winner = reached[0];
+    }
+    mt.tie = null;
   }
   function viewFor(mt, p) {
     const H = mt.hand;
@@ -380,6 +396,6 @@ const G = (() => {
     if (!m) return null;
     return M.cardsFor(mt.hand.hands[p], m, mt.hand.must3);
   }
-  return { newMatch, deal, exchangeGive, exchangeReturn, giftOptions, checkPlay, act, viewFor, botMove, nextActive };
+  return { newMatch, deal, exchangeGive, exchangeReturn, giftOptions, checkPlay, act, choose, viewFor, botMove, nextActive };
 })();
 if (typeof module !== 'undefined') module.exports = { M, G };

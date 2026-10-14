@@ -15,6 +15,7 @@ function snap(mt, me) {
 }
 
 const spec = {
+  turnMs: 20_000,
   seatList: () => [0, 1, 2, 3],
   cleanCfg: () => ({}),
   newMatch() { const mt = E.newMatch(Math.random); delete mt.rand; return mt; },
@@ -44,6 +45,16 @@ const spec = {
     return { wait: ev.pair ? 1500 : 900 };
   },
 
+  // the picker takes from this seat's hand
+  holder: (mt, seat, step) => (step === "pick" && mt.hand ? E.source(mt.hand, seat) : -1),
+  // a player's own arrangement: the same cards, in the order they hold them
+  order(mt, seat, ids) {
+    const h = mt.hand && mt.hand.hands[seat];
+    if (!h || !Array.isArray(ids) || ids.length !== h.length) return;
+    const want = ids.map(Number);
+    if (new Set(want).size !== h.length || want.some((x) => !h.includes(x))) return;
+    mt.hand.hands[seat] = want;
+  },
   auto: (mt, seat) => ({ idx: (Math.random() * mt.hand.hands[E.source(mt.hand, seat)].length) | 0 }),
   think: () => ({ forced: true }),
   matchOver: () => false,                     // Derri goes on round after round

@@ -57,6 +57,18 @@ const S = (() => {
     return out;
   }
   const canCapture = (card, table) => captures(card, table).length > 0;
+  /* What a card can take when it's played. Taking is not optional (as in Scopa): if the card can take, it takes
+     something, but the player decides how much. takes() lists the choices worth offering:
+       - the largest captures (taking 3+7 and 4+6 together usually beats one pair), and
+       - for J/Q/K, each single card of that rank too: leaving one on the table keeps it for your next K, Q or J.
+     Any other valid capture is still allowed (the player can leave cards by tapping them off). */
+  function takes(card, table) {
+    const all = captures(card, table);
+    const max = all.filter((a, i) => !all.some((b, j) => j !== i && b.length > a.length && a.every(x => b.includes(x))));
+    if (isFace(card) && max.length === 1 && max[0].length > 1) return max.concat(max[0].map(id => [id]));
+    return max;
+  }
+  const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
 
   /* ---------- match & hand ---------- */
   function newMatch(opts) {
@@ -88,7 +100,8 @@ const S = (() => {
     if (!H.hands[p].includes(card)) throw new Error('card not in hand');
     take = take || [];
     if (take.some(id => !H.table.includes(id))) throw new Error('not on table');
-    if (!validCapture(val(card), take)) throw new Error('illegal capture');
+    const must = canCapture(card, H.table);
+    if (must ? !take.length || !validCapture(val(card), take) : take.length) throw new Error('illegal capture');
     H.hands[p] = H.hands[p].filter(id => id !== card);
     H.seen.add(card);
     const ev = { type: 'play', p, card, take: take.slice(), captured: take.length > 0, sweep: false, deal: null, end: null };
@@ -155,8 +168,9 @@ const S = (() => {
   function options(v) {
     const out = [];
     for (const card of v.hand) {
-      out.push({ card, take: [] });
-      for (const t of captures(card, v.table)) out.push({ card, take: t });
+      const t = takes(card, v.table);
+      if (t.length) for (const take of t) out.push({ card, take });
+      else out.push({ card, take: [] });
     }
     return out;
   }
@@ -189,7 +203,7 @@ const S = (() => {
   }
   function botMove(mt, p, opts) { return decide(viewFor(mt, p), opts); }
 
-  return { rankOf, suitOf, val, isFace, isClub, TWO_CLUBS, TEN_DIAMONDS, LABEL, cardName, shuffle, rng, validCapture, captures, canCapture, newMatch, deal, act, score, viewFor, options, decide, botMove, worth, bestTake };
+  return { rankOf, suitOf, val, isFace, isClub, TWO_CLUBS, TEN_DIAMONDS, LABEL, cardName, shuffle, rng, validCapture, captures, canCapture, takes, sameSet, newMatch, deal, act, score, viewFor, options, decide, botMove, worth, bestTake };
 })();
 if (typeof module !== 'undefined') module.exports = { S };
 

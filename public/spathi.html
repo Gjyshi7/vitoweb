@@ -121,6 +121,13 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 .tbar{position:absolute;left:0;right:0;bottom:0;height:100%;border-radius:2px;background:var(--pink);transform-origin:left center;animation:tbar linear forwards}
 .plate .tbar{left:12px;right:12px;bottom:3px;height:4px;top:auto}
 @keyframes tbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.pick{width:auto;min-width:420px;max-width:1000px;text-align:center}
+#pickOpts{display:flex;flex-direction:column;gap:12px}
+.opt{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 18px;border:0;border-radius:18px;background:rgba(255,255,255,.07);cursor:pointer;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.1)}
+.opt:active{transform:scale(.98)}
+.opt img{width:78px;border-radius:6px;box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.opt .own{margin-right:16px;outline:3px solid var(--pink);outline-offset:2px}
+.card.maybe{box-shadow:0 0 0 3px rgba(243,199,106,.85),0 8px 18px rgba(0,0,0,.4)}
 </style>
 
 <style>
@@ -164,17 +171,17 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 
   <div id="myTurn"></div>
   <div class="acts">
-    <button class="btn" id="bClear" disabled>PASTRO</button>
     <button class="btn main" id="bPlay" disabled>LUAJ</button>
   </div>
 
+  <div class="ov" id="ovPick" hidden><div class="panel pick"><div id="pickOpts"></div><button class="pbtn ghost" id="pickNo" type="button">Anulo</button></div></div>
   <div class="ov" id="ovRules" hidden><div class="panel rules">
     <h2>Rregullat</h2>
     <ul>
       <li><b>52 letra pa xhokerë, 2 lojtarë.</b> Secili merr 4 letra dhe 4 hapen në tavolinë. Kur mbarojnë, ndahen nga 4 të tjera deri sa të mbarojë talloni.</li>
       <li><b>Vlerat:</b> A = 1, nga 2 te 10 sa numri. J, Q dhe K merren vetëm me të njëjtën letër dhe nuk mblidhen.</li>
       <li><b>Marrja:</b> hidh një letër dhe merr letrat e tavolinës me të njëjtën vlerë, ose letrat që mbledhin vlerën e saj (deri në 10). Mund të marrësh disa grupe njëherësh: me 10 merr 4+6 dhe 3+7.</li>
-      <li>Nëse nuk merr asgjë, letra mbetet në tavolinë.</li>
+      <li>Nëse letra merr, merr patjetër. Nëse ka dy mënyra, zgjedh ti. Nëse nuk merr asgjë, mbetet në tavolinë.</li>
       <li>Letrat që mbeten në tavolinë në fund i merr kush mori i fundit.</li>
       <li><b>Pikët për dorë, 5 gjithsej:</b> 2 për më shumë letra (27 e lart; me 26 secili, 1 pikë secilit), 1 për 7 ose më shumë spathi, 1 për 2♣, 1 për 10♦.</li>
       <li><b>Fiton</b> kush arrin i pari 21 pikë, ose 11 në lojën e shkurtër. Nëse të dy e kalojnë në të njëjtën dorë, fiton kush ka më shumë; në barazim luhet edhe një dorë.</li>
@@ -187,7 +194,6 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     <h2>Cilësimet</h2>
     <p>Ruhen në këtë shfletues.</p>
     <div class="set">Tavolina<div class="seg" data-k="felt"><button data-v="blu">Blu</button><button data-v="jeshile">Jeshile</button><button data-v="bordo">Bordo</button></div></div>
-    <div class="set">Ngjyrat e letrave<div class="seg" data-k="colors"><button data-v="2">2 ngjyra</button><button data-v="4">4 ngjyra</button></div></div>
     <div class="set">Loja deri në<div class="seg" data-k="target"><button data-v="21">21 pikë</button><button data-v="11">11 pikë</button></div></div>
     <div class="set">Animacionet<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
     <div class="set">Zëri<div class="seg" data-k="sound"><button data-v="on">Po</button><button data-v="off">Jo</button></div></div>
@@ -350,7 +356,7 @@ function drawBack(){
 const toURL = c => new Promise(res => c.toBlob(b => res(URL.createObjectURL(b)), 'image/png'));
 let FACE = [], BACK = '';
 async function buildArt(){
-  const urls = await Promise.all(Array.from({length: 52}, (_, i) => toURL(drawFace(i, ST.colors))));
+  const urls = await Promise.all(Array.from({length: 52}, (_, i) => toURL(drawFace(i, "2"))));
   FACE.forEach(u => URL.revokeObjectURL(u)); FACE = urls;
   if (!BACK) BACK = await toURL(drawBack());
 }
@@ -367,7 +373,7 @@ const els = [], pileRot = new Map();
 let mt = null, H = null, gen = 0, fast = false;
 let mode = 'idle', selCard = -1, selTake = new Set(), humanResolve = null;
 let pending = new Set();
-const D = ms => ms * (ST.speed === 'fast' ? .55 : 1) * (fast ? .5 : 1);
+const D = ms => ms * (ST.speed === 'fast' ? .55 : 1);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const nm = id => S.cardName(id);
 
@@ -431,13 +437,8 @@ HAND.attach({
   relayout: relayoutHand, place: (id, x, y, rot, sc, z) => put(id, x, y, rot, sc, z, true),
   canArrange: () => !!H,
   canLift: () => !!H && mode === 'play',
-  lift(id){
-    // a different card than the one you had picked: keep the table cards only if this one takes them too
-    if (selCard !== id) { selCard = id; if (!S.validCapture(S.val(id), [...selTake])) selTake.clear(); }
-    render(); refresh();
-    return [id];
-  },
-  check: ids => ({ ok: S.validCapture(S.val(ids[0]), [...selTake]) }),
+  lift(id){ if (selCard !== id) selectCard(id); render(); refresh(); return [id]; },
+  check: () => ({ ok: takeOk() }),
   drop(ids){ selCard = ids[0]; submit(); },
   unlift(){ render(); refresh(); },
   zone: { x0: 300, y0: 200, x1: 980, y1: 500 },
@@ -456,13 +457,13 @@ function render(view){
   layoutMine();
   const opp = H.hands[1].filter(id => !excl(id));
   opp.forEach((id, i) => { cls(id, ''); put(id, 640 + (i - (opp.length - 1) / 2) * 46, 184, 180 + (i - (opp.length - 1) / 2) * 3, .56, 20 + i, false); });
-  const can = selCard >= 0 && mode === 'play' ? new Set(S.captures(selCard, H.table).flat()) : null;
+  const could = selCard >= 0 && mode === 'play' ? new Set(S.captures(selCard, H.table).flat()) : null;
   const slots = tableSlots(tbl.length);
   tbl.forEach((id, i) => {
     const take = selTake.has(id) || (view.take && view.take.includes(id));
     const c = ['tb'];
     if (take) c.push('take');
-    else if (can && !can.has(id)) c.push('dim');
+    else if (could && could.has(id)) c.push('maybe');
     if (view.last === id) c.push('last');
     cls(id, c.join(' '));
     put(id, slots[i][0], slots[i][1] - (take ? 10 : 0), 0, TSC, 60 + i, true);
@@ -485,6 +486,13 @@ function renderPlates(){
   el.querySelector('b').textContent = NAMES[1];
   el.hidden = !NAMES[1];
   if (TIMER.p === 1) addTimer(el);
+}
+/* turn clock at a table on this phone: the same as online, and a turn that runs out plays itself */
+const TURN_MS = 15000;
+let clockT = 0, clockN = 0;
+function clock(p, onOut){
+  clearTimeout(clockT); setTimer(p, Date.now(), TURN_MS);
+  if (onOut) { const n = ++clockN; clockT = setTimeout(() => { if (n === clockN && !NET.online) onOut(); }, TURN_MS); }
 }
 function setTurn(p){ $('#pl1').classList.toggle('turn', p === 1); $('#myTurn').classList.toggle('on', p === 0); }
 function status(txt){ $('#status').innerHTML = txt || ''; }
@@ -534,53 +542,68 @@ function chime(){
 }
 
 /* ---------- your moves ----------
-   Tap a card in your hand, tap the table cards it takes, then LUAJ (or drag the card up onto the table).
-   Nothing is picked for you. */
+   Tap a card: what it takes lights up on the table. LUAJ (or drag the card onto the table) plays it,
+   and the capture happens by itself. If it can take in two different ways, you pick one. */
+// picking a card pre-selects what it takes: the one full capture, or nothing yet if there's a real choice
+function selectCard(id){
+  selCard = id; selTake.clear();
+  if (id < 0) return;
+  const opts = S.takes(id, H.table);
+  if (opts.length === 1) opts[0].forEach(x => selTake.add(x));
+}
+const takeOk = () => selCard >= 0 && (S.canCapture(selCard, H.table) ? (!selTake.size || S.validCapture(S.val(selCard), [...selTake])) : true);
 function refresh(){
   const play = mode === 'play';
   const bP = $('#bPlay');
   let label = 'LUAJ', ok = false;
-  if (play && selCard >= 0) {
-    const take = [...selTake];
-    if (!take.length) { label = 'LËSHO'; ok = true; }
-    else { label = 'MERR'; ok = S.validCapture(S.val(selCard), take); }
-  }
+  if (play && selCard >= 0) { ok = takeOk(); label = S.canCapture(selCard, H.table) ? (selTake.size ? `MERR ${selTake.size + 1}` : 'MERR') : 'LËSHO'; }
   if (play) status('Radha jote');
   bP.textContent = label; bP.disabled = !ok;
-  $('#bClear').disabled = !(play && (selTake.size || selCard >= 0));
 }
 $('#cards').addEventListener('click', e => {
   audio();
   const c = e.target.closest('.card'); if (!c || !H || mode !== 'play') return;
   const id = +c.dataset.id;
-  if (H.hands[0].includes(id)) {
-    if (selCard === id) { selCard = -1; selTake.clear(); }
-    else { selCard = id; if (!S.validCapture(S.val(id), [...selTake]) && ![...selTake].every(t => S.captures(id, H.table).some(g => g.includes(t)))) selTake.clear(); }
-    snap(.15, 2600, .04); render(); refresh(); return;
-  }
-  if (H.table.includes(id)) {
-    if (selTake.has(id)) selTake.delete(id);
-    else if (selCard < 0 || S.captures(selCard, H.table).some(g => g.includes(id))) selTake.add(id);
-    else return;
+  if (H.hands[0].includes(id)) { selectCard(selCard === id ? -1 : id); snap(.15, 2600, .04); render(); refresh(); return; }
+  // a table card the selected card can take: tap to take it or leave it
+  if (selCard >= 0 && H.table.includes(id) && S.captures(selCard, H.table).some(g => g.includes(id))) {
+    if (selTake.has(id)) selTake.delete(id); else selTake.add(id);
     snap(.12, 3000, .03); render(); refresh();
   }
 });
-function submit(){
-  if (mode !== 'play' || selCard < 0 || !humanResolve) return;
-  const take = [...selTake];
-  if (!S.validCapture(S.val(selCard), take)) return;
-  const mv = {card: selCard, take};
+let pickResolve = null;
+function pickTake(card, opts){
+  const box = $('#pickOpts'); box.textContent = '';
+  opts.forEach((take, k) => {
+    const b = document.createElement('button'); b.className = 'opt'; b.type = 'button';
+    b.innerHTML = `<img class="own" src="${FACE[card]}" alt="">` + take.map(id => `<img src="${FACE[id]}" alt="">`).join('');
+    b.onclick = () => { $('#ovPick').hidden = true; const r = pickResolve; pickResolve = null; if (r) r(take); };
+    box.appendChild(b);
+  });
+  $('#ovPick').hidden = false;
+  return new Promise(r => pickResolve = r);
+}
+$('#pickNo').onclick = () => { $('#ovPick').hidden = true; const r = pickResolve; pickResolve = null; if (r) r(null); };
+async function submit(){
+  if (mode !== 'play' || selCard < 0 || !humanResolve || !takeOk()) return;
+  const card = selCard;
+  let take = [...selTake];
+  if (S.canCapture(card, H.table) && !take.length) {
+    const opts = S.takes(card, H.table);
+    take = opts.length === 1 ? opts[0] : await pickTake(card, opts);
+    if (!take || mode !== 'play' || !humanResolve) { render(); refresh(); return; }
+  }
+  const mv = {card, take};
   mode = 'idle'; selCard = -1; selTake.clear(); refresh(); humanResolve(mv);
 }
 $('#bPlay').onclick = () => { audio(); submit(); };
-$('#bClear').onclick = () => { audio(); selTake.clear(); selCard = -1; render(); refresh(); };
 addEventListener('keydown', e => {
   if (!$('#menu') || !$('#menu').hidden || !$('#ovEnd').hidden) return;
   if (e.key === 'Enter') $('#bPlay').click();
 });
 $('#bSort').onclick = () => { audio(); handOrder = []; relayoutHand(); snap(.2, 2400, .05); };
 function humanTurn(){ mode = 'play'; selCard = -1; selTake.clear(); render(); refresh(); return new Promise(r => humanResolve = r); }
-function stopInput(){ HAND.cancel(); mode = 'idle'; humanResolve = null; selCard = -1; selTake.clear(); }
+function stopInput(){ clearTimeout(clockT); HAND.cancel(); mode = 'idle'; humanResolve = null; selCard = -1; selTake.clear(); if (pickResolve) { const r = pickResolve; pickResolve = null; $('#ovPick').hidden = true; r(null); } }
 
 /* ---------- animations ---------- */
 function resetCards(order){
@@ -623,13 +646,14 @@ async function runHand(){
   await dealAnim(H.dealEv.order, my); if (my !== gen) return;
   while (true) {
     const p = H.cur; setTurn(p);
+    clock(p, p === 0 ? () => { if (mode !== 'play' || !humanResolve) return; const r = humanResolve, mv = S.botMove(mt, 0, { samples: 8 }); stopInput(); render(); refresh(); r(mv); } : null);
     let mv;
     if (p === 0) mv = await humanTurn();
     else {
       status('');
       mv = S.botMove(mt, p, {samples: 40});
       const take = mv.take ? mv.take.length : 0;
-      await sleep(fast ? 600 : PLAYERS.think(SEAT[p], { options: H.hands[p].length + take, hard: take >= 3, first: H.hands[p].length === 4 && H.table.length === 4 }));
+      await sleep(PLAYERS.think(SEAT[p], { options: H.hands[p].length + take, hard: take >= 3, first: H.hands[p].length === 4 && H.table.length === 4 }));
     }
     if (my !== gen) return;
     const before = H.table.slice();
@@ -669,9 +693,14 @@ function showResult(res, online){
     `<tr class="tot"><td>Gjithsej</td><td class="me">${res.scores[0]}</td><td>${res.scores[1]}</td></tr>`;
   $('#resTable .oppn').textContent = NAMES[1];
   if (online) onlineEndButtons(done);
+  else if (done) ENDP.set([
+    { label: 'Luaj sërish', primary: true, click: () => { ENDP.reset(); $('#ovEnd').hidden = true; newMatch(); } },
+    { label: 'Dil', click: () => { ENDP.reset(); $('#bHome').click(); } },
+  ]);
   else {
-    $('#bNext').textContent = done ? 'Lojë e re' : 'Dora tjetër';
-    $('#bNext').onclick = () => { $('#ovEnd').hidden = true; if (done) newMatch(); else runHand(); };
+    ENDP.reset();
+    $('#bNext').textContent = 'Dora tjetër';
+    $('#bNext').onclick = () => { $('#ovEnd').hidden = true; runHand(); };
   }
   $('#ovEnd').hidden = false;
   if (res.winner === 0 || (!done && res.pts[0] > res.pts[1])) chime();
@@ -686,7 +715,7 @@ function stopTable(){
   H.stock = H.stock.concat(H.hands[0], H.hands[1], H.table); H.hands = [[], []]; H.table = [];
   render(); $('#cards').offsetWidth; els.forEach(c => c.el.style.transition = '');
   mt = null; meta();
-  ['#ovEnd','#ovMenu','#ovRules','#ovSet','#ovDeck'].forEach(s => { const o = $(s); if (o) o.hidden = true; });
+  ['#ovEnd','#ovMenu','#ovRules','#ovSet','#ovDeck','#ovPick'].forEach(s => { const o = $(s); if (o) o.hidden = true; });
 }
 
 /* ---------- settings & panels ---------- */
@@ -840,11 +869,8 @@ async function applyEv(ev, my){
     await endHand(res, my, true);
   }
 }
-function onlineEndButtons(done){
-  if (!done) { $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; return; }
-  $('#bNext').textContent = NET.isHost() ? 'Lojë e re' : 'Mbyll';
-  $('#bNext').onclick = () => { $('#ovEnd').hidden = true; if (NET.isHost()) NET.send({ t: 'again' }); };
-}
+// online, the buttons under the result are the table's votes (net.js); until they arrive, a plain close
+function onlineEndButtons(){ ENDP.reset(); $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; }
 function askOrWait(t){
   if (!H || t.phase !== 'play' || t.step === 'end') { setTurn(-1); setTimer(-1); return; }
   const a = lpos(t.actor);
@@ -900,7 +926,7 @@ const NET = NETWORK({
   onError: () => { ON.asked = ''; pump(); },
 });
 
-window.__spathi = { get mt(){ return mt; }, get H(){ return H; }, get mode(){ return mode; }, submitMove(m){ selCard = m.card; selTake = new Set(m.take); submit(); } };   // for tests
+window.__spathi = { get mt(){ return mt; }, get H(){ return H; }, get mode(){ return mode; }, submitMove(m){ if (mode !== 'play' || !humanResolve) return; const r = humanResolve; mode = 'idle'; selCard = -1; humanResolve = null; refresh(); r(m); } };   // for tests
 
 async function start(){
   applySettings();

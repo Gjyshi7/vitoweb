@@ -498,6 +498,13 @@ function renderPlate(p){
   if (TIMER.p === p) addTimer(el);
 }
 const renderPlates = () => { for (let p = 1; p < 4; p++) renderPlate(p); };
+/* turn clock at a table on this phone: the same as online, and a turn that runs out plays itself */
+const TURN_MS = 15000;
+let clockT = 0, clockN = 0;
+function clock(p, onOut){
+  clearTimeout(clockT); setTimer(p, Date.now(), TURN_MS);
+  if (onOut) { const n = ++clockN; clockT = setTimeout(() => { if (n === clockN && !NET.online) onOut(); }, TURN_MS); }
+}
 function setTurn(p){ for (let i = 1; i < 4; i++) $('#pl' + i).classList.toggle('turn', i === p); $('#myTurn').classList.toggle('on', p === 0); }
 function status(txt){ $('#status').innerHTML = txt || ''; }
 function meta(){
@@ -645,7 +652,7 @@ addEventListener('keydown', e => {
   if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); $('#bMain').click(); }
 });
 function humanTurn(){ mode = 'play'; sel = -1; clearGhosts(); layoutSeat(0); refresh(); return new Promise(r => humanResolve = r); }
-function stopInput(){ HAND.cancel(); mode = 'idle'; humanResolve = null; sel = -1; clearGhosts(); }
+function stopInput(){ clearTimeout(clockT); HAND.cancel(); mode = 'idle'; humanResolve = null; sel = -1; clearGhosts(); }
 
 /* ---------- a hand ---------- */
 function resetTiles(){
@@ -703,7 +710,9 @@ async function runHand(){
   await dealAnim(my); if (my !== gen) return;
   while (true) {
     const p = H.cur; setTurn(p);
-    const act = p === 0 ? await humanTurn() : await botTurn(p, my);
+    clock(p, p === 0 ? () => { if (mode !== 'play' || !humanResolve) return; const r = humanResolve; stopInput(); refresh(); r({ type: 'auto' }); } : null);
+    let act = p === 0 ? await humanTurn() : await botTurn(p, my);
+    if (act && act.type === 'auto') act = await botTurn(0, my);
     if (my !== gen || !act) return;
     if (act.type === 'draw') {
       const id = E.draw(mt, 0); snap(.25, 2400, .04);
@@ -749,9 +758,14 @@ function showResult(res, online){
   $('#resTable').innerHTML = '<tr><th>Ana</th><th class="n">Në dorë</th><th class="n">Kjo dorë</th><th class="n">Gjithsej</th></tr>' + rows.join('');
   [...$('#resTable').querySelectorAll('tr')].slice(1).forEach((tr, t) => tr.firstChild.textContent = sideLbl(t));
   if (online) onlineEndButtons(done);
+  else if (done) ENDP.set([
+    { label: 'Luaj sërish', primary: true, click: () => { audio(); ENDP.reset(); $('#ovEnd').hidden = true; newMatch(); } },
+    { label: 'Dil', click: () => { ENDP.reset(); $('#bHome').click(); } },
+  ]);
   else {
-    $('#bNext').textContent = done ? 'Lojë e re' : 'Dora tjetër';
-    $('#bNext').onclick = () => { audio(); $('#ovEnd').hidden = true; if (done) newMatch(); else runHand(); };
+    ENDP.reset();
+    $('#bNext').textContent = 'Dora tjetër';
+    $('#bNext').onclick = () => { audio(); $('#ovEnd').hidden = true; runHand(); };
   }
   $('#ovEnd').hidden = false;
   if (we) chime();
@@ -940,11 +954,8 @@ async function applyEv(ev, my){
     await endHand(res, my, true);
   }
 }
-function onlineEndButtons(done){
-  if (!done) { $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; return; }
-  $('#bNext').textContent = NET.isHost() ? 'Lojë e re' : 'Mbyll';
-  $('#bNext').onclick = () => { $('#ovEnd').hidden = true; if (NET.isHost()) NET.send({ t: 'again' }); };
-}
+// online, the buttons under the result are the table's votes (net.js); until they arrive, a plain close
+function onlineEndButtons(){ ENDP.reset(); $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; }
 // my turn online: the real rules decide (my hand is real), the server double-checks
 function askOrWait(t){
   if (!H || t.phase !== 'play' || t.step === 'end') { setTurn(-1); setTimer(-1); return; }

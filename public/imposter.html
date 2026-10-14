@@ -92,23 +92,21 @@ button:focus-visible,.tog:focus-visible{outline:2px solid var(--gold);outline-of
 .center h2{margin:0;font:800 34px var(--f-d)}
 .center p{margin:6px 0 0;color:var(--sub)}
 
-/* vote & result */
-.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.vbtn{display:flex;align-items:center;gap:10px;padding:12px;border:0;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);font:600 19px var(--f-ui);cursor:pointer;text-align:left;min-width:0}
-.vbtn span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vbtn.on{box-shadow:inset 0 0 0 2px var(--pink);background:#2a1a28}
+/* result */
 .verdict{text-align:center;padding:10px 0 0}
 .verdict .big{font:800 46px/1.02 var(--f-d);text-wrap:balance}
 .verdict .big.bad{color:var(--pink)}
 .verdict .big.good{color:var(--mint)}
 .verdict p{color:var(--sub);margin:10px 0 0}
 .word{display:inline-block;margin-top:6px;padding:6px 14px;border-radius:12px;background:rgba(243,199,106,.14);color:var(--gold);font:700 24px var(--f-d)}
-.score{width:100%;border-collapse:collapse}
-.score td{padding:8px 4px;border-top:1px solid var(--line);font-size:18px}
-.score td.n{text-align:right;font:700 20px var(--f-d);font-variant-numeric:tabular-nums}
-.score td.n em{font-style:normal;color:var(--mint);font-size:16px;margin-right:6px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .two .go{margin-top:0}
+.row.col{flex-direction:column;align-items:stretch;gap:10px}
+.chip:disabled{opacity:.3}
+#timeUp .box{box-shadow:inset 0 0 0 2px var(--pink)}
+#timeUp h3{color:var(--pink)}
+.verdict .k{margin:0;font:700 14px var(--f-ui);letter-spacing:.18em;text-transform:uppercase;color:var(--sub)}
+.verdict .big{color:var(--pink);margin-top:6px}
 .sheet{position:fixed;inset:0;background:rgba(5,8,15,.7);display:grid;place-items:end center;z-index:10;padding:16px}
 .sheet .box{width:100%;max-width:448px;margin-bottom:env(safe-area-inset-bottom,0px)}
 .sheet h3{margin:0 0 6px;font:800 28px var(--f-d)}
@@ -184,10 +182,10 @@ button:focus-visible,.tog:focus-visible{outline:2px solid var(--gold);outline-of
       <div class="chips" id="cats"></div>
     </div>
     <div class="box">
-      <div class="row"><div>Imposterë<small>Sa veta nuk e dinë fjalën</small></div>
-        <div class="step"><button id="impM" aria-label="Më pak">−</button><b id="impN">1</b><button id="impP" aria-label="Më shumë">+</button></div></div>
+      <div class="row col"><div>Imposterë<small id="lImpTxt">Sa veta nuk e dinë fjalën</small></div>
+        <div class="chips" id="lImps"></div></div>
       <div class="row"><div>Ndihmë për imposterin<small>I tregohet kategoria</small></div><button class="tog" id="tHint" aria-label="Ndihmë për imposterin"></button></div>
-      <div class="row"><div>Koha e bisedës</div><div class="chips" id="times"></div></div>
+      <div class="row col"><div>Koha e bisedës<small>Kur mbaron, telefoni bie</small></div><div class="chips" id="times"></div></div>
     </div>
     <p class="err" id="setErr"></p>
     <button class="go" id="bBegin">Fillo raundin</button>
@@ -208,33 +206,19 @@ button:focus-visible,.tog:focus-visible{outline:2px solid var(--gold);outline-of
     <button class="go" id="bSeen" disabled>E pashë · tjetri</button>
   </section>
 
-  <!-- talk -->
+  <!-- talk: they talk and vote out loud; a wrong vote changes nothing, the same imposter plays on -->
   <section class="screen" id="sTalk" hidden>
-    <div class="center"><h2>Bisedoni</h2><p>Secili thotë një fjalë për fjalën e fshehtë. Me radhë, duke filluar nga:</p></div>
+    <div class="center"><h2>Bisedoni</h2><p>Me radhë, secili thotë një fjalë për fjalën e fshehtë. Fillon:</p></div>
     <div class="order" id="order"></div>
     <div class="ring" id="ring"><svg viewBox="0 0 120 120"><circle class="bgc" cx="60" cy="60" r="52"/><circle class="fg" id="arc" cx="60" cy="60" r="52"/></svg><div class="t" id="clock"></div></div>
-    <div class="two" style="margin-top:auto"><button class="go ghost" id="bPause">Ndalo</button><button class="go" id="bVote">Votoni</button></div>
-  </section>
-
-  <!-- vote -->
-  <section class="screen" id="sVote" hidden>
-    <div class="center"><h2>Kush është imposteri?</h2><p>Votoni me zë. Pastaj zgjidhni këtu atë që mori më shumë vota.</p></div>
-    <div class="vgrid" id="vgrid"></div>
-    <button class="go" id="bReveal" disabled>Zbulo</button>
+    <div class="two" id="lClockBtns"><button class="go ghost" id="bPause">Ndalo</button><button class="go ghost" id="bMore">+1 minutë</button></div>
+    <button class="go" id="bReveal" style="margin-top:auto">Zbulo imposterin</button>
   </section>
 
   <!-- result -->
   <section class="screen" id="sResult" hidden>
     <div class="verdict" id="verdict"></div>
-    <div id="guessBox" class="box" hidden>
-      <p style="margin:0 0 10px">Imposteri ka një shans: e thotë fjalën me zë. E gjeti?</p>
-      <div class="two"><button class="go ghost" id="gNo">Jo</button><button class="go" id="gYes">Po, e gjeti</button></div>
-    </div>
-    <div id="scoreBox" hidden>
-      <p class="lab">Pikët</p>
-      <table class="score" id="score"></table>
-    </div>
-    <div class="two" id="endBtns" hidden style="margin-top:auto"><button class="go ghost" id="bSetup">Ndrysho</button><button class="go" id="bAgain">Raund i ri</button></div>
+    <div class="two" style="margin-top:auto"><button class="go ghost" id="bSetup">Ndrysho</button><button class="go" id="bAgain">Raund i ri</button></div>
   </section>
 
   <!-- ===== online: home ===== -->
@@ -266,14 +250,13 @@ button:focus-visible,.tog:focus-visible{outline:2px solid var(--gold);outline-of
       <p class="lab">Kategoria</p>
       <div class="chips" id="oCats"></div>
       <div class="box" style="margin-top:14px">
-        <div class="row"><div>Imposterë<small>Sa veta nuk e dinë fjalën</small></div>
-          <div class="step"><button id="oImpM" aria-label="Më pak">−</button><b id="oImpN">1</b><button id="oImpP" aria-label="Më shumë">+</button></div></div>
+        <div class="row col"><div>Imposterë<small id="oImpTxt">Sa veta nuk e dinë fjalën</small></div>
+        <div class="chips" id="oImps"></div></div>
         <div class="row"><div>Ndihmë për imposterin<small>I tregohet kategoria</small></div><button class="tog" id="oHint" aria-label="Ndihmë për imposterin"></button></div>
-        <div class="row"><div>Koha e bisedës</div><div class="chips" id="oTimes"></div></div>
+        <div class="row col"><div>Koha e bisedës<small>Kur mbaron, telefonat bien</small></div><div class="chips" id="oTimes"></div></div>
       </div>
     </div>
     <div class="box" id="oGuestCfg" hidden><p class="lab">Rregullat e dhomës</p><div class="summary" id="oSummary"></div></div>
-    <div id="oLobbyScores" hidden><p class="lab">Pikët</p><table class="score" id="oLobbyScore"></table></div>
     <p class="err" id="oLobbyErr"></p>
     <button class="go" id="oDeal">Fillo raundin</button>
     <p class="lead" id="oGuestWait" style="text-align:center" hidden>Prit derisa hosti të fillojë raundin.</p>
@@ -306,31 +289,18 @@ button:focus-visible,.tog:focus-visible{outline:2px solid var(--gold);outline-of
 
   <!-- ===== online: talk ===== -->
   <section class="screen" id="sOnTalk" hidden>
-    <div class="center"><h2>Bisedoni</h2><p>Secili thotë një fjalë për fjalën e fshehtë. Me radhë, duke filluar nga:</p></div>
+    <div class="center"><h2>Bisedoni</h2><p>Me radhë, secili thotë një fjalë për fjalën e fshehtë. Fillon:</p></div>
     <div class="order" id="oOrder"></div>
     <div class="ring" id="oRing"><svg viewBox="0 0 120 120"><circle class="bgc" cx="60" cy="60" r="52"/><circle class="fg" id="oArc" cx="60" cy="60" r="52"/></svg><div class="t" id="oClock"></div></div>
     <div class="peek" id="oPeek"><span class="pc">Mbaje shtypur për kartën tënde</span><span class="pv" id="oPeekV"></span></div>
-    <div class="two" id="oTalkHost" style="margin-top:auto"><button class="go ghost" id="oPause">Ndalo</button><button class="go" id="oVote">Votoni</button></div>
-    <p class="lead" id="oTalkGuest" style="text-align:center;margin-top:auto" hidden>Hosti hap votimin kur të jeni gati.</p>
-  </section>
-
-  <!-- ===== online: vote ===== -->
-  <section class="screen" id="sOnVote" hidden>
-    <div class="center"><h2>Kush është imposteri?</h2><p id="oVoteLead"></p></div>
-    <div class="vgrid" id="oVgrid"></div>
-    <div class="progress" id="oVotePick"></div>
-    <button class="go" id="oReveal" disabled>Zbulo</button>
+    <div class="two" id="oClockBtns"><button class="go ghost" id="oPause">Ndalo</button><button class="go ghost" id="oMore">+1 minutë</button></div>
+    <button class="go" id="oReveal" style="margin-top:auto">Zbulo imposterin</button>
+    <p class="lead" id="oTalkGuest" style="text-align:center;margin-top:auto" hidden>Hosti e zbulon imposterin kur të jeni gati.</p>
   </section>
 
   <!-- ===== online: result ===== -->
   <section class="screen" id="sOnResult" hidden>
     <div class="verdict" id="oVerdict"></div>
-    <div id="oGuessBox" class="box" hidden>
-      <p style="margin:0 0 10px">Imposteri ka një shans: e thotë fjalën me zë. E gjeti?</p>
-      <div class="two"><button class="go ghost" id="oGNo">Jo</button><button class="go" id="oGYes">Po, e gjeti</button></div>
-    </div>
-    <p class="lead" id="oGuessWait" style="text-align:center" hidden>Imposteri ka një shans: e thotë fjalën me zë. Hosti shënon nëse e gjeti.</p>
-    <div id="oScoreBox" hidden><p class="lab">Pikët</p><table class="score" id="oScore"></table></div>
     <div class="two" id="oEndBtns" hidden style="margin-top:auto"><button class="go ghost" id="oToLobby">Ndrysho</button><button class="go" id="oAgain">Raund i ri</button></div>
     <p class="lead" id="oEndWait" style="text-align:center;margin-top:auto" hidden>Prit hostin për raundin tjetër.</p>
   </section>
@@ -338,14 +308,27 @@ button:focus-visible,.tog:focus-visible{outline:2px solid var(--gold);outline-of
 
 <div class="toast" id="oToast"></div>
 
+<div class="sheet" id="timeUp" hidden><div class="box">
+  <h3>Koha mbaroi</h3>
+  <p>E gjetët imposterin?</p>
+  <div class="two" id="upBtns"><button class="go ghost" id="upMore">Edhe 1 minutë</button><button class="go" id="upReveal">Po, zbuloje</button></div>
+  <p id="upWait" hidden style="margin:0">Hosti vendos: edhe një minutë, apo zbulohet imposteri.</p>
+</div></div>
+
+<div class="sheet" id="askReveal" hidden><div class="box">
+  <h3>Zbulo imposterin?</h3>
+  <p>Raundi mbaron dhe të gjithë shohin kush ishte.</p>
+  <div class="two"><button class="go ghost" id="arNo">Jo, vazhdojmë</button><button class="go" id="arYes">Zbuloje</button></div>
+</div></div>
+
 <div class="sheet" id="help" hidden><div class="box">
   <h3>Si luhet</h3>
   <ul>
     <li>Të gjithë marrin të njëjtën fjalë, përveç imposterit.</li>
-    <li>Telefoni kalon dorë më dorë. Secili e sheh fjalën duke e mbajtur shtypur kartën.</li>
     <li>Me radhë, secili thotë një fjalë që lidhet me të. As shumë qartë, as shumë larg.</li>
-    <li>Në fund votoni. Nëse kapet imposteri, ai ka një shans të gjejë fjalën.</li>
-    <li>Pikët: imposteri që nuk kapet merr 2. Nëse kapet por e gjen fjalën, merr 1. Përndryshe çdo lojtar tjetër merr 1.</li>
+    <li>Kur mendoni se e dini kush është, votoni me zë. Nëse votoni gabim, loja vazhdon me të njëjtin imposter.</li>
+    <li>Kur mbaron koha, telefoni bie. Merrni edhe një minutë ose zbuloni imposterin.</li>
+    <li>Me "1 ose 2" askush nuk e di nëse ka një apo dy imposterë.</li>
   </ul>
   <p><b>Një telefon:</b> telefoni kalon dorë më dorë. <b>Secili me telefonin e vet:</b> njëri krijon dhomën dhe ndan kodin ose linkun; çdo telefon sheh vetëm kartën e vet, hosti drejton raundin.</p>
   <button class="go ghost" id="bHelpClose" style="width:100%">Mbyll</button>
@@ -362,10 +345,13 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':
 const WORDS = WORDLIST;
 const CATS = Object.keys(WORDS);
 const COLORS = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62','#b5651d','#3f5ca8','#8a3a3a','#4d7d2a','#6b4f9e','#a0476b','#2d7a7a','#7a6a2a'];
-const TIMES = [[0,'Pa kohë'],[120,'2 min'],[180,'3 min'],[300,'5 min']];
+const TIMES = [[0,'Pa kohë'],[60,'1 min'],[120,'2 min'],[180,'3 min'],[300,'5 min']];
+const IMPS = [[1,'1'],[2,'2'],[3,'3'],[0,'1 ose 2']];   // 0: nobody knows if it's one or two
+const IMPTXT = { 0: 'Askush nuk e di nëse janë një apo dy', 1: 'Një lojtar nuk e di fjalën', 2: 'Dy lojtarë nuk e dinë fjalën', 3: 'Tre lojtarë nuk e dinë fjalën' };
+const impOk = (v, max) => v === 0 ? max >= 2 : v <= max;
 
 /* ---------- saved setup ---------- */
-let S = { names: ['Lojtari 1','Lojtari 2','Lojtari 3','Lojtari 4'], cats: ['Ushqime','Vende'], imps: 1, hint: true, time: 180, scores: {} };
+let S = { names: ['Lojtari 1','Lojtari 2','Lojtari 3','Lojtari 4'], cats: ['Ushqime','Vende'], imps: 1, hint: true, time: 180 };
 try { Object.assign(S, JSON.parse(localStorage.getItem('vw-imposter') || '{}')); } catch(e) {}
 const save = () => { try { localStorage.setItem('vw-imposter', JSON.stringify(S)); } catch(e) {} };
 
@@ -377,7 +363,9 @@ const show = id => {
 };
 
 /* ---------- setup ---------- */
-function maxImps(){ return Math.max(1, Math.min(3, Math.floor((S.names.length - 1) / 2))); }
+// 3 players: one imposter. From 4 players two are possible, three from 7.
+const impMax = n => n < 4 ? 1 : n < 7 ? 2 : 3;
+function maxImps(){ return impMax(S.names.length); }
 function renderSetup(){
   $('#nPl').textContent = S.names.length + ' nga 3–12';
   $('#players').innerHTML = S.names.map((n, i) => `<div class="pl"><span class="dot" style="background:${COLORS[i % 12]}">${i + 1}</span>
@@ -385,8 +373,9 @@ function renderSetup(){
     <button class="ib" data-rm="${i}" aria-label="Hiq" ${S.names.length <= 3 ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`).join('');
   $('#bAdd').hidden = S.names.length >= 12;
   $('#cats').innerHTML = CATS.map(c => `<button class="chip ${S.cats.includes(c) ? 'on' : ''}" data-c="${c}">${c}</button>`).join('');
-  S.imps = Math.min(S.imps, maxImps());
-  $('#impN').textContent = S.imps; $('#impM').disabled = S.imps <= 1; $('#impP').disabled = S.imps >= maxImps();
+  if (!impOk(S.imps, maxImps())) S.imps = 1;
+  $('#lImps').innerHTML = IMPS.map(([v, l]) => `<button class="chip ${S.imps === v ? 'on' : ''}" data-i="${v}" ${impOk(v, maxImps()) ? '' : 'disabled'}>${l}</button>`).join('');
+  $('#lImpTxt').textContent = IMPTXT[S.imps];
   $('#tHint').classList.toggle('on', S.hint); $('#tHint').setAttribute('aria-pressed', S.hint);
   $('#times').innerHTML = TIMES.map(([v, l]) => `<button class="chip ${S.time === v ? 'on' : ''}" data-t="${v}">${l}</button>`).join('');
   $('#setErr').textContent = '';
@@ -396,8 +385,7 @@ $('#players').addEventListener('click', e => { const b = e.target.closest('[data
 $('#bAdd').onclick = () => { if (S.names.length < 12) { S.names.push('Lojtari ' + (S.names.length + 1)); save(); renderSetup(); const el = $('#pn' + (S.names.length - 1)); el.focus(); el.select(); } };
 $('#cats').onclick = e => { const b = e.target.closest('[data-c]'); if (!b) return; const c = b.dataset.c;
   S.cats = S.cats.includes(c) ? S.cats.filter(x => x !== c) : [...S.cats, c]; save(); renderSetup(); };
-$('#impM').onclick = () => { S.imps = Math.max(1, S.imps - 1); save(); renderSetup(); };
-$('#impP').onclick = () => { S.imps = Math.min(maxImps(), S.imps + 1); save(); renderSetup(); };
+$('#lImps').onclick = e => { const b = e.target.closest('[data-i]'); if (!b || b.disabled) return; S.imps = +b.dataset.i; save(); renderSetup(); };
 $('#tHint').onclick = () => { S.hint = !S.hint; save(); renderSetup(); };
 $('#times').onclick = e => { const b = e.target.closest('[data-t]'); if (!b) return; S.time = +b.dataset.t; save(); renderSetup(); };
 
@@ -411,12 +399,13 @@ function begin(){
   const pool = WORDS[cat].filter(w => w !== (R && R.word));
   const word = pool[Math.random() * pool.length | 0];
   const idx = names.map((_, i) => i).sort(() => Math.random() - .5);
-  const imps = new Set(idx.slice(0, S.imps));
+  const n = S.imps === 0 ? (Math.random() < .5 ? 1 : 2) : S.imps;
+  const imps = new Set(idx.slice(0, Math.min(n, maxImps())));
   const start = Math.random() * names.length | 0;
-  R = { cat, word, imps, at: 0, start, vote: -1 };
+  R = { cat, word, imps, at: 0, start, secret: S.imps === 0 };
   passTo(0);
 }
-$('#bBegin').onclick = begin;
+$('#bBegin').onclick = () => { SND.unlock(); begin(); };
 
 /* ---------- pass the phone ---------- */
 const secret = $('#secret');
@@ -428,7 +417,7 @@ function passTo(i){
   const imp = R.imps.has(i);
   $('#inside').className = 'inside' + (imp ? ' imp' : '');
   $('#inside').innerHTML = imp
-    ? `<span class="k">Ti je</span><span class="w">IMPOSTER</span><span class="h">${S.hint ? 'Kategoria: ' + esc(R.cat) : 'Nuk e di fjalën. Dëgjo të tjerët.'}</span>`
+    ? `<span class="k">Ti je</span><span class="w">IMPOSTER</span><span class="h">${S.hint ? 'Kategoria: ' + esc(R.cat) : 'Nuk e di fjalën. Dëgjo të tjerët.'}</span>${!R.secret && R.imps.size > 1 ? `<span class="h">Në këtë raund ka ${R.imps.size} imposterë.</span>` : ''}`
     : `<span class="k">Fjala</span><span class="w">${esc(R.word)}</span><span class="h">${esc(R.cat)}</span>`;
   secret.classList.remove('open');
   $('#bSeen').disabled = true;
@@ -444,65 +433,100 @@ secret.addEventListener('keyup', close);
 secret.addEventListener('contextmenu', e => e.preventDefault());
 $('#bSeen').onclick = () => { if (R.at < S.names.length - 1) passTo(R.at + 1); else talk(); };
 
-/* ---------- talk ---------- */
-let timer = 0, left = 0, paused = false;
+/* ---------- sound: the alarm when time is up, a soft tick in the last seconds ---------- */
+const SND = {
+  ctx: null,
+  unlock(){ try { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); } catch(e) {} },
+  tone(f, at, dur, vol){
+    const a = this.ctx, o = a.createOscillator(), g = a.createGain();
+    o.type = 'square'; o.frequency.value = f;
+    g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(vol, at + .01); g.gain.setValueAtTime(vol, at + dur - .03); g.gain.linearRampToValueAtTime(0, at + dur);
+    o.connect(g).connect(a.destination); o.start(at); o.stop(at + dur + .02);
+  },
+  tick(){ this.unlock(); if (!this.ctx) return; this.tone(1400, this.ctx.currentTime, .05, .05); },
+  // three rings of a kitchen timer, about three seconds
+  alarm(){
+    this.unlock();
+    try { navigator.vibrate && navigator.vibrate([400, 150, 400, 150, 400, 400, 400, 150, 400]); } catch(e) {}
+    if (!this.ctx) return;
+    const t0 = this.ctx.currentTime + .05;
+    for (let r = 0; r < 3; r++) for (let k = 0; k < 4; k++) {
+      const at = t0 + r * 1.1 + k * .2;
+      this.tone(k % 2 ? 1320 : 1760, at, .14, .09);
+    }
+  },
+};
+document.addEventListener('pointerdown', () => SND.unlock(), { capture: true });
+
+// keep the screen on while the table talks: a locked phone can't ring
+let wake = null;
+async function keepAwake(on){
+  try {
+    if (on && !wake && navigator.wakeLock) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); }
+    if (!on && wake) { const w = wake; wake = null; await w.release(); }
+  } catch(e) {}
+}
+// the lock is dropped whenever the page is hidden; take it again on return
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && (!$('#sTalk').hidden || !$('#sOnTalk').hidden)) keepAwake(true); });
+
+/* ---------- the two sheets: time is up, are you sure ---------- */
+let upFor = null, askFor = null;
+function timeUp(host, onMore, onReveal){
+  $('#upBtns').hidden = !host; $('#upWait').hidden = host;
+  upFor = { onMore, onReveal }; $('#timeUp').hidden = false;
+}
+function closeUp(){ $('#timeUp').hidden = true; upFor = null; }
+$('#upMore').onclick = () => { const u = upFor; closeUp(); u && u.onMore(); };
+$('#upReveal').onclick = () => { const u = upFor; closeUp(); u && u.onReveal(); };
+function askReveal(go){ askFor = go; $('#askReveal').hidden = false; }
+$('#arNo').onclick = () => { $('#askReveal').hidden = true; askFor = null; };
+$('#arYes').onclick = () => { $('#askReveal').hidden = true; const g = askFor; askFor = null; g && g(); };
+
+function verdictHTML(names, word, cat){
+  const many = names.length > 1;
+  return `<p class="k">${many ? 'Imposterët ishin' : 'Imposteri ishte'}</p><div class="big">${names.map(esc).join(' dhe ')}</div><p>Fjala ishte</p><span class="word">${esc(word)}</span><p style="margin-top:6px">${esc(cat)}</p>`;
+}
+
+/* ---------- talk (one phone) ---------- */
+let timer = 0, left = 0, total = 0, paused = false;
 const C = 2 * Math.PI * 52;
 function talk(){
   const n = S.names.length;
   $('#order').innerHTML = [...Array(n)].map((_, k) => `<span>${esc(S.names[(R.start + k) % n])}</span>`).join('');
-  left = S.time; paused = false; $('#bPause').textContent = 'Ndalo';
-  $('#ring').hidden = !S.time; $('#bPause').hidden = !S.time;
+  left = total = S.time; paused = false; $('#bPause').textContent = 'Ndalo';
+  $('#ring').hidden = !S.time; $('#lClockBtns').hidden = !S.time;
   const arc = $('#arc'); arc.style.strokeDasharray = C; arc.style.strokeDashoffset = 0;
-  tick(); clearInterval(timer);
-  if (S.time) timer = setInterval(() => { if (!paused && left > 0) { left--; tick(); if (!left) { clearInterval(timer); beep(); } } }, 1000);
-  show('sTalk');
+  run();
+  show('sTalk'); keepAwake(true);
 }
+function run(){
+  tick(); clearInterval(timer);
+  if (!total) return;
+  timer = setInterval(() => {
+    if (paused || left <= 0) return;
+    left--; tick();
+    if (left > 0 && left <= 5) SND.tick();
+    if (!left) { clearInterval(timer); SND.alarm(); timeUp(true, () => addMinute(), () => reveal()); }
+  }, 1000);
+}
+function addMinute(){ left += 60; total = Math.max(total, left); paused = false; $('#bPause').textContent = 'Ndalo'; run(); }
 function tick(){
   const m = Math.floor(left / 60), s = left % 60;
   $('#clock').textContent = `${m}:${String(s).padStart(2, '0')}`;
-  $('#arc').style.strokeDashoffset = C * (1 - left / (S.time || 1));
+  $('#arc').style.strokeDashoffset = C * (1 - left / (total || 1));
   $('#ring').classList.toggle('low', left <= 20);
+  $('#bPause').disabled = !left;
 }
-function beep(){ try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 660; g.gain.value = .12; o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + .4); } catch(e) {} }
 $('#bPause').onclick = () => { paused = !paused; $('#bPause').textContent = paused ? 'Vazhdo' : 'Ndalo'; };
-$('#bVote').onclick = () => { clearInterval(timer); vote(); };
+$('#bMore').onclick = addMinute;
+$('#bReveal').onclick = () => askReveal(reveal);
 
-/* ---------- vote ---------- */
-function vote(){
-  R.vote = -1;
-  $('#vgrid').innerHTML = S.names.map((n, i) => `<button class="vbtn" data-v="${i}"><span class="dot" style="width:30px;height:30px;border-radius:50%;flex:none;background:${COLORS[i % 12]}"></span><span>${esc(n)}</span></button>`).join('');
-  $('#bReveal').disabled = true;
-  show('sVote');
-}
-$('#vgrid').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; R.vote = +b.dataset.v;
-  document.querySelectorAll('.vbtn').forEach(x => x.classList.toggle('on', x === b)); $('#bReveal').disabled = false; };
-$('#bReveal').onclick = reveal;
-
-function impNames(){ return [...R.imps].map(i => S.names[i]); }
+/* ---------- reveal ---------- */
 function reveal(){
-  const caught = R.imps.has(R.vote);
-  const list = impNames(), many = list.length > 1;
-  $('#verdict').innerHTML = caught
-    ? `<div class="big good">${esc(S.names[R.vote])} ishte imposter</div><p>${many ? 'Imposterët ishin: ' + list.map(esc).join(', ') + '.' : ''} Fjala ishte</p><span class="word">${esc(R.word)}</span>`
-    : `<div class="big bad">${esc(S.names[R.vote])} nuk ishte imposter</div><p>${many ? 'Imposterët ishin ' : 'Imposter ishte '}<b>${list.map(esc).join(', ')}</b>. Fjala ishte</p><span class="word">${esc(R.word)}</span>`;
-  $('#guessBox').hidden = !caught; $('#scoreBox').hidden = caught; $('#endBtns').hidden = caught;
-  if (!caught) award('imp2');
+  clearInterval(timer); closeUp(); keepAwake(false);
+  $('#verdict').innerHTML = verdictHTML([...R.imps].map(i => S.names[i]), R.word, R.cat);
   show('sResult');
 }
-function award(kind){
-  const add = {};
-  S.names.forEach((n, i) => {
-    const imp = R.imps.has(i);
-    add[n] = kind === 'imp2' ? (imp ? 2 : 0) : kind === 'imp1' ? (imp ? 1 : 0) : (imp ? 0 : 1);
-  });
-  for (const n in add) S.scores[n] = (S.scores[n] || 0) + add[n];
-  save();
-  const rows = S.names.map(n => ({ n, s: S.scores[n] || 0, a: add[n] })).sort((a, b) => b.s - a.s);
-  $('#score').innerHTML = rows.map(r => `<tr><td>${esc(r.n)}</td><td class="n">${r.a ? `<em>+${r.a}</em>` : ''}${r.s}</td></tr>`).join('');
-  $('#guessBox').hidden = true; $('#scoreBox').hidden = false; $('#endBtns').hidden = false;
-}
-$('#gYes').onclick = () => { award('imp1'); $('#verdict').insertAdjacentHTML('beforeend', '<p>Imposteri e gjeti fjalën, ndaj merr 1 pikë.</p>'); };
-$('#gNo').onclick = () => award('crew');
 $('#bAgain').onclick = begin;
 $('#bSetup').onclick = () => { renderSetup(); show('sSetup'); };
 
@@ -510,7 +534,7 @@ $('#bSetup').onclick = () => { renderSetup(); show('sSetup'); };
 $('#bHelp').onclick = () => { $('#help').hidden = false; };
 $('#bHelpClose').onclick = () => { $('#help').hidden = true; };
 $('#help').onclick = e => { if (e.target.id === 'help') $('#help').hidden = true; };
-$('#bHome').onclick = () => { clearInterval(timer); if (window.parent !== window) { try { parent.postMessage({vw: 'home'}, '*'); } catch(e) {} } else location.href = './'; };
+$('#bHome').onclick = () => { clearInterval(timer); keepAwake(false); closeUp(); if (window.parent !== window) { try { parent.postMessage({vw: 'home'}, '*'); } catch(e) {} } else location.href = './'; };
 window.VWCards.logoURL(240).then(u => { $('#coverLogo').src = u; document.querySelectorAll('.oLogo').forEach(i => i.src = u); });
 renderSetup();
 /* ================= online rooms: each phone its own card =================
@@ -543,7 +567,7 @@ const KEY = (() => {
 })();
 const savedName = () => { let n = ost.get('name', ''); if (!n) { try { n = JSON.parse(localStorage.getItem('mafia.name') || '""'); } catch(e) {} } return n || ''; };
 
-const O = { mode: 'one', ws: null, S: null, room: null, retry: 0, pingT: 0, want: false, skew: 0, round: -1, viewed: false, beeped: -1 };
+const O = { mode: 'one', ws: null, S: null, room: null, retry: 0, pingT: 0, want: false, skew: 0, round: -1, viewed: false, rang: '', ticked: '' };
 const isHost = () => O.S && O.S.me === O.S.hostPid;
 const nameOf = id => (O.S.players.find(p => p.pid === id) || {}).name || (O.S.names || {})[id] || '?';
 const colorOf = id => COLORS[Math.max(0, O.S.players.findIndex(p => p.pid === id)) % 12];
@@ -673,8 +697,7 @@ $('#oCats').onclick = e => {
   if (!next.length) return toast(OERR.need_cat);
   sendCfg({ cats: next });
 };
-$('#oImpM').onclick = () => isHost() && sendCfg({ imps: Math.max(1, Math.min(O.S.cfg.imps, O.S.maxImps) - 1) });
-$('#oImpP').onclick = () => isHost() && sendCfg({ imps: Math.min(O.S.maxImps, O.S.cfg.imps + 1) });
+$('#oImps').onclick = e => { const b = e.target.closest('[data-i]'); if (b && !b.disabled && isHost()) sendCfg({ imps: +b.dataset.i }); };
 $('#oHint').onclick = () => isHost() && sendCfg({ hint: !O.S.cfg.hint });
 $('#oTimes').onclick = e => { const b = e.target.closest('[data-t]'); if (b && isHost()) sendCfg({ time: +b.dataset.t }); };
 $('#oDeal').onclick = () => osend({ t: 'deal' });
@@ -690,9 +713,6 @@ $('#oLeave').onclick = () => {
 };
 $('#oClaim').onclick = () => osend({ t: 'claimHost' });
 
-function scoreRows(list, gain){
-  return list.map(r => `<tr><td>${esc(r.name)}${r.here ? '' : ' <span style="color:var(--sub)">(doli)</span>'}</td><td class="n">${gain && gain[r.pid] ? `<em>+${gain[r.pid]}</em>` : ''}${r.score}</td></tr>`).join('');
-}
 function renderLobby(){
   const S = O.S, host = isHost(), n = S.players.length;
   $('#oCodeTxt').textContent = S.code;
@@ -704,24 +724,22 @@ function renderLobby(){
     const acts = host && p.pid !== S.me ? `<button class="xb" data-act="host" data-pid="${p.pid}" title="Bëje host" aria-label="Bëje host">★</button><button class="xb" data-act="kick" data-pid="${p.pid}" title="Nxirre" aria-label="Nxirre">×</button>` : '';
     return `<div class="prow"><i class="st ${p.online ? 'on' : ''}"></i><span class="dot" style="width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;font:700 14px var(--f-d);color:#fff;background:${COLORS[i % 12]}">${esc((p.name[0] || '?').toUpperCase())}</span><span class="nm">${esc(p.name)}</span>${tags.join('')}${acts}</div>`;
   }).join('');
-  const c = S.cfg, imps = Math.min(c.imps, S.maxImps);
+  const c = S.cfg, imps = impOk(c.imps, S.maxImps) ? c.imps : 1;
   $('#oHostCfg').hidden = !host; $('#oGuestCfg').hidden = host;
   $('#oDeal').hidden = !host; $('#oGuestWait').hidden = host;
   if (host) {
     $('#oCats').innerHTML = S.allCats.map(k => `<button class="chip ${c.cats.includes(k) ? 'on' : ''}" data-c="${esc(k)}">${esc(k)}</button>`).join('');
-    $('#oImpN').textContent = imps; $('#oImpM').disabled = imps <= 1; $('#oImpP').disabled = imps >= S.maxImps;
+    $('#oImps').innerHTML = IMPS.map(([v, l]) => `<button class="chip ${imps === v ? 'on' : ''}" data-i="${v}" ${impOk(v, S.maxImps) ? '' : 'disabled'}>${l}</button>`).join('');
+    $('#oImpTxt').textContent = IMPTXT[imps];
     $('#oHint').classList.toggle('on', c.hint); $('#oHint').setAttribute('aria-pressed', c.hint);
     $('#oTimes').innerHTML = S.times.map(v => `<button class="chip ${c.time === v ? 'on' : ''}" data-t="${v}">${TLAB[v] || v + ' s'}</button>`).join('');
     $('#oDeal').disabled = n < 3;
     $('#oDeal').textContent = S.round ? 'Raund i ri' : 'Fillo raundin';
     $('#oLobbyErr').textContent = n < 3 ? `Duhen të paktën 3 lojtarë në dhomë. Ndaje kodin ${S.code}.` : '';
   } else {
-    $('#oSummary').innerHTML = `Kategoritë: <b>${c.cats.map(esc).join(', ')}</b><br>${imps === 1 ? '1 imposter' : imps + ' imposterë'} · ${c.hint ? 'imposteri e di kategorinë' : 'pa ndihmë për imposterin'} · ${TLAB[c.time] || c.time + ' s'}`;
+    $('#oSummary').innerHTML = `Kategoritë: <b>${c.cats.map(esc).join(', ')}</b><br>${imps === 0 ? '1 ose 2 imposterë' : imps === 1 ? '1 imposter' : imps + ' imposterë'} · ${c.hint ? 'imposteri e di kategorinë' : 'pa ndihmë për imposterin'} · ${TLAB[c.time] || c.time + ' s'}`;
     $('#oLobbyErr').textContent = '';
   }
-  const scored = S.scores.some(r => r.score > 0);
-  $('#oLobbyScores').hidden = !scored;
-  if (scored) $('#oLobbyScore').innerHTML = scoreRows(S.scores);
 }
 
 /* ---------- your card ---------- */
@@ -763,69 +781,54 @@ function renderCard(){
 /* ---------- talk ---------- */
 const OC = 2 * Math.PI * 52;
 function remaining(){
-  const S = O.S, t = S.timer;
-  if (!S.cfg.time) return 0;
+  const t = O.S.timer;
+  if (!t.total) return 0;
   if (t.paused) return t.left;
   return Math.max(0, Math.ceil((t.ends - (Date.now() + O.skew)) / 1000));
 }
 function tickClock(){
   if (!O.S || O.S.phase !== 'talk' || O.mode !== 'online') return;
-  const total = O.S.cfg.time, left = remaining();
+  const t = O.S.timer, total = t.total || 1, left = remaining();
   $('#oClock').textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   $('#oArc').style.strokeDasharray = OC;
-  $('#oArc').style.strokeDashoffset = OC * (1 - left / (total || 1));
+  $('#oArc').style.strokeDashoffset = OC * (1 - left / total);
   $('#oRing').classList.toggle('low', left <= 20);
-  if (!left && !O.S.timer.paused && O.beeped !== O.S.round) { O.beeped = O.S.round; beep(); }
+  $('#oPause').disabled = !left;
+  if (!t.total || t.paused) return;
+  const key = O.S.round + ':' + t.ends;            // every clock that runs out rings once, on every phone
+  if (left > 0 && left <= 5 && O.ticked !== key + left) { O.ticked = key + left; SND.tick(); }
+  if (!left && O.rang !== key) {
+    O.rang = key; SND.alarm();
+    timeUp(isHost(), () => osend({ t: 'more' }), () => osend({ t: 'reveal' }));
+  }
 }
 setInterval(tickClock, 250);
 function renderTalk(){
   const S = O.S, host = isHost();
   $('#oOrder').innerHTML = S.order.map(id => `<span>${esc(nameOf(id))}</span>`).join('');
-  $('#oRing').hidden = !S.cfg.time;
+  $('#oRing').hidden = !S.timer.total;
   $('#oPeek').hidden = !S.card;
   if (S.card) { $('#oPeekV').className = 'pv' + (S.card.imp ? ' imp' : ''); $('#oPeekV').textContent = S.card.imp ? 'IMPOSTER' + (S.card.cat ? ' · ' + S.card.cat : '') : S.card.word; }
-  $('#oTalkHost').hidden = !host; $('#oTalkGuest').hidden = host;
-  $('#oPause').hidden = !S.cfg.time;
+  $('#oClockBtns').hidden = !host || !S.timer.total;
+  $('#oReveal').hidden = !host; $('#oTalkGuest').hidden = host;
   $('#oPause').textContent = S.timer.paused ? 'Vazhdo' : 'Ndalo';
-  $('#oPause').disabled = S.timer.paused && !S.timer.left;
+  // a fresh minute (from any phone) closes the "time is up" sheet
+  if (remaining() > 0 && !$('#timeUp').hidden) closeUp();
+  keepAwake(true);
   tickClock();
 }
 $('#oPause').onclick = () => osend({ t: 'pause' });
-$('#oVote').onclick = () => osend({ t: 'vote' });
-
-/* ---------- vote ---------- */
-function renderVote(){
-  const S = O.S, host = isHost();
-  $('#oVoteLead').textContent = host ? 'Votoni me zë. Pastaj zgjidh këtu atë që mori më shumë vota.' : 'Votoni me zë. Hosti zgjedh në telefonin e vet atë që mori më shumë vota.';
-  $('#oVgrid').hidden = !host; $('#oReveal').hidden = !host;
-  if (host) {
-    $('#oVgrid').innerHTML = S.holders.map(id => `<button class="vbtn ${S.vote === id ? 'on' : ''}" data-v="${id}"><span class="dot" style="width:30px;height:30px;border-radius:50%;flex:none;background:${colorOf(id)}"></span><span>${esc(nameOf(id))}</span></button>`).join('');
-    $('#oReveal').disabled = !S.vote;
-  }
-  $('#oVotePick').innerHTML = host ? '' : (S.vote ? `Zgjedhja e hostit: <b>${esc(nameOf(S.vote))}</b>` : 'Hosti ende nuk ka zgjedhur.');
-}
-$('#oVgrid').onclick = e => { const b = e.target.closest('[data-v]'); if (b) osend({ t: 'pick', pid: b.dataset.v }); };
-$('#oReveal').onclick = () => osend({ t: 'reveal' });
+$('#oMore').onclick = () => osend({ t: 'more' });
+$('#oReveal').onclick = () => askReveal(() => osend({ t: 'reveal' }));
 
 /* ---------- result ---------- */
 function renderResult(){
   const S = O.S, r = S.result, host = isHost();
-  const list = r.imps.map(nameOf), many = list.length > 1, voted = nameOf(r.vote);
-  let html = r.caught
-    ? `<div class="big good">${esc(voted)} ishte imposter</div><p>${many ? 'Imposterët ishin: ' + list.map(esc).join(', ') + '. ' : ''}Fjala ishte</p><span class="word">${esc(r.word)}</span>`
-    : `<div class="big bad">${esc(voted)} nuk ishte imposter</div><p>${many ? 'Imposterët ishin ' : 'Imposter ishte '}<b>${list.map(esc).join(', ')}</b>. Fjala ishte</p><span class="word">${esc(r.word)}</span>`;
-  if (r.caught && r.awarded) html += r.guessed ? '<p>Imposteri e gjeti fjalën, ndaj merr 1 pikë.</p>' : '<p>Imposteri nuk e gjeti fjalën: çdo lojtar tjetër merr 1 pikë.</p>';
-  $('#oVerdict').innerHTML = html;
-  const waiting = r.caught && !r.awarded;
-  $('#oGuessBox').hidden = !(waiting && host);
-  $('#oGuessWait').hidden = !(waiting && !host);
-  $('#oScoreBox').hidden = !r.awarded;
-  if (r.awarded) $('#oScore').innerHTML = scoreRows(S.scores, r.gain);
-  $('#oEndBtns').hidden = !(r.awarded && host);
-  $('#oEndWait').hidden = !(r.awarded && !host);
+  closeUp(); keepAwake(false);
+  $('#oVerdict').innerHTML = verdictHTML(r.imps.map(nameOf), r.word, r.cat);
+  $('#oEndBtns').hidden = !host;
+  $('#oEndWait').hidden = host;
 }
-$('#oGYes').onclick = () => osend({ t: 'guess', yes: true });
-$('#oGNo').onclick = () => osend({ t: 'guess', yes: false });
 $('#oAgain').onclick = () => osend({ t: 'deal' });
 $('#oToLobby').onclick = () => osend({ t: 'lobby' });
 
@@ -838,10 +841,10 @@ function oRender(){
   if (O.mode !== 'online') return;
   $('#oHostGone').hidden = isHost() || S.hostOnline !== false;
   const holder = !!S.card;
+  if (S.phase !== 'talk') { closeUp(); $('#askReveal').hidden = true; }
   if (S.phase === 'lobby') { renderLobby(); show('sOnLobby'); }
   else if (S.phase === 'cards') { if (holder) { renderCard(); show('sOnCard'); } else show('sOnWait'); }
   else if (S.phase === 'talk') { renderTalk(); show('sOnTalk'); }
-  else if (S.phase === 'vote') { renderVote(); show('sOnVote'); }
   else if (S.phase === 'result') { renderResult(); show('sOnResult'); }
 }
 

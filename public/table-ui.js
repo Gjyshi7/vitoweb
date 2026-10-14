@@ -27,6 +27,7 @@
 .meta b{color:var(--ink);font-size:21px;font-weight:700;margin-left:4px;font-variant-numeric:tabular-nums}
 .meta i{font-style:normal;opacity:.45}
 .meta .us b{color:var(--pink)}
+.meta .gold{color:#1a2233;background:var(--gold);border-radius:8px;padding:2px 8px;font-weight:700;letter-spacing:.06em;font-size:14px}
 .status{font-size:20px!important;max-width:470px;overflow:hidden;text-overflow:ellipsis}
 #pl0{display:none!important}
 #bHint{display:none!important}
@@ -116,6 +117,33 @@
     if (!ov.hidden) close();
     else if (!document.querySelector('#stage .ov:not([hidden]):not(#ovMenu)')) open();
   });
+
+  // end-of-hand panel: games and net.js put their own buttons in a row under the result (ENDP.set), or go back to #bNext
+  const endPanel = $('#ovEnd .panel'), bNextEl = $('#bNext');
+  if (endPanel && bNextEl) {
+    const row = document.createElement('div'); row.id = 'endActs'; row.hidden = true;
+    const note = document.createElement('p'); note.id = 'endVote'; note.hidden = true;
+    bNextEl.after(row); row.after(note);
+    const st = document.createElement('style');
+    st.textContent = `#endActs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:10px;margin-top:14px}
+#endActs .pbtn{margin:0}
+#endActs .pbtn.on{background:#2f8a62}
+#endVote{margin:12px 0 0;text-align:center;color:var(--sub);font-size:17px;font-variant-numeric:tabular-nums}`;
+    document.head.appendChild(st);
+    window.ENDP = {
+      set(btns, txt){
+        bNextEl.hidden = true; row.hidden = false; row.textContent = '';
+        for (const b of btns) {
+          const el = document.createElement('button'); el.type = 'button';
+          el.className = 'pbtn' + (b.primary ? '' : ' ghost') + (b.on ? ' on' : '');
+          el.textContent = b.label; el.onclick = b.click; row.appendChild(el);
+        }
+        note.hidden = !txt; note.textContent = txt || '';
+      },
+      note(txt){ note.hidden = !txt; note.textContent = txt || ''; },
+      reset(){ bNextEl.hidden = false; row.hidden = true; row.textContent = ''; note.hidden = true; },
+    };
+  }
 
   // ads: a small one under the rules title, a full-screen break between hands (see ads.js)
   if (typeof ADS !== 'undefined') {

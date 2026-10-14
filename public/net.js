@@ -197,7 +197,22 @@ function NETWORK(G){
       setTimeout(connect, Math.min(5000, 600 * 2 ** N.retry++));
     };
   }
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && N.room) { N.retry = 0; connect(); } });
+  // a table on this phone doesn't wait for you either: gone a minute and the others carried on without you
+  const AWAY_MSG = 'Ishe larg më shumë se një minutë dhe loja vazhdoi pa ty.';
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+    if (N.table && !N.room && hiddenAt && Date.now() - hiddenAt > 60_000) { hiddenAt = 0; return leave(AWAY_MSG); }
+    hiddenAt = 0;
+    if (N.room) { N.retry = 0; connect(); }
+  });
+  // a phone that slept without telling the page (no visibility event): the clock jumps
+  let lastTick = Date.now();
+  setInterval(() => {
+    const n = Date.now();
+    if (n - lastTick > 60_000 && N.table && !N.room && document.visibilityState === 'visible') leave(AWAY_MSG);
+    lastTick = n;
+  }, 5000);
   addEventListener('online', () => { if (N.room) { N.retry = 0; connect(); } });
 
   function enter(code, quickMatch){
@@ -216,6 +231,7 @@ function NETWORK(G){
     N.want = false; if (N.ws) try { N.ws.close(); } catch(e) {}
     N.ws = null; N.S = null; N.room = null; N.table = false; N.quick = false; badge.hidden = true;
     history.replaceState(null, '', location.pathname);
+    clearTimeout(voteT); if (window.ENDP) ENDP.reset();
     if (wasTable || G.onLeave) G.onLeave();
     show('home'); err(msg || '');
   }
@@ -320,6 +336,7 @@ function NETWORK(G){
     }
   }
   function onState(S){
+    S._at = Date.now();
     N.S = S;
     const t = S.tbl; if (!t) return;
     if (t.phase === 'lobby') {
@@ -335,8 +352,52 @@ function NETWORK(G){
       local(names.slice(1));
       return;
     }
+    if (t.phase === 'closed') return leave('Loja mbaroi.');
+    if (t.out) return leave(t.why === 'away' ? AWAY_MSG : '');
     if (!N.table) { N.table = true; show('none'); }
     G.onTable(t, S);
+    voteUI();
+  }
+
+  /* ---------- votes at the end of a hand / match (buttons inside the game's result panel) ---------- */
+  const skew = () => N.S ? N.S.now - (N.S._at || Date.now()) : 0;
+  let voteT = 0, voteKey = '', voteSeen = 0;
+  function voteUI(){
+    clearTimeout(voteT);
+    const t = N.S && N.S.tbl, end = document.getElementById('ovEnd');
+    if (t && t.vote && end && end.hidden && window.ENDP) {
+      // a vote is open but the result panel is closed: give the game a moment to show it, then open it ourselves
+      const k = t.vote.kind + ':' + t.vote.until;
+      if (voteKey !== k) { voteKey = k; voteSeen = Date.now(); }
+      else if (Date.now() - voteSeen > 3500) end.hidden = false;
+    }
+    if (!t || !window.ENDP || !end || end.hidden) { if (t && (t.vote || t.step === 'end' || t.step === 'choice')) voteT = setTimeout(voteUI, 400); return; }
+    const v = t.vote;
+    if (v) {
+      const left = Math.max(0, Math.ceil((v.until - Date.now() - skew()) / 1000));
+      if (v.kind === 'again') {
+        const ready = v.tally.yes || 0;
+        ENDP.set([
+          { label: v.mine === 'yes' ? 'Gati' : 'Luaj sërish', primary: true, on: v.mine === 'yes', click: () => send({ t: 'vote', kind: 'again', v: 'yes' }) },
+          { label: 'Dil', click: () => { send({ t: 'vote', kind: 'again', v: 'no' }); leave(); } },
+        ], `${ready}/${v.n} gati · ${left}s`);
+      } else {
+        const opts = (G.voteOptions && G.voteOptions(v.kind, t)) || [];
+        ENDP.set(opts.map((o, i) => ({ label: o.label + (v.tally[o.v] ? ` · ${v.tally[o.v]}` : ''), primary: i === 0, on: v.mine === o.v,
+          click: () => send({ t: 'vote', kind: v.kind, v: o.v }) })), `${left}s`);
+      }
+      voteT = setTimeout(voteUI, 500);
+      return;
+    }
+    if (t.phase === 'play' && G.rematch !== false) {
+      // between hands: carry on, and say early that you want another match after this one
+      ENDP.set([
+        { label: t.pre ? 'Revansh ✓' : 'Revansh', on: t.pre, click: () => send({ t: 'vote', kind: 'again', v: t.pre ? 'no' : 'yes' }) },
+        { label: 'Vazhdo', primary: true, click: () => { end.hidden = true; ENDP.reset(); } },
+      ]);
+      return;
+    }
+    ENDP.reset();
   }
   // the room's seats with you first, then the others in table order
   function rotateSeats(t){

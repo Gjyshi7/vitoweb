@@ -206,7 +206,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
 
   <div id="myTurn"></div>
   <div class="acts">
-    <button class="btn" id="bFast">SHPEJTO</button>
+    <button class="btn left" id="bWait">PRIT</button>
     <button class="btn main" id="bRand" disabled>RASTËSISHT</button>
   </div>
 
@@ -228,7 +228,6 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     <h2>Cilësimet</h2>
     <p>Ruhen në këtë shfletues, njësoj për të gjitha lojërat e tavolinës.</p>
     <div class="set">Tavolina<div class="seg" data-k="felt"><button data-v="blu">Blu</button><button data-v="jeshile">Jeshile</button><button data-v="bordo">Bordo</button></div></div>
-    <div class="set">Ngjyrat e letrave<div class="seg" data-k="colors"><button data-v="2">2 ngjyra</button><button data-v="4">4 ngjyra</button></div></div>
     <div class="set">Animacionet<div class="seg" data-k="speed"><button data-v="normal">Normale</button><button data-v="fast">Shpejt</button></div></div>
     <div class="set">Zëri<div class="seg" data-k="sound"><button data-v="on">Po</button><button data-v="off">Jo</button></div></div>
     <div class="row2"><button class="pbtn ghost" id="bNew">Lojë e re</button><button class="pbtn" id="bSetClose">Mbyll</button></div>
@@ -404,7 +403,7 @@ function drawBack(){
 const toURL = c => new Promise(res => c.toBlob(b => res(URL.createObjectURL(b)), 'image/png'));
 let FACE = [], BACK = '';
 async function buildArt(){
-  const urls = await Promise.all(Array.from({length: 54}, (_, i) => toURL(drawFace(i, ST.colors))));
+  const urls = await Promise.all(Array.from({length: 54}, (_, i) => toURL(drawFace(i, "2"))));
   FACE.forEach(u => URL.revokeObjectURL(u)); FACE = urls;
   if (!BACK) BACK = await toURL(drawBack());
 }
@@ -441,8 +440,8 @@ const PILE = [640, 345], DECK = [640, 338];
 const NEAR = [[640, 470], [330, 400], [640, 250], [950, 400]];
 const els = [];
 let mt = null, H = null, gen = 0, dealt = null, pileN = 0;
-let mode = 'idle', pickSrc = -1, hov = -1, humanResolve = null, fast = false;
-const D = ms => ms * (ST.speed === 'fast' ? .55 : 1) * (fast ? .45 : 1);
+let mode = 'idle', pickSrc = -1, hov = -1, humanResolve = null;
+const D = ms => ms * (ST.speed === 'fast' ? .55 : 1);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const PIG = E.PIG;
 const ALL = Array.from({length: 52}, (_, i) => i).filter(i => i < 41 || i > 43);
@@ -519,6 +518,13 @@ function renderPlate(p){
   if (TIMER.p === p) addTimer(el);
 }
 const renderPlates = () => { for (let p = 1; p < 4; p++) renderPlate(p); };
+/* turn clock at a table on this phone: the same as online, and a turn that runs out plays itself */
+const TURN_MS = 20000;
+let clockT = 0, clockN = 0;
+function clock(p, onOut){
+  clearTimeout(clockT); setTimer(p, Date.now(), TURN_MS);
+  if (onOut) { const n = ++clockN; clockT = setTimeout(() => { if (n === clockN && !NET.online) onOut(); }, TURN_MS); }
+}
 function setTurn(p, src){ for (let i = 1; i < 4; i++) { $('#pl' + i).classList.toggle('turn', i === p); $('#pl' + i).classList.toggle('src', i === src); } $('#myTurn').classList.toggle('on', p === 0); }
 function status(txt){ $('#status').innerHTML = txt || ''; }
 function meta(){
@@ -560,8 +566,9 @@ async function showPair(p, ids, my){
 /* ---------- your turn: tap a card from the hand in the middle (or RASTËSISHT) ---------- */
 function refresh(){
   $('#bRand').disabled = mode !== 'pick';
-  $('#bFast').classList.toggle('on', fast);
-  $('#bFast').style.visibility = meOut && !NET.online ? '' : 'hidden';
+  const w = $('#bWait');
+  w.style.visibility = LK.on && (!LK.used || LK.held) ? '' : 'hidden';
+  w.textContent = LK.held ? 'GATI' : 'PRIT'; w.classList.toggle('hot', LK.held);
 }
 $('#cards').addEventListener('click', e => {
   audio();
@@ -572,15 +579,59 @@ $('#cards').addEventListener('click', e => {
 });
 function choose(idx){
   if (mode !== 'pick' || !humanResolve) return;
+  if (pickBlocked()) return;
   mode = 'idle'; refresh(); const r = humanResolve; humanResolve = null; r(idx);
 }
 $('#bRand').onclick = () => { audio(); if (mode === 'pick') choose((Math.random() * H.hands[pickSrc].length) | 0); };
-$('#bFast').onclick = () => { audio(); fast = !fast; refresh(); };
+$('#bWait').onclick = () => { audio(); LK.held ? endHold(true) : startHold(); };
 addEventListener('keydown', e => {
   if (!$('#menu') || !$('#menu').hidden) return;
   if (e.key === 'Enter') $('#bRand').click();
 });
 const relayoutHand = () => { if (H) layoutSeat(0); };
+
+/* ---------- someone takes a card from your hand ----------
+   Half a second to finish what you were doing, then your hand stays still: where a card sits is
+   what they pick. PRIT gives you up to 3 seconds more to rearrange, once per turn; they wait. */
+const LOCK_MS = 500, HOLD_MS = 3000;
+const LK = { on: false, held: false, used: false, t: 0, at: 0, key: '' };
+function myOrder(){ return orderHand(H.hands[0]).slice(); }
+function lockMine(){
+  clearTimeout(LK.t); LK.at = 0;
+  if (HAND.busy()) HAND.cancel();
+  LK.on = true; LK.held = false;
+  if (NET.online) NET.send({ t: 'order', ids: myOrder() });
+  else H.hands[0] = myOrder();               // the picker chooses a place in your fan
+  relayoutHand(); refresh();
+  if (mode !== 'pick') status('');
+}
+function unlockMine(){ clearTimeout(LK.t); LK.at = 0; LK.on = LK.held = LK.used = false; LK.key = ''; refresh(); }
+function startHold(){
+  if (!LK.on || LK.used || LK.held) return;
+  LK.held = true; LK.used = true;
+  if (NET.online) NET.send({ t: 'hold' });
+  status('Rendit letrat');
+  LK.t = setTimeout(() => endHold(false), HOLD_MS);
+  refresh();
+}
+function endHold(send){
+  if (!LK.held) return;
+  if (send && NET.online) NET.send({ t: 'hold', done: true });
+  lockMine();
+}
+// local: a bot is about to take from you
+async function guardMine(my){
+  LK.used = false;
+  await sleep(LOCK_MS); if (my !== gen) return;
+  lockMine();
+  while (LK.held) { await sleep(100); if (my !== gen) return; }
+}
+// online, picking from a person: not before their hand has settled, and not while they rearrange
+function pickBlocked(){
+  const t = NET.online && lastT; if (!t) return false;
+  const now = Date.now() + ON.skew;
+  return !!(t.hold && t.hold.until > now) || (t.guardUntil && now < t.guardUntil);
+}
 
 /* ---------- your hand (hand.js): drag sideways to rearrange ---------- */
 let handOrder = [];
@@ -600,11 +651,13 @@ function stagePoint(e){
 HAND.attach({
   box: $('#cards'), sel: '.card.mine',
   el: id => els[id].el, point: stagePoint, geom: HAND_GEOM, order: () => handOrder,
-  relayout: relayoutHand, place: (id, x, y, rot, sc, z) => put(id, x, y, rot, sc, z, true),
-  canArrange: () => !!H && !dealt, canLift: () => false,
+  relayout: () => { relayoutHand(); orderSoon(); }, place: (id, x, y, rot, sc, z) => put(id, x, y, rot, sc, z, true),
+  canArrange: () => !!H && !dealt && (!LK.on || LK.held), canLift: () => false,
   sound: k => k === 'slide' ? snap(.08, 3200, .02) : snap(.12, 2600, .03),
 });
-$('#bSort').onclick = () => { audio(); handOrder = []; relayoutHand(); snap(.2, 2400, .05); };
+$('#bSort').onclick = () => { audio(); if (LK.on && !LK.held) return; handOrder = []; relayoutHand(); orderSoon(); snap(.2, 2400, .05); };
+let orderT = 0;
+function orderSoon(){ if (!NET.online || !H) return; clearTimeout(orderT); orderT = setTimeout(() => { if (H && H.hands[0].length) NET.send({ t: 'order', ids: myOrder() }); }, 120); }
 async function humanPick(src, my){
   pickSrc = src; layoutSeat(src);
   const tag = $('#pickTag'); tag.innerHTML = ''; tag.appendChild(document.createTextNode(NAMES[src])); tag.hidden = false;
@@ -617,23 +670,23 @@ async function humanPick(src, my){
   hov = H.hands[src][idx]; layoutSeat(src); await sleep(D(260));
   return idx;
 }
-function stopInput(){ HAND.cancel(); mode = 'idle'; humanResolve = null; $('#pickTag').hidden = true; }
+function stopInput(){ clearTimeout(clockT); HAND.cancel(); mode = 'idle'; humanResolve = null; $('#pickTag').hidden = true; }
 
 /* ---------- the other players ---------- */
 async function botPickFromMe(p, my){
   const hand = H.hands[0], tries = hand.length > 1 ? 1 + ((Math.random() * 2) | 0) : 0;
   for (let k = 0; k < tries; k++) {
     hov = hand[(Math.random() * hand.length) | 0]; layoutSeat(0); snap(.1, 3000, .03);
-    await sleep(fast ? D(420) : 300 + Math.random() * 450); if (my !== gen) return -1;
+    await sleep(300 + Math.random() * 450); if (my !== gen) return -1;
   }
   const idx = E.botPick(mt, p);
-  hov = hand[idx]; layoutSeat(0); await sleep(fast ? D(380) : 250 + Math.random() * 300);
+  hov = hand[idx]; layoutSeat(0); await sleep(250 + Math.random() * 300);
   return idx;
 }
 async function botPickFromBot(p, src, my){
   const idx = E.botPick(mt, p);
   hov = H.hands[src][idx]; layoutSeat(src); snap(.12, 2800, .03);
-  await sleep(fast ? D(360) : 350 + Math.random() * 450); if (my !== gen) return -1;
+  await sleep(350 + Math.random() * 450); if (my !== gen) return -1;
   return idx;
 }
 
@@ -658,7 +711,7 @@ async function animateDraw(ev, my){
   layoutSeat(p);
   for (const q of ev.outs) {
     bubble(q, q === 0 ? 'Dole' : 'Doli', true);
-    if (q === 0) { chime(); if (!NET.online) fast = true; meOut = true; refresh(); }
+    if (q === 0) { chime(); meOut = true; refresh(); }
     renderPlates(); await sleep(D(700));
   }
 }
@@ -698,12 +751,12 @@ async function firstPairs(res, my){
   }
   dealt = null; layoutAll();
   for (const q of res.outs) bubble(q, q === 0 ? 'Dole' : 'Doli', true);
-  if (res.outs.includes(0)) { if (!NET.online) fast = true; meOut = true; refresh(); }
+  if (res.outs.includes(0)) { meOut = true; refresh(); }
   await sleep(D(500));
 }
 async function runRound(){
   const my = ++gen;
-  fast = false; meOut = false; stopInput(); refresh(); setTimer(-1);
+  meOut = false; unlockMine(); stopInput(); refresh(); setTimer(-1);
   H = E.deal(mt); meta(); setTurn(-1, -1); status('');
   resetCards(); renderPlates();
   await dealAnim(my); if (my !== gen) return;
@@ -711,15 +764,18 @@ async function runRound(){
   while (!H.over) {
     const p = H.cur, src = E.source(H, p);
     setTurn(p, src);
+    clock(p, p === 0 ? () => { if (mode !== 'pick' || !humanResolve) return; const r = humanResolve; mode = 'idle'; humanResolve = null; refresh(); r((Math.random() * H.hands[src].length) | 0); } : null);
     let idx;
     if (p === 0) idx = await humanPick(src, my);
     else {
       status('');
-      await sleep(fast ? D(300 + Math.random() * 300) : PLAYERS.think(SEAT[p], { forced: true }) * .7); if (my !== gen) return;
+      if (src === 0) { await guardMine(my); if (my !== gen) return; }
+      await sleep(Math.max(150, PLAYERS.think(SEAT[p], { forced: true }) * .7 - (src === 0 ? LOCK_MS : 0))); if (my !== gen) return;
       idx = src === 0 ? await botPickFromMe(p, my) : await botPickFromBot(p, src, my);
     }
     if (my !== gen || idx < 0) return;
     const ev = E.draw(mt, p, idx);
+    unlockMine();
     await animateDraw(ev, my); if (my !== gen) return;
     await sleep(D(140));
   }
@@ -747,8 +803,9 @@ function showResult(online){
   $('#resTable').innerHTML = '<tr><th>Lojtari</th><th>Kjo dorë</th><th class="n">Derr</th></tr>' +
     H.order.map((p, i) => `<tr class="${p === 0 ? 'me' : ''}"><td></td><td>${p === L ? 'Derri' : 'Doli ' + (FEM[p] ? ['e para','e dyta','e treta'] : ['i pari','i dyti','i treti'])[i]}</td><td class="n">${mt.losses[p]}</td></tr>`).join('');
   [...$('#resTable').querySelectorAll('tr')].slice(1).forEach((tr, i) => tr.firstChild.textContent = NAMES[H.order[i]]);
-  if (online) { $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; }
-  else { $('#bNext').textContent = 'Dora tjetër'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; runRound(); }; }
+  if (online) { ENDP.reset(); $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; }
+  else {
+    ENDP.reset(); $('#bNext').textContent = 'Dora tjetër'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; runRound(); }; }
   $('#ovEnd').hidden = false;
 }
 function newMatch(){ gen++; mt = E.newMatch(); renderPlates(); meta(); runRound(); }
@@ -888,6 +945,13 @@ function askOrWait(t){
   if (!H || t.phase !== 'play' || t.step === 'end') { setTurn(-1, -1); setTimer(-1); return; }
   const a = lpos(t.actor), src = E.source(H, a);
   setTurn(a, src); setTimer(a, t.turnStart - ON.skew, t.turnMs);
+  if (a !== 0 && src === 0) {
+    // someone is taking from you: lock half a second after their turn began (server clock)
+    if (LK.key !== t.turnStart) { unlockMine(); LK.key = t.turnStart; const wait = t.turnStart - ON.skew + LOCK_MS - Date.now(); if (wait > 0) LK.t = setTimeout(lockMine, wait); else lockMine(); }
+    if (t.holdUsed) LK.used = true;
+    refresh();
+  } else if (LK.on || LK.key) unlockMine();
+  if (a === 0 && t.hold && t.hold.until > Date.now() + ON.skew) status(`${NAMES[src]} po i rendit letrat`);
   const key = t.seq + ':' + t.step;
   if (a === 0) {
     if (ON.asked === key && mode === 'pick') return;
@@ -930,14 +994,14 @@ function onTable(t, S2){
 
 /* ---------- menu, rooms, connection (net.js) ---------- */
 const NET = NETWORK({
-  game: 'derri', title: 'Derri në dorë',
+  game: 'derri', rematch: false, title: 'Derri në dorë',
   seatsFor: () => [0, 1, 2, 3],
   onLocal: (cfg, seats) => { lastT = null; startLocal(cfg, seats); },
   onTable,
   onLeave: () => { lastT = null; stopTable(); },
   onError: () => { ON.asked = ''; pump(); },
 });
-window.__derri = { get mode(){ return mode; }, get H(){ return H; }, pick(i){ choose(i); } };   // for tests
+window.__derri = { get mode(){ return mode; }, get H(){ return H; }, get lk(){ return LK; }, pick(i){ choose(i); } };   // for tests
 
 /* ---------- start ---------- */
 async function start(){
