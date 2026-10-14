@@ -42,7 +42,7 @@ const spec = {
     emit({ k: "draw", p: seat, from, idx, pair: ev.pair, outs: ev.outs, cur: H.cur, over: ev.over },
       { [seat]: { card: ev.card }, [from]: { card: ev.card } });
     if (ev.over) { emit({ k: "end", loser: ev.loser, losses: mt.losses.slice(), order: H.order.slice() }); return { wait: 0 }; }
-    return { wait: ev.pair ? 1500 : 900 };
+    return { wait: ev.pair ? 2400 : 1300 };   // the phones show the card arrive, and a pair meet and go to the table
   },
 
   // the picker takes from this seat's hand

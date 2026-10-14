@@ -22,7 +22,7 @@
   --line:rgba(255,255,255,.09);
   --felt-c:#1f4a63; --felt-e:#0d2232;  /* felt centre / edge, changed in settings */
   --f-ui:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
-  --t:.36s;                /* card move time, changed by speed setting */
+  --t:.5s;                /* card move time, changed by speed setting */
 }
 [hidden]{display:none!important}
 html,body{height:100%;margin:0;background:var(--room);color:var(--ink);overflow:hidden}
@@ -554,13 +554,18 @@ function throwPair(ids){
   const cx = PILE[0] + (Math.random() * 90 - 45), cy = PILE[1] + (Math.random() * 40 - 20), rot = Math.random() * 30 - 15;
   ids.forEach((id, k) => { const e = els[id].el; clean(e); put(id, cx + (k ? 20 : -20), cy, rot + (k ? 5 : -5), .62, 5 + pileN++, true); });
 }
-async function showPair(p, ids, my){
+async function showPair(p, ids, my, drawn){
   const [x, y] = NEAR[p];
+  // your matching card rises out of your hand first, then the two meet
+  if (p === 0 && drawn != null) {
+    const other = ids.find(id => id !== drawn), r = els[other] && els[other].el;
+    if (r) { const m = /translate3d\(([-\d.]+)px,\s*([-\d.]+)px/.exec(r.style.transform || ''); if (m) { put(other, +m[1] + CW / 2, +m[2] + CH / 2 - 46, 0, 1, 345, true); await sleep(D(280)); if (my !== gen) return; } }
+  }
   ids.forEach((id, k) => { const e = els[id].el; clean(e); e.classList.add('pair'); put(id, x + (k ? 44 : -44), y, k ? 4 : -4, p === 0 ? 1 : .8, 340 + k, true); });
   $('#cap').textContent = `${NAMES[p]} · ${E.label(ids[0])}`;
   snap(.3, 2600, .05);
-  await sleep(D(p === 0 ? 650 : 480)); if (my !== gen) return;
-  throwPair(ids); snap(.4); await sleep(D(220));
+  await sleep(D(p === 0 ? 900 : 700)); if (my !== gen) return;
+  throwPair(ids); snap(.4); await sleep(D(480));
   $('#cap').textContent = '';
 }
 
@@ -693,19 +698,21 @@ async function animateDraw(ev, my){
   const {p, from, card, pair} = ev;
   hov = -1; pickSrc = -1;
   els[card].el.classList.remove('pickable','hov');
+  // the card travels to its new owner and you see it arrive; a pair then comes together and goes to the table
   if (p === 0) {
     put(card, 640, 470, 0, 1.05, 350, true); snap(.35);
     layoutSeat(from);
-    await sleep(D(560)); if (my !== gen) return;
+    await sleep(D(720)); if (my !== gen) return;
     if (card === PIG) { bubble(0, 'Derri', true); await sleep(D(700)); }
   } else {
     const n = H.hands[p].length, s = seatSlot(p, n, n + 1);
     put(card, s.x, s.y, s.rot, .5, 60, false);
     layoutSeat(from); snap(.3);
     if (from === 0 && card === PIG) bubble(0, 'Derri iku', true);
-    await sleep(D(320)); if (my !== gen) return;
+    await sleep(D(520)); if (my !== gen) return;
   }
-  if (pair) { await showPair(p, pair, my); if (my !== gen) return; }
+  if (pair) { await showPair(p, pair, my, card); if (my !== gen) return; }
+  else if (p === 0) { layoutSeat(0); await sleep(D(260)); if (my !== gen) return; }
   layoutSeat(p);
   for (const q of ev.outs) {
     bubble(q, q === 0 ? 'Dole' : 'Doli', true);
@@ -818,7 +825,7 @@ function stopTable(){
 function applySettings(){
   const f = FELTS[ST.felt] || FELTS.blu;
   stage.style.setProperty('--felt-c', f[0]); stage.style.setProperty('--felt-e', f[1]);
-  stage.style.setProperty('--t', ST.speed === 'fast' ? '.24s' : '.36s');
+  stage.style.setProperty('--t', ST.speed === 'fast' ? '.32s' : '.5s');
   $('#bSound').classList.toggle('off', ST.sound !== 'on');
   document.querySelectorAll('.seg[data-k]').forEach(sg => sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', ST[sg.dataset.k] === b.dataset.v)));
 }
