@@ -16,12 +16,14 @@ const PLAYERS = (() => {
     'Arbër','Valon','Driton','Kristi','Ergi','Alban','Elton','Ervin','Edison','Arben','Gëzim','Sokol','Agron','Blerim',
     'Lorenc','Mario','Denis','Aldo','Xhoni','Renaldo','Kevin','Jurgen','Eljon','Olsi','Redi','Andi','Taulant','Leutrim',
     'Shkëlzen','Visar','Labinot','Florian','Klevis','Orges','Arsen','Briken','Indrit','Amarildo','Rei','Enea','Dion',
-    'Gerti','Fabio','Erald','Bujar','Petrit','Ylli','Luan','Astrit','Kujtim','Ermal','Saimir','Genc','Tedi','Noel','Aron'];
+    'Gerti','Fabio','Erald','Bujar','Petrit','Ylli','Luan','Astrit','Kujtim','Ermal','Saimir','Genc','Tedi','Noel','Aron',
+    'Adrian','Agim','Albert','Aleksandër','Andrea','Anxhelo','Ardian','Ardi','Armand','Armando','Arjan','Artan','Artur','Avni','Behar','Bekim','Besnik','Bledar','Blendi','Bruno','Dashnor','Dorian','Dorjan','Edmond','Eduart','Egzon','Elvis','Emiljano','Enis','Ergys','Eros','Erti','Fatos','Ferdinand','Flamur','Fisnik','Gazmend','Gerald','Gentjan','Gjergj','Granit','Hamit','Ilirjan','Isuf','Jetmir','Jonid','Julian','Klaudio','Kledi','Klajd','Kreshnik','Liridon','Marjo','Marsel','Mergim','Mikel','Nazmi','Nikolin','Nderim','Orjon','Orion','Paulin','Pëllumb','Qemal','Rinor','Romeo','Rron','Rudi','Samir','Sidrit','Skerdi','Shpëtim','Valdrin','Vasil','Xhuljan','Ylber','Zamir','Engjëll','Arsid','Mirel','Ledio','Oltion','Përparim','Bardhyl','Sabri'];
   const FEMALE = ['Klea','Elona','Ornela','Anisa','Xhesika','Kejsi','Jonida','Megi','Sara','Rea','Ledia','Era','Dea',
     'Bora','Lira','Blerta','Blerina','Vlora','Fjolla','Arta','Liridona','Teuta','Mimoza','Albana','Vjosa','Flutura',
     'Eriselda','Alketa','Entela','Brikena','Elsa','Amela','Kristina','Ina','Joana','Erisa','Greta','Klaudia','Livia',
     'Aurora','Erza','Rina','Dafina','Shqipe','Drita','Mirela','Anila','Jola','Etleva','Elira','Diana','Fiona','Ajla',
-    'Ambra','Ariana','Besjana','Edlira','Gresa','Marsela','Nora','Tea','Zana'];
+    'Ambra','Ariana','Besjana','Edlira','Gresa','Marsela','Nora','Tea','Zana',
+    'Adelina','Afërdita','Alba','Albina','Anjeza','Arbana','Ardita','Argjenta','Arjola','Besa','Denisa','Dorina','Eglantina','Elda','Eleni','Elisa','Elvana','Emanuela','Enkeleda','Esmeralda','Fatbardha','Fatjona','Flora','Gentiana','Gerta','Hana','Ilda','Ilirjana','Irena','Jetmira','Kaltrina','Klementina','Lindita','Loreta','Majlinda','Manjola','Mira','Nertila','Ola','Orinda','Pranvera','Rajmonda','Rozafa','Sabina','Sidorela','Silvana','Suela','Valbona','Vera','Xhensila','Yllka','Zamira','Kejda','Melisa','Elisabeta','Ergita','Erlinda','Lea','Lorena','Matilda','Nevila','Oriana','Valmira','Arbnora','Donjeta','Edona','Mirjeta','Rudina','Sonila','Arlinda','Teona','Ilva','Ersa','Klajdia','Juliana','Xhuliana','Eneida','Fabiola'];
   // short forms people use for themselves
   const NICK_M = ['Besi','Geni','Toni','Beni','Lori','Xhoni','Mario','Endi','Edi','Ari','Gimi','Kristi','Dani','Bledi','Tani','Fredi','Nini','Kujti','Sali','Rami'];
   const NICK_F = ['Mimi','Lela','Kej','Xheni','Ani','Leda','Bebi','Ela','Joni','Kiki','Lori','Megi','Tina','Vivi'];
@@ -39,7 +41,8 @@ const PLAYERS = (() => {
     ['Pas_Pas_Pas',0],['Bomba_Ime',0],['Kunati_Pro',0],['Ska_Leter',0],['Bosi_Tiranes',0],['Princesha_07',1],
     ['Mbretresha_K',1],['Zemra_Kosoves',1],['Shqiponja_9',0],['Ujku_Malit',0],['Ariu_Panda',0],['Kapiteni',0],
     ['Profesori_10',0],['Doktori_Kot',0],['S_ka_Problem',0],['Nuk_Fal_Kend',0],['Iku_Treni',0],['Tik_Tak_Bum',0],
-    ['Kafja_e_Dyte',0],['Pa_Gjume',0],['Spathi_King',0],['Derri_Ik',0],['Dyshi_Spathi',0],['Fat_i_Madh',0]];
+    ['Kafja_e_Dyte',0],['Pa_Gjume',0],['Spathi_King',0],['Derri_Ik',0],['Dyshi_Spathi',0],['Fat_i_Madh',0],
+    ['Kolor_Fantazma',0],['Bomba_e_Fundit',0],['Mos_Me_Prit',0],['Kafeja_Ftohte',0],['Shtepiaku',0],['Cuca_e_Maleve',1],['Gjyshi_Ali',0],['Nusja_e_Re',1],['Dhendri_07',0],['Plaku_Zgjuar',0],['Lojtari_Heshtur',0],['Fituesi_i_Rradhes',0],['Pa_Fat_Sot',0],['Babai_Lojes',0],['Mamaja_Fiton',1],['Sot_e_Kam',0],['Nesër_Fitoj',0],['Bum_Bum',0],['Kurrë_Pas',0],['Asi_i_Zemres',0],['Shkopi_Magjik',0],['Doruku',0],['Mbreti_i_Pasit',0],['Zonja_Spathi',1],['Xhoker_Ne_Xhep',0]];
   const COLORS = ['#2c6e8f','#7a4fa8','#2f8a62','#a8662c','#8f2c4f','#3d5aa8','#5f7a2c','#2c8f86','#8a4f2f','#6b4fa8','#a83d5a','#2f6e4f'];
 
   const plain = s => s.replace(/ë/g, 'e').replace(/Ë/g, 'E').replace(/ç/g, 'c').replace(/Ç/g, 'C');

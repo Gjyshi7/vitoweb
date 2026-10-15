@@ -129,8 +129,23 @@ for (const [pub, gone, out] of [[true, 150_000, true], [true, 30_000, false], [f
   mod.onJoin(s, "a", now);
   const on = new Set(["a"]), seated = () => s.g.seats.filter(Boolean).length, times = [];
   const t0 = now;
-  while (s.g.phase === "lobby" && now - t0 < 20_000) { const w = mod.wakeAt(s, on); if (!w) break; now = Math.max(now, w); const n = seated(); mod.onTick(s, now, on); if (seated() > n) times.push(now - t0); }
-  ok(times.length === 3 && times[1] > times[0] && times[2] >= 6000, `lobby: bots arrive one by one, the held seat waits ~6 s (${times.join(", ")} ms)`);
+  let dealtAt = 0;
+  while (s.g.phase === "lobby" && now - t0 < 20_000) { const w = mod.wakeAt(s, on); if (!w) break; now = Math.max(now, w); const n = seated(); mod.onTick(s, now, on); if (seated() > n && s.g.phase === "lobby") times.push(now - t0); if (s.g.phase !== "lobby") dealtAt = now - t0; }
+  ok(times.length === 3 && times[1] > times[0] && times[0] >= 900, `lobby: bots arrive one by one (${times.join(", ")} ms)`);
+  ok(dealtAt > 0 && dealtAt <= 7000, `lobby: dealt within 7 s (${dealtAt} ms)`);
+  // a second person arrives at 3 s: the deal is still at 7 s at the latest
+  {
+    let n2 = 5_000_000; Date.now = () => n2;
+    const s3 = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: { teams: true }, public: true }) };
+    mod.onJoin(s3, "a", n2); const on3 = new Set(["a"]); const t3 = n2; let joined = false;
+    while (s3.g.phase === "lobby" && n2 - t3 < 20_000) {
+      const w = mod.wakeAt(s3, on3); if (!w) break;
+      if (!joined && w - t3 > 3000) { n2 = t3 + 3000; s3.players.push({ pid: "b", name: "Beni" }); mod.onJoin(s3, "b", n2); on3.add("b"); joined = true; continue; }
+      n2 = Math.max(n2, w); mod.onTick(s3, n2, on3);
+    }
+    ok(s3.g.phase === "play" && n2 - t3 <= 7000 && s3.g.seats.some((x) => x && x.pid === "b"), `lobby: a person at 3 s sits down, deal still by 7 s (${n2 - t3} ms)`);
+    now = n2; Date.now = () => now;
+  }
   ok(s.g.phase === "play", "lobby: the match starts once the table is full");
   // someone new arrives mid-match: takes a bot's seat
   s.players.push({ pid: "b", name: "Beni" });

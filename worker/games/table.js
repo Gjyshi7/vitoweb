@@ -31,11 +31,11 @@ const OFFLINE_MS = 6_000;      // a phone that is gone this long plays its turn 
 const AWAY_PUB_MS = 60_000;    // gone this long at a quick-match table: the seat goes to someone else
 // At a friends' room nobody loses a seat: the table plays for you and waits for you to come back.
 const ABANDON_MS = 90_000;     // no real person at the table this long: the game is over and the room closes
+const WAIT_MS = 7_000;         // quick match: the longest anyone waits for the deal
 const END_MS = 9_000;          // result screen between hands
-// quick match: people sit down one by one. Seats the Guard expects a real person for (someone on
-// this game's menu, someone who usually plays it) stay open up to plan.hold ms; the rest fill
-// with players at a natural pace. A newcomer always gets in: in the lobby they take a seat from
-// a player who sat down meanwhile, during a match they take over one of those seats.
+// quick match: the deal comes at most 7 s after the table opens. Players sit down one by one inside
+// that time; a real person who arrives meanwhile takes a free seat (or one a player took), and a match
+// that has only just been dealt can still give them a player's seat.
 const gap = (a = 600, b = 1800) => a + Math.random() * (b - a);
 const LOG_KEEP = 400;
 const GUARD_MS = 900;          // a card is about to be taken from a person's hand: their hand settles first
@@ -101,6 +101,7 @@ export function makeTable(spec) {
   // ---- match flow ----
   function begin(s, now) {
     const g = s.g;
+    g.fillAt = 0;
     syncLobby(s);
     fillSeats(s);
     startMatch(s, now);
@@ -204,21 +205,33 @@ export function makeTable(spec) {
   }
 
   const fresh = (g) => (g.acts || 0) < 2;
-  // one step of a quick-match lobby: somebody sits down, or the table is full and the deal starts
-  // Quick match pacing (Devit's numbers): nobody sits down for the first ~6 s, real people only.
-  // Then players arrive one by one, ~3 s, ~4 s, ~5 s apart. A real person joining resets the clock:
-  // the next one waits another 3-4 s. Full table: deal in a moment.
-  const STEP = [3000, 4000, 5000];
-  const jitter = (ms) => ms + (Math.random() * 800 - 400);
+  // a friends' room where every seat has a person: start by itself in a moment (the host can still press Fillo)
+  const FULL_START_MS = 2_000;
+  function friendsReady(s, now) {
+    const g = s.g;
+    if (g.pub || g.phase !== "lobby") return;
+    const full = spec.seatList(g.cfg).every((i) => g.seats[i] && !g.seats[i].bot);
+    if (!full) g.fillAt = 0;
+    else if (!g.fillAt) g.fillAt = now + FULL_START_MS;
+  }
+  // Quick match (Devit's rule): the cards are dealt at most WAIT_MS after the table opened.
+  // Players sit down one by one inside that time; a real person who comes in meanwhile takes a free
+  // seat (or one a player took). A full table deals in a moment. Nothing ever pushes the deal later.
   function fillStep(s, now) {
     const g = s.g;
     syncLobby(s);
     const free = spec.seatList(g.cfg).filter((i) => !g.seats[i]);
-    if (!free.length) { g.fillAt = 0; return begin(s, now); }
+    if (!free.length || now >= g.dealBy - 50) { g.fillAt = 0; return begin(s, now); }
     g.seats[free[(Math.random() * free.length) | 0]] = newBot(s);
     g.seq += 1;
-    g.added = (g.added || 0) + 1;
-    g.fillAt = free.length === 1 ? now + gap(700, 1200) : now + jitter(STEP[Math.min(g.added - 1, STEP.length - 1)]);
+    nextFill(g, now);
+  }
+  // when the next one sits down: the time left shared out among the seats still free, a little uneven
+  function nextFill(g, now) {
+    const free = spec.seatList(g.cfg).filter((i) => !g.seats[i]).length;
+    if (!free) { g.fillAt = Math.min(g.dealBy, now + gap(500, 900)); return; }
+    const left = g.dealBy - 1300 - now;          // the last one is seated ~1 s before the deal
+    g.fillAt = Math.min(g.dealBy, now + Math.max(350, (left / free) * (0.65 + Math.random() * 0.6)));
   }
 
   function autoMove(s, now) {
@@ -242,7 +255,7 @@ export function makeTable(spec) {
     if (g.phase === "closed" || g.phase === "solo") return 0;
     if (nobody(s, online)) { if (!g.emptySince) g.emptySince = Date.now(); return g.emptySince + ABANDON_MS; }
     g.emptySince = 0;
-    if (g.phase === "lobby") return g.pub && online.size ? g.fillAt : 0;
+    if (g.phase === "lobby") return online.size && g.fillAt ? g.fillAt : 0;
     if ((g.phase !== "play" && g.phase !== "over") || !g.due) return 0;
     if (g.actor >= 0) {
       const x = g.seats[g.actor];
@@ -255,9 +268,12 @@ export function makeTable(spec) {
     maxPlayers: 4,
 
     init(opts = {}) {
+      const now = Date.now();
       return {
         phase: "lobby", cfg: spec.cleanCfg(opts.cfg || {}), pub: !!opts.public, startAt: 0,
-        fillAt: opts.public ? Date.now() + (opts.plan && opts.plan.reserve ? 8_000 : 6_000) : 0,   // a likely player gets a little longer
+        // quick match: the first player sits down after ~1-2 s, the deal is at the latest WAIT_MS from now
+        dealBy: opts.public ? now + WAIT_MS : 0,
+        fillAt: opts.public ? now + ((WAIT_MS - 1300) / Math.max(1, spec.seatList(spec.cleanCfg(opts.cfg || {})).length - 1)) * (0.45 + Math.random() * 0.35) : 0,
         seats: [null, null, null, null], mt: null, step: null, actor: -1, due: 0, stepAt: 0, seq: 0, log: [],
       };
     },
@@ -288,17 +304,19 @@ export function makeTable(spec) {
       const had = seatOf(g, pid) >= 0;
       syncLobby(s);
       g.seq += 1;
-      if (g.pub && !had && humansAt(g) > 1) {
-        // full of people: deal in a moment
-        if (spec.seatList(g.cfg).every((i) => g.seats[i])) g.fillAt = now + gap(500, 900);
-        else g.fillAt = Math.max(g.fillAt || 0, now + jitter(3500));    // a real person came: don't rush in with players right after
+      friendsReady(s, now);
+      if (g.pub && !had) {
+        if (!g.dealBy) g.dealBy = now + WAIT_MS;                    // a table made before this rule
+        // full: deal in a moment; otherwise the others keep arriving inside the same 7 s
+        if (spec.seatList(g.cfg).every((i) => g.seats[i])) g.fillAt = Math.min(g.dealBy, now + gap(500, 900));
+        else if (!g.fillAt || g.fillAt > g.dealBy) nextFill(g, now);
       }
       return true;
     },
 
     onRemove(s, pid) {
       const g = s.g;
-      if (g.phase === "lobby") { syncLobby(s); g.seq += 1; return; }
+      if (g.phase === "lobby") { syncLobby(s); g.seq += 1; friendsReady(s, Date.now()); return; }
       const i = seatOf(g, pid);
       if (i >= 0) g.seats[i] = g.pub ? { ...newBot(s), color: g.seats[i].color }                    // someone new sits down
         : { ...g.seats[i], name: nameOf(s, i), bot: true, stand: true, speed: 0.95 + Math.random() * 0.15 };   // friends: the seat keeps the name (shown as not here)
@@ -310,7 +328,7 @@ export function makeTable(spec) {
         case "cfg": {
           if (!me.isHost || g.phase !== "lobby" || g.pub) return null;
           g.cfg = spec.cleanCfg({ ...g.cfg, ...(msg.cfg || {}) });
-          syncLobby(s); g.seq += 1;
+          syncLobby(s); g.seq += 1; friendsReady(s, now);
           return { changed: true };
         }
         case "seat": {                            // sit somewhere else (pick your partner)
