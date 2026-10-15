@@ -154,6 +154,8 @@ button:focus-visible,.tog:focus-visible{outline:2px solid var(--gold);outline-of
 .ghostline{background:none;border:0;color:var(--sub);font:600 16px var(--f-ui);text-decoration:underline;text-underline-offset:4px;cursor:pointer;padding:8px;align-self:center}
 @media (prefers-reduced-motion:reduce){.secret .cover,.ring .fg{transition:none}}
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body>
 <div class="app">
@@ -241,6 +243,7 @@ button:focus-visible,.tog:focus-visible{outline:2px solid var(--gold);outline-of
       <p class="lab" style="margin:0">Kodi i dhomës</p>
       <div class="codebig" id="oCodeTxt">----</div>
       <div class="share"><button class="go ghost sm" id="oCopy">Kopjo linkun</button><button class="go ghost sm" id="oWa">WhatsApp</button></div>
+      <button class="go ghost sm" id="oInvite" hidden style="width:100%;margin-top:8px">Fto shokët</button>
     </div>
     <div>
       <p class="lab" id="oPlLab">Lojtarët</p>
@@ -336,6 +339,7 @@ button:focus-visible,.tog:focus-visible{outline:2px solid var(--gold);outline-of
 
 <script src="cards.js"></script>
 <script src="presence.js"></script>
+<script src="account.js"></script>
 <script type="module">
 import { WORDS as WORDLIST } from './imposter-words.js';
 (() => {
@@ -684,6 +688,8 @@ $('#oCopy').onclick = async () => {
   try { if (navigator.share) { await navigator.share({ title: 'Imposter', text: `Hyr në lojë: ${O.room}`, url: shareLink() }); return; } } catch(e) { return; }
   try { await navigator.clipboard.writeText(shareLink()); toast('Linku u kopjua'); } catch(e) { toast(shareLink()); }
 };
+$('#oInvite').onclick = () => { if (window.VWA && O.room) VWA.open({ invite: { code: O.room, game: 'imposter', label: 'Imposter' } }); };
+if (window.VWA) { const inv = () => { $('#oInvite').hidden = !VWA.me; }; VWA.onChange(inv); VWA.ready.then(inv); }
 $('#oWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(`Hyr në lojën Imposter: ${shareLink()}`), '_blank');
 $('#oPlayers').addEventListener('click', e => {
   const b = e.target.closest('button[data-act]'); if (!b || !O.S) return;

@@ -183,6 +183,15 @@ export async function friendAction(env, u, body) {
   }
   return { error: "bad_action" };
 }
+// delete the account: the user row and every friendship or request it is part of
+export async function deleteUser(env, u) {
+  const D = await db(env);
+  await D.batch([
+    D.prepare("DELETE FROM friends WHERE a = ? OR b = ?").bind(u.id, u.id),
+    D.prepare("DELETE FROM users WHERE id = ?").bind(u.id),
+  ]);
+  return { ok: true };
+}
 export async function areFriends(env, a, b) {
   const D = await db(env);
   return !!(await D.prepare("SELECT 1 FROM friends WHERE a = ? AND b = ? AND state = 'ok'").bind(a, b).first());

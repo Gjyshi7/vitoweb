@@ -10,7 +10,7 @@
 //   GET  /api/admin/stats?key=ADMIN_KEY -> rooms per day (only if the ADMIN_KEY secret is set)
 import { Room, GAMES } from "./room.js";
 import { Guard } from "./guard.js";
-import { verifyGoogle, signIn, currentUser, sessionUid, signSessionFor, sessionCookie, setUname, friendList, friendAction, areFriends, publicUser } from "./auth.js";
+import { verifyGoogle, signIn, currentUser, sessionUid, signSessionFor, sessionCookie, setUname, friendList, friendAction, areFriends, publicUser, deleteUser } from "./auth.js";
 import { json, roomCode, secretId, safeEqual } from "./util.js";
 
 export { Room, Guard };
@@ -190,6 +190,12 @@ async function route(req, env, url) {
     const u = await currentUser(env, req);
     if (path === "/api/me" && req.method === "GET") return withCookie(json({ user: publicUser(u), google: clientId }));
     if (!u) return withCookie(json({ error: "signed_out" }, 401));
+    if (path === "/api/me/delete" && req.method === "POST") {
+      await deleteUser(env, u);
+      const r = new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json", "cache-control": "no-store" } });
+      r.headers.append("Set-Cookie", sessionCookie("", url, true));
+      return r;
+    }
     if (path === "/api/me/uname" && req.method === "POST") { const r = await setUname(env, u, body.uname); return withCookie(json(r, r.error ? 400 : 200)); }
     const guard = env.GUARD.get(env.GUARD.idFromName("guard"));
     if (path === "/api/friends" && req.method === "GET") {

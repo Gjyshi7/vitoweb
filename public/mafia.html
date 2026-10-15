@@ -132,6 +132,8 @@ input:focus{border-color:var(--accent)}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
 .toast.on{opacity:1}
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body>
 
@@ -171,6 +173,7 @@ input:focus{border-color:var(--accent)}
       <button class="btn ghost" id="copyBtn">Kopjo linkun</button>
       <button class="btn ghost" id="waBtn">WhatsApp</button>
     </div>
+    <button class="btn ghost hidden" id="invBtn" style="margin-top:8px">Fto shokët</button>
   </div>
 
   <div class="sec">
@@ -538,5 +541,15 @@ function render(){
 })();
 </script>
 <script src="presence.js"></script>
+<script src="account.js"></script>
+<script>
+// "Fto shokët" in the lobby, for players signed in with Google
+(() => {
+  const b = document.getElementById("invBtn"); if (!window.VWA || !b) return;
+  const show = () => { b.classList.toggle("hidden", !VWA.me); };
+  VWA.onChange(show); VWA.ready.then(show);
+  b.onclick = () => { const code = (document.getElementById("codeTxt").textContent || "").trim(); if (/^[A-Z]{4}$/.test(code)) VWA.open({ invite: { code, game: "mafia", label: "Mafia" } }); };
+})();
+</script>
 </body>
 </html>

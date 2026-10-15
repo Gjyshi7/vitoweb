@@ -87,7 +87,8 @@
     if (!u) {
       box.innerHTML = `<div class="vwa-hd"><span class="vwa-av">?</span><h3>Llogaria</h3><button class="vwa-x" data-a="close" aria-label="Mbyll">×</button></div>
         <p class="vwa-p">Hyr me Google për të pasur emrin tënd, për të shtuar shokë dhe për t'i ftuar në tavolinë.</p>
-        <div class="vwa-g" id="vwaG"></div><p class="vwa-err" id="vwaErr"></p>`;
+        <div class="vwa-g" id="vwaG"></div><p class="vwa-err" id="vwaErr"></p>
+        <p class="vwa-p" style="margin:8px 0 0;font-size:13px">Duke hyrë pranon <a href="/kushtet" target="_top" style="color:#9aa6b8">kushtet</a> dhe <a href="/privatesia" target="_top" style="color:#9aa6b8">privatësinë</a>.</p>`;
       googleButton(box.querySelector('#vwaG'));
       return;
     }
@@ -108,7 +109,8 @@
       <p class="vwa-lab">Emri yt në lojë</p>
       <div class="vwa-row"><input class="vwa-in" id="vwaName" maxlength="16" value="${esc(u.uname)}" autocomplete="off" autocapitalize="off"><button class="vwa-b" data-a="name">Ruaj</button></div>
       <p class="vwa-err" id="vwaErr"></p>
-      <button class="vwa-out" data-a="out">Dil nga llogaria</button>`;
+      <button class="vwa-out" data-a="out">Dil nga llogaria</button>
+      <p class="vwa-p" style="margin:14px 0 0;font-size:13px"><a href="/privatesia" target="_top" style="color:#9aa6b8">Privatësia</a> · <button class="vwa-out" data-a="del" style="margin:0;font-size:13px">Fshi llogarinë</button></p>`;
   }
   const err = t => { const e = box.querySelector('#vwaErr'); if (e) e.textContent = t || ''; };
   async function loadFriends(){
@@ -123,6 +125,11 @@
     busy = true; b.disabled = true;
     try {
       if (a === 'out') { await api('/api/auth/logout', {}); friends = null; setMe(null); render(); }
+      else if (a === 'del') {
+        if (!confirm('Ta fshish llogarinë? Emri, shokët dhe kërkesat fshihen përgjithmonë.')) return;
+        const j = await api('/api/me/delete', {});
+        if (j.error) err('Nuk u fshi. Provo përsëri.'); else { friends = null; setMe(null); render(); }
+      }
       else if (a === 'name') {
         const j = await api('/api/me/uname', { uname: box.querySelector('#vwaName').value });
         if (j.error) err(ERR[j.error] || 'Nuk u ruajt.'); else { setMe(Object.assign({}, A.me, { uname: j.uname })); render(); err(''); }

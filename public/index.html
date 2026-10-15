@@ -70,6 +70,8 @@ main{min-width:0;padding:22px 28px 60px}
 .back2{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:-8px 0 18px;padding:14px 18px;border:0;border-radius:16px;cursor:pointer;
   background:rgba(239,90,134,.12);box-shadow:inset 0 0 0 1.5px var(--pink);color:var(--ink);font:700 17px var(--f-ui);text-align:left}
 .back2[hidden]{display:none}
+.sitefoot{display:flex;gap:18px;justify-content:center;margin-top:36px;font-size:14px}
+.sitefoot a{color:var(--sub);text-decoration:none}
 .back2 b{color:#fff;background:var(--pink);border-radius:10px;padding:8px 14px;font-size:15px;letter-spacing:.06em;flex:none}
 .pill svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
@@ -209,6 +211,8 @@ main{min-width:0;padding:22px 28px 60px}
 }
 @media (prefers-reduced-motion:reduce){.tile{transition:none}.bar i{animation:none}}
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body>
 
@@ -221,7 +225,7 @@ main{min-width:0;padding:22px 28px 60px}
       <button data-view="games" data-filter="shoke"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 14.5c3 0 6 2 6 5.5"/></svg>Me shokët</button>
       <button data-view="games" data-filter="bote"><svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>Luaj tani</button>
     </nav>
-    <div class="foot">Lojëra shqiptare për kafene, shtëpi dhe telefon. Pa shkarkim.</div>
+    <div class="foot">Lojëra shqiptare për kafene, shtëpi dhe telefon. Pa shkarkim.<br><a href="/privatesia" style="color:inherit">Privatësia</a> · <a href="/kushtet" style="color:inherit">Kushtet</a></div>
   </aside>
 
   <main>
@@ -271,6 +275,7 @@ main{min-width:0;padding:22px 28px 60px}
       <div class="adslot" data-ad="hub-bottom"></div>
     </section>
 
+    <footer class="sitefoot"><a href="/privatesia">Privatësia</a><a href="/kushtet">Kushtet</a><a href="mailto:info@vitoweb.al">Kontakt</a></footer>
   </main>
 </div>
 
