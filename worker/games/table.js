@@ -30,6 +30,7 @@ const TURN_MS = 15_000;        // a game can set its own (spec.turnMs)
 const OFFLINE_MS = 6_000;      // a phone that is gone this long plays its turn on autopilot
 const AWAY_PUB_MS = 60_000;    // gone this long at a quick-match table: the seat goes to someone else
 // At a friends' room nobody loses a seat: the table plays for you and waits for you to come back.
+const ABANDON_MS = 90_000;     // no real person at the table this long: the game is over and the room closes
 const END_MS = 9_000;          // result screen between hands
 // quick match: people sit down one by one. Seats the Guard expects a real person for (someone on
 // this game's menu, someone who usually plays it) stay open up to plan.hold ms; the rest fill
@@ -233,12 +234,16 @@ export function makeTable(spec) {
     if (r.error) { console.error("auto move refused", g.step, r.error); g.due = now + 5000; }
   }
 
+  // nobody real is at the table (everyone closed the page): the table doesn't wait for them forever
+  // (a friends' lobby is left alone: the host may be off sending the code to the others)
+  const nobody = (s, online) => (s.g.phase === "play" || s.g.phase === "over") && !s.g.seats.some((x) => x && !x.bot && online.has(x.pid));
   function wakeAt(s, online) {
     const g = s.g;
+    if (g.phase === "closed" || g.phase === "solo") return 0;
+    if (nobody(s, online)) { if (!g.emptySince) g.emptySince = Date.now(); return g.emptySince + ABANDON_MS; }
+    g.emptySince = 0;
     if (g.phase === "lobby") return g.pub && online.size ? g.fillAt : 0;
     if ((g.phase !== "play" && g.phase !== "over") || !g.due) return 0;
-    const someone = g.seats.some((x) => x && !x.bot && online.has(x.pid));
-    if (!someone) return 0;                      // nobody watching: the table waits for them
     if (g.actor >= 0) {
       const x = g.seats[g.actor];
       if (x && !x.bot && !online.has(x.pid)) return Math.min(g.due, Math.max(g.stepAt, Date.now() - 1) + OFFLINE_MS);
@@ -296,7 +301,7 @@ export function makeTable(spec) {
       if (g.phase === "lobby") { syncLobby(s); g.seq += 1; return; }
       const i = seatOf(g, pid);
       if (i >= 0) g.seats[i] = g.pub ? { ...newBot(s), color: g.seats[i].color }                    // someone new sits down
-        : { ...g.seats[i], name: nameOf(s, i), bot: true, speed: 0.95 + Math.random() * 0.15 };   // friends: the seat keeps the name
+        : { ...g.seats[i], name: nameOf(s, i), bot: true, stand: true, speed: 0.95 + Math.random() * 0.15 };   // friends: the seat keeps the name (shown as not here)
     },
 
     onMessage(s, me, msg) {
@@ -372,9 +377,13 @@ export function makeTable(spec) {
       let changed = false;
       const g = s.g;
       if (g.away) for (const pid of Object.keys(g.away)) if (online.has(pid)) delete g.away[pid];
+      if (nobody(s, online) && g.emptySince && now - g.emptySince >= ABANDON_MS) {
+        g.phase = "closed"; g.due = 0; g.vote = null; g.seq += 1;
+        return true;
+      }
       for (let i = 0; i < 8; i++) {
         const w = wakeAt(s, online);
-        if (!w || w > now) break;
+        if (!w || w > now || nobody(s, online)) break;
         awayCheck(s, now, online);
         autoMove(s, now);
         changed = true;
@@ -389,10 +398,18 @@ export function makeTable(spec) {
       return g.seats.map((x, i) => x && { pid: x.pid, name: nameOf(s, i), online: x.bot ? true : online.has(x.pid) }).filter(Boolean);
     },
 
-    view(s, pid) {
+    view(s, pid, now, online) {
       const g = s.g;
       const me = seatOf(g, pid);
-      const seats = g.seats.map((x, i) => x && { name: nameOf(s, i), fem: !!x.fem, color: i === me ? ME_COLOR : x.color || null });
+      now = now || Date.now();
+      // who isn't at the table any more: since when (server clock). The phones show it after a few seconds,
+      // so a short network drop doesn't flash. Bots never show as away; a friend who left does.
+      if (online) {
+        g.gone = g.gone || {};
+        for (const x of g.seats) if (x && !x.bot) { if (online.has(x.pid)) delete g.gone[x.pid]; else if (!g.gone[x.pid]) g.gone[x.pid] = now; }
+      }
+      const offOf = (x, i) => i === me || !x ? 0 : x.stand ? 1 : !x.bot && g.gone && g.gone[x.pid] || 0;
+      const seats = g.seats.map((x, i) => x && { name: nameOf(s, i), fem: !!x.fem, color: i === me ? ME_COLOR : x.color || null, off: offOf(x, i) });
       const t = {
         phase: g.phase, cfg: g.cfg, pub: g.pub, startAt: g.startAt, seq: g.seq, me, seats, seatList: spec.seatList(g.cfg),
       };

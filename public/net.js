@@ -89,6 +89,11 @@ function NETWORK(G){
 #menu input:focus{outline:2px solid var(--gd);outline-offset:1px}
 #menu #mCode{text-transform:uppercase;letter-spacing:.32em;text-align:center}
 #menu .err{min-height:20px;margin:0 2px;color:#ffb3a6;font-size:15px}
+#menu .me .gi{display:none;width:20px;height:20px;padding:3px;border-radius:7px;background:#fff;flex:none;box-sizing:content-box}
+#menu .me.gout{background:linear-gradient(#f37399,var(--pk) 45%,var(--pk2))!important;color:#fff!important;box-shadow:0 6px 18px rgba(176,42,99,.35)!important}
+#menu .me.gout .gi{display:block}
+#menu .me.gout span,#menu .me.gout.anon span{color:#fff!important;font-weight:700}
+#menu .me.gout .av{display:none}
 #menu .link{align-self:center;background:none;border:0;color:var(--sub);font:600 15px inherit;font-family:inherit;text-decoration:underline;text-underline-offset:4px;cursor:pointer;padding:6px}
 #menu .grow{flex:1}
 
@@ -177,7 +182,7 @@ function NETWORK(G){
   menu.innerHTML = `<div class="wrap">
     <div class="bar"><button class="back" id="mBack" type="button" aria-label="Kthehu te lojërat"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
       <div class="brand"><img id="mLogo" alt="">LOJA</div>
-      <button class="me anon" id="mMe" type="button"><span class="av" id="mMeAv">?</span><span id="mMeName">Emri yt</span></button></div>
+      <button class="me anon" id="mMe" type="button"><svg class="gi" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.4-4.6 7.1l7.4 5.8c4.3-4 6.9-9.9 6.9-17.4z"/><path fill="#FBBC05" d="M10.6 28.5c-.5-1.4-.8-2.9-.8-4.5s.3-3.1.8-4.5l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.8c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.8l-7.9 6.2C6.6 42.6 14.6 48 24 48z"/></svg><span class="av" id="mMeAv">?</span><span id="mMeName">Emri yt</span></button></div>
     <section id="mHome" class="home">
       <div class="hero"><canvas id="mArt" width="900" height="600" aria-hidden="true"></canvas>
         <div class="htxt"><h1>${esc(G.title)}</h1>${G.sub ? `<p class="sub">${esc(G.sub)}</p>` : ''}<div class="live" id="mLive" hidden><i></i><span></span></div></div></div>
@@ -257,6 +262,8 @@ function NETWORK(G){
     const u = window.VWA && VWA.me, n = (u && u.uname) || savedName();
     $('#mMe').classList.toggle('anon', !n);
     $('#mMeName').textContent = n || (window.VWA && VWA.enabled ? 'Hyr' : 'Emri yt');
+    $('#mMe').classList.toggle('gout', !!(window.VWA && VWA.enabled && !u));
+    if (window.VWA && VWA.enabled && !u) $('#mMeName').textContent = 'Hyr me Google';
     $('#mMeAv').innerHTML = u && u.pic ? `<img src="${esc(u.pic)}" alt="" referrerpolicy="no-referrer">` : esc((n || '?')[0].toUpperCase());
   }
   if (window.VWA) {
@@ -368,6 +375,14 @@ function NETWORK(G){
   }, 5000);
   addEventListener('online', () => { if (N.room) { N.retry = 0; connect(); } });
 
+  // the table you're at: kept fresh while you're there, so the main page and this page only offer to take
+  // you back within KEEP_MS of when you were last at it (the server ends a game nobody is at after 90 s)
+  const KEEP_MS = 90_000;
+  const touchTable = () => { const t = store.get('table', null); if (t && N.room && t.code === N.room) store.set('table', { ...t, at: Date.now() }); };
+  setInterval(touchTable, 10_000);
+  addEventListener('pagehide', touchTable);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') touchTable(); });
+
   function enter(code, quickMatch){
     N.room = code; N.S = null; N.quick = !!quickMatch; N.table = false; N.seen = null;
     store.set('table', { game: G.game, code, quick: !!quickMatch, at: Date.now() });
@@ -386,7 +401,7 @@ function NETWORK(G){
     N.ws = null; N.S = null; N.room = null; N.table = false; N.quick = false; badge.hidden = true; N.seen = null;
     store.set('table', null);
     history.replaceState(null, '', location.pathname);
-    clearTimeout(voteT); if (window.ENDP) ENDP.reset();
+    clearTimeout(voteT); clearTimeout(awayT); document.querySelectorAll('.plate.vw-away').forEach(el => el.classList.remove('vw-away')); if (window.ENDP) ENDP.reset();
     if (wasTable || G.onLeave) G.onLeave();
     show('home'); err(msg || '');
   }
@@ -522,6 +537,35 @@ function NETWORK(G){
     seatNews(t);
     G.onTable(t, S);
     voteUI();
+    awayMarks();
+  }
+
+  /* ---------- someone isn't at the table any more: the others see it on their plate ---------- */
+  const AWAY_SHOW_MS = 5_000;         // a short network drop doesn't flash it
+  let awayT = 0;
+  (() => {
+    const st = document.createElement('style');
+    st.textContent = `.plate.vw-away{opacity:.62;filter:saturate(.4)}
+.plate.vw-away::after{content:'NUK ËSHTË KËTU';position:absolute;left:50%;top:100%;transform:translate(-50%,6px);padding:3px 10px;border-radius:8px;
+background:rgba(10,16,30,.94);color:#ffb3a6;font:700 13px/1.3 inherit;font-family:inherit;letter-spacing:.08em;white-space:nowrap;
+box-shadow:inset 0 0 0 1px rgba(255,179,166,.4);pointer-events:none;z-index:2}`;
+    document.head.appendChild(st);
+  })();
+  function awayMarks(){
+    clearTimeout(awayT);
+    const t = N.S && N.S.tbl;
+    document.querySelectorAll('.plate.vw-away').forEach(el => el.classList.remove('vw-away'));
+    if (!t || !N.table || t.me < 0 || (t.phase !== 'play' && t.phase !== 'over')) return;
+    const n = t.seatList.some(i => i > 1) ? 4 : 2, srv = Date.now() + skew();
+    let next = 0;
+    t.seatList.forEach(i => {
+      const x = t.seats[i]; if (!x || i === t.me || !x.off) return;
+      const el = document.getElementById('pl' + ((i - t.me + n) % n)); if (!el) return;
+      const wait = x.off + AWAY_SHOW_MS - srv;
+      if (wait <= 0) el.classList.add('vw-away');
+      else next = next ? Math.min(next, wait) : wait;
+    });
+    if (next) awayT = setTimeout(awayMarks, next + 50);
   }
 
   /* ---------- someone left the table, someone new sat down ---------- */
@@ -599,11 +643,10 @@ function NETWORK(G){
   const code = (new URLSearchParams(location.search).get('r') || '').toUpperCase();
   const back = store.get('table', null);
   if (/^[A-Z]{4}$/.test(code)) { $('#mCode').value = code; if (savedName()) enter(code, !!(back && back.code === code && back.quick)); }
-  else if (back && back.game === G.game && /^[A-Z]{4}$/.test(back.code) && Date.now() - back.at < 6 * 3600_000 && savedName()) {
-    // you closed the page at a table: go back to it (a friends' room keeps your seat; at a quick-match
-    // table you may have lost it, and the table says so)
-    fetch('/api/room/' + back.code).then(r => r.json()).then(j => { if (j.ok && j.game === G.game && !N.room) enter(back.code, !!back.quick); else store.set('table', null); }).catch(() => {});
-  }
+  else if (back && back.game === G.game && /^[A-Z]{4}$/.test(back.code) && Date.now() - back.at < KEEP_MS && savedName()) {
+    // you closed the page at a table a moment ago: go back to it. Gone longer than that, the game is gone.
+    fetch('/api/room/' + back.code).then(r => r.json()).then(j => { if (j.ok && j.game === G.game && j.phase !== 'closed' && !N.room) enter(back.code, !!back.quick); else store.set('table', null); }).catch(() => {});
+  } else if (back) store.set('table', null);
 
   return {
     send, isHost, leave, local, show,

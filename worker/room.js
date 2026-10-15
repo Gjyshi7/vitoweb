@@ -86,18 +86,23 @@ export class Room extends DurableObject {
       let changed = false, failed = false;
       try { changed = game.onTick(this.s, Date.now(), this.online()); } catch (e) { failed = true; console.error("tick", e && e.stack || e); }
       if (changed) { await this.ctx.storage.put("s", this.s); this.broadcast(); } // not save(): the table moving alone is not activity
+      if (game.canJoin && this.s.g && this.s.g.phase === "closed") return this.close();   // a card table nobody came back to
       if (failed) await this.ctx.storage.setAlarm(Date.now() + 10_000);           // a bug must not spin the alarm
       else await this.schedule();
       return;
     }
     if (Date.now() - this.s.touched >= this.ttl()) {
-      for (const w of this.ctx.getWebSockets()) { try { w.send('{"t":"closed"}'); w.close(4004, "room closed"); } catch {} }
-      this.s = null;
-      await this.ctx.storage.deleteAlarm();
-      await this.ctx.storage.deleteAll();
+      await this.close();
     } else {
       await this.ctx.storage.setAlarm(this.s.touched + this.ttl());
     }
+  }
+
+  async close() {
+    for (const w of this.ctx.getWebSockets()) { try { w.send('{"t":"closed"}'); w.close(4004, "room closed"); } catch {} }
+    this.s = null;
+    await this.ctx.storage.deleteAlarm();
+    await this.ctx.storage.deleteAll();
   }
 
   // ---- websocket join (the Worker forwards /ws/CODE here) ----
@@ -269,7 +274,7 @@ export class Room extends DurableObject {
     for (const w of this.ctx.getWebSockets()) {
       if (w.readyState !== 1) continue;
       const pid = this.ctx.getTags(w)[0];
-      try { w.send(JSON.stringify({ ...base, me: pid, ...game.view(s, pid, now) })); } catch {}
+      try { w.send(JSON.stringify({ ...base, me: pid, ...game.view(s, pid, now, online) })); } catch {}
     }
   }
 }
