@@ -109,16 +109,25 @@ async function quick() {
   const solo = phone(q3.code, "Vetëm");
   await solo.open;
   ok(await solo.until((S) => S.tbl && S.tbl.seats.filter(Boolean).length === 2, "one more", 9000), "players sit down one at a time");
-  ok(await solo.until((S) => S.tbl && S.tbl.phase === "play", "play", 25000), "the table fills and the match starts on the server");
-  const q4 = await (await fetch(BASE + "/api/quick", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: "domino", cfg: { teams: false } }) })).json();
-  ok(q4.code === q3.code, "someone new is sent to the match in progress");
+  // one person alone: after the lobby the table moves onto the phone (same players), the server steps out
+  ok(await solo.until((S) => S.tbl && S.tbl.phase === "solo", "solo", 25000), "alone at the table: it moves onto the phone after the lobby");
+  ok(solo.S.tbl.seats.filter(Boolean).length === 2, "the phone gets every seat's player to play with");
+  solo.close();
+  // two people: the match stays on the server, and someone who comes right after the deal still gets in
+  const four = await (await fetch(BASE + "/api/quick", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: "domino", cfg: { teams: true, target: 90 } }) })).json();
+  const p1 = phone(four.code, "Një"), p2 = phone(four.code, "Dy");
+  await p1.open; await p2.open;
+  ok(await p1.until((S) => S.tbl && S.tbl.phase === "play", "play", 25000), "two people: the table fills and the match starts on the server");
+  const q4 = await (await fetch(BASE + "/api/quick", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: "domino", cfg: { teams: true, target: 90 } }) })).json();
+  ok(q4.code === four.code, "someone new is sent to the match in progress");
   const late = phone(q4.code, "Vonë");
   await late.open;
   ok(await late.until((S) => S.tbl && S.tbl.me >= 0 && S.tbl.snap && S.tbl.snap.hand && S.tbl.snap.hand.length > 0, "seat"), "they take over a seat, cards and all");
-  ok(await solo.until((S) => S.tbl.seats.some((x) => x && x.name === "Vonë"), "name"), "the other phone sees them at the table");
+  ok(await p1.until((S) => S.tbl.seats.some((x) => x && x.name === "Vonë"), "name"), "the other phones see them at the table");
+  p1.close(); p2.close();
   const pr = await (await fetch(BASE + "/api/presence", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ where: "murlan", state: "menu", hist: { murlan: 3 } }) })).json();
   ok(typeof pr.all === "number" && pr.all >= 1, `presence answers with a count (${pr.all})`);
-  solo.close(); late.close();
+  late.close();
 }
 
 async function mafia() {

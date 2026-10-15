@@ -10,6 +10,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { publicId, cleanName } from "./util.js";
 import { logIncident } from "./incidents.js";
+import { meter } from "./meter.js";
 import mafia from "./games/mafia.js";
 import imposter from "./games/imposter.js";
 import murlan from "./games/murlan.js";
@@ -22,6 +23,7 @@ const MAX_PLAYERS = 30;
 const MSG_WINDOW_MS = 10_000;   // per-socket message budget
 const MSG_MAX = 40;
 const HOST_GRACE_MS = 60_000;   // someone else may take over as host after the host has been gone this long
+const BACKUP_MS = 15_000;       // the server's own backup alarm while the phones drive the clock
 
 export class Room extends DurableObject {
   constructor(ctx, env) {
@@ -40,10 +42,29 @@ export class Room extends DurableObject {
     return (m > 0 ? m : 360) * 60_000;
   }
 
+  // every billable thing this table does: printed by the meter in tests, and counted for the dashboard
+  use(kind, what, n = 1) {
+    meter(this.env, kind, what, n);
+    if (!this.s) return;
+    const u = this.s.u || (this.s.u = { req: 0, msg: 0, rows: 0, conn: 0 });
+    if (kind === "do") { u.req += n; if (what === "ws connect") u.conn += n; } else if (kind === "wsmsg") u.msg += n; else if (kind === "rows") u.rows += n;
+  }
+  async put() { this.use("rows", "room state", 1); this.s.unsaved = 0; await this.ctx.storage.put("s", this.s); }
+  // Save after a change, unless the table is in a quick run of moves that the server makes itself (a bot due
+  // within a few seconds): then every 4th change. The room can't sleep in between (the next move comes before
+  // the 10 s it takes), so only a crash could lose those few moves; the phones notice the rewind and redraw.
+  async persist() {
+    const g = this.s.g, game = GAMES[this.s.game];
+    const quick = game.canJoin && g && g.phase === "play" && g.actor >= 0 && g.seats[g.actor] && g.seats[g.actor].bot && g.due && g.due - Date.now() < 4000;
+    if (quick && (this.s.unsaved || 0) < 3) { this.s.unsaved = (this.s.unsaved || 0) + 1; return; }
+    await this.put();
+  }
+  async alarmAt(t) { this.use("rows", "setAlarm", 1); await this.ctx.storage.setAlarm(t); }
+
   async save() {
     this.s.touched = Date.now();
     await this.flush();
-    await this.ctx.storage.put("s", this.s);
+    await this.put();
   }
 
   // ---- faults: the game modules write them on s.faults; they go to the incident log, never into storage ----
@@ -77,12 +98,14 @@ export class Room extends DurableObject {
       hostToken: crypto.randomUUID(), hostPid: null, hostOffAt: 0,
       players: [], round: 0, g: GAMES[game].init(opts),
     };
+    this.use("do", "rpc room.init");
     await this.save();
-    await this.ctx.storage.setAlarm(Date.now() + this.ttl());
+    await this.alarmAt(Date.now() + this.ttl());
     return { hostToken: this.s.hostToken };
   }
 
   async info() {
+    this.use("do", "rpc room.info");
     if (!this.s) return { ok: false };
     const g = this.s.g || {};
     const on = this.online();
@@ -95,23 +118,45 @@ export class Room extends DurableObject {
   // Long on purpose: in Mafia every phone can stay locked for the whole game night.
   // One alarm does two jobs: the next move a table has to make by itself (a seat on autopilot,
   // a turn that ran out of time), and deleting the room after ROOM_TTL_MINUTES of no activity.
+  // The table's clock. While a phone that can drive it is at a card table, the phones are the clock: each one
+  // sends "go" when the next move is due (an incoming message bills 1/20 of a request and writes nothing), and the
+  // server keeps only a slow backup alarm in case no phone does. Otherwise (lobby, empty table, old pages) the
+  // server's own alarm wakes it at the exact time. Every alarm is a billed request plus a storage write.
+  phonesClock() {
+    const s = this.s, g = s && s.g, game = s && GAMES[s.game];
+    if (!g || !game.canJoin || (g.phase !== "play" && g.phase !== "over")) return false;
+    const on = this.online();
+    return s.players.some((p) => p.clock && on.has(p.pid) && g.seats.some((x) => x && !x.bot && x.pid === p.pid));
+  }
   async schedule() {
     if (!this.s) return;
     const game = GAMES[this.s.game];
     let wake = 0;
     try { wake = game.wakeAt ? game.wakeAt(this.s, this.online()) : 0; } catch (e) { this.fault("wakeAt threw", e); wake = Date.now() + 2000; }
+    if (this.s.dirty) { delete this.s.dirty; await this.put(); }          // something the clock depends on changed (e.g. the table emptied)
     const ttl = this.s.touched + this.ttl();
+    let target = wake ? Math.max(Date.now() + 50, Math.min(wake, ttl)) : ttl;
+    if (wake && this.phonesClock()) {
+      // a backup alarm is already waiting: leave it (it runs whatever is due when it fires, then sets the next)
+      if (this.alarmSetTo && this.alarmSetTo > Date.now()) { await this.flush(); return; }
+      target = Math.min(ttl, Math.max(wake, Date.now()) + BACKUP_MS);
+    }
+    // exactly this future time is already set (and hasn't fired): setting it again would only cost a storage write
+    if (this.alarmSetTo === target && target > Date.now() + 20) { await this.flush(); return; }
     // tests only: CHAOS_DROP_ALARMS (set with `wrangler dev --var`, never on the live site) loses some of the
     // table's clock ticks on purpose, like Cloudflare giving up on an alarm, to prove the phones' nudges save the table
     const chaos = Number(this.env.CHAOS_DROP_ALARMS || 0);
-    if (chaos && wake && Math.random() < chaos) { await this.ctx.storage.setAlarm(ttl); return; }
-    await this.ctx.storage.setAlarm(wake ? Math.max(Date.now() + 50, Math.min(wake, ttl)) : ttl);
+    if (chaos && wake && Math.random() < chaos) { this.alarmSetTo = ttl; await this.alarmAt(ttl); return; }
+    this.alarmSetTo = target;
+    await this.alarmAt(target);
     await this.flush();
   }
 
   // alarmInfo.isRetry: Cloudflare stopped the last attempt (an error, or too much CPU) and is trying again.
   // Then the bots move without thinking, so the same step can't fail the same way twice.
   async alarm(alarmInfo) {
+    this.use("do", "alarm");
+    this.alarmSetTo = 0;                       // it fired: nothing is set any more
     if (!this.s) { await this.ctx.storage.deleteAll(); return; }
     const game = GAMES[this.s.game];
     if (game.onTick && Date.now() - this.s.touched < this.ttl()) {
@@ -119,20 +164,28 @@ export class Room extends DurableObject {
       if (retry) this.fault("alarm retried", `retry ${alarmInfo.retryCount}`, { phase: this.s.g && this.s.g.phase });
       const changed = this.tick(retry);
       await this.flush();
-      if (changed) { await this.ctx.storage.put("s", this.s); this.broadcast(); } // not save(): the table moving alone is not activity
-      if (game.canJoin && this.s.g && this.s.g.phase === "closed") return this.close();   // a card table that ended (or had to close)
+      if (changed) { if (!this.ending()) await this.persist(); this.broadcast(); } // not save(): the table moving alone is not activity
+      if (this.ending()) return this.close(this.s.g.phase === "solo");   // a card table that ended, or moved onto the phone
       await this.schedule();
       return;
     }
     if (Date.now() - this.s.touched >= this.ttl()) {
       await this.close();
     } else {
-      await this.ctx.storage.setAlarm(this.s.touched + this.ttl());
+      await this.alarmAt(this.s.touched + this.ttl());
     }
   }
 
-  async close() {
-    for (const w of this.ctx.getWebSockets()) { try { w.send('{"t":"closed"}'); w.close(4004, "room closed"); } catch {} }
+  // a card table that is over: it closed, or its only person now plays it on the phone ("solo")
+  ending() { const g = this.s && this.s.g; return !!(g && GAMES[this.s.game].canJoin && (g.phase === "closed" || g.phase === "solo")); }
+  async close(quiet) {
+    this.use("rows", "deleteAll", 2);
+    if (this.s) {
+      this.use("do", "rpc guard.usage");
+      try { await this.env.GUARD.get(this.env.GUARD.idFromName("guard")).usage(this.s.game, this.s.u || {}, this.s.g && this.s.g.phase); } catch {}
+    }
+    // quiet: the phone already has the table (it plays it itself), so no "the room closed" message
+    for (const w of this.ctx.getWebSockets()) { try { if (!quiet) w.send('{"t":"closed"}'); w.close(quiet ? 1000 : 4004, quiet ? "on the phone" : "room closed"); } catch {} }
     this.s = null;
     await this.ctx.storage.deleteAlarm();
     await this.ctx.storage.deleteAll();
@@ -140,6 +193,7 @@ export class Room extends DurableObject {
 
   // ---- websocket join (the Worker forwards /ws/CODE here) ----
   async fetch(req) {
+    this.use("do", "ws connect");
     if (req.headers.get("Upgrade") !== "websocket") return new Response("Expected websocket", { status: 426 });
     const [client, server] = Object.values(new WebSocketPair());
     const refuse = (code, reason) => {
@@ -173,6 +227,7 @@ export class Room extends DurableObject {
     for (const k of [key, alt]) if (k && !p.keys.includes(k)) p.keys.push(k);
     p.keys = p.keys.slice(-4);
     p.name = name;
+    p.clock = url.searchParams.get("v") === "2";        // this page drives the table's clock (sends "go" when a move is due)
     if (hostToken && hostToken === s.hostToken) s.hostPid = p.pid;
     if (!s.hostPid || !s.players.some((x) => x.pid === s.hostPid)) s.hostPid = p.pid;
     if (p.pid === s.hostPid) s.hostOffAt = 0;
@@ -220,6 +275,7 @@ export class Room extends DurableObject {
   }
 
   async webSocketMessage(ws, raw) {
+    this.use("wsmsg", "in", 1);
     const s = this.s;
     if (!s) { try { ws.send('{"t":"closed"}'); ws.close(4004, "room closed"); } catch {} return; }
     if (typeof raw !== "string" || raw.length > 4096) return;
@@ -270,14 +326,16 @@ export class Room extends DurableObject {
       }
       // a phone saw a move that is overdue: the table's clock may have died (Cloudflare gave up on an alarm).
       // Run the table now if something is due, and set the clock again either way.
+      // "go": a phone says the next move is due now. Normally this IS the table's clock (see phonesClock);
+      // it also rescues a table whose own alarm died. Run whatever is due; early or repeated ones do nothing.
       case "nudge": {
         const game = GAMES[s.game];
         if (!game.wakeAt) return;
         let w = 0;
         try { w = game.wakeAt(s, this.online()); } catch {}
-        if (w && w < Date.now() - 1500) {
-          this.fault("table clock missed, nudged", `${Date.now() - w} ms late`, { phase: s.g && s.g.phase, step: s.g && s.g.step });
-          if (this.tick(false)) { await this.flush(); await this.ctx.storage.put("s", s); this.broadcast(); }
+        if (w && w <= Date.now() + 30) {
+          if (w < Date.now() - 8000) this.fault("table clock missed, nudged", `${Date.now() - w} ms late`, { phase: s.g && s.g.phase, step: s.g && s.g.step });
+          if (this.tick(false)) { await this.flush(); await this.persist(); this.broadcast(); if (this.ending()) return this.close(s.g.phase === "solo"); }
         }
         await this.schedule();
         return;
@@ -297,6 +355,7 @@ export class Room extends DurableObject {
       }
     }
     if (!changed) return;
+    if (this.ending()) { await this.flush(); this.broadcast(); return this.close(this.s.g.phase === "solo"); }
     await this.save();
     this.broadcast();
     await this.schedule();
@@ -310,7 +369,7 @@ export class Room extends DurableObject {
     const pid = this.ctx.getTags(ws)[0];
     if (pid === s.hostPid && !this.online().has(pid)) {
       s.hostOffAt = Date.now();
-      await this.ctx.storage.put("s", s); // not save(): a dropped phone is not activity
+      await this.put(); // not save(): a dropped phone is not activity
     }
     this.broadcast();
     await this.schedule();

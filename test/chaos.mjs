@@ -7,6 +7,7 @@
 //   - no table where nothing happens for too long while someone is there (frozen)
 //   - every phone's own hand matches what the table says it holds (no wrong data to the wrong phone)
 //   - a phone never holds cards while not seated; no "server" errors
+import { driveClock } from "./clock.mjs";
 import { M } from "../worker/gen/murlan-engine.js";
 import { S } from "../worker/gen/spathi-engine.js";
 import { E as D } from "../worker/gen/derri-engine.js";
@@ -65,7 +66,7 @@ class Phone {
     this.code = code; counts.tables.add(code);
     return new Promise((res) => {
       const q = new URLSearchParams({ name: this.name, k: this.key }); if (this.host) q.set("host", this.host);
-      const ws = new WebSocket(`${WS}/ws/${code}?${q}`, { headers: { origin: BASE } });
+      const ws = new WebSocket(`${WS}/ws/${code}?v=2&${q}`, { headers: { origin: BASE } });
       this.ws = ws;
       const done = setTimeout(res, 3000);
       ws.onopen = () => { clearTimeout(done); res(); };
@@ -78,6 +79,7 @@ class Phone {
     if (m.t === "error") { counts.errors[m.e] = (counts.errors[m.e] || 0) + 1; if (m.e === "server") fail(`${this.game} ${this.code}: the server answered "server error"`); return; }
     if (m.t !== "state" || !m.tbl) return;
     const t = m.tbl;
+      driveClock(this, m);
     this.skew = m.now - Date.now(); this.heard = Date.now();
     if (t.seq !== this.lastSeq) { this.lastSeq = t.seq; this.lastChange = Date.now(); }
     this.t = t;

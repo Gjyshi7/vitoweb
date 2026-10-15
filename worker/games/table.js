@@ -104,6 +104,10 @@ export function makeTable(spec) {
     g.fillAt = 0;
     syncLobby(s);
     fillSeats(s);
+    // Only one real person sat down: that phone plays the match itself, with the same players and names, and the
+    // server steps out. A match with bots on the server costs ~3,700 storage writes an hour (Free: 100,000 a day);
+    // on the phone it costs nothing, and lag can't touch it. Real people still meet in the 7 s lobby.
+    if (humansAt(g) <= 1 && !g.serverSolo) { g.phase = "solo"; g.due = 0; g.seq += 1; return; }
     startMatch(s, now);
   }
   function startMatch(s, now) {
@@ -292,8 +296,10 @@ export function makeTable(spec) {
   function wakeAt(s, online) {
     const g = s.g;
     if (g.phase === "closed" || g.phase === "solo") return 0;
-    if (nobody(s, online)) { if (!g.emptySince) g.emptySince = Date.now(); return g.emptySince + ABANDON_MS; }
-    g.emptySince = 0;
+    // when the table became empty must survive the room going to sleep, or it would start counting again every
+    // time and never close (an empty table waking every 90 s for 6 hours): s.dirty asks room.js to save it
+    if (nobody(s, online)) { if (!g.emptySince) { g.emptySince = Date.now(); s.dirty = true; } return g.emptySince + ABANDON_MS; }
+    if (g.emptySince) { g.emptySince = 0; s.dirty = true; }
     if (g.phase === "lobby") return online.size && g.fillAt ? g.fillAt : 0;
     if ((g.phase !== "play" && g.phase !== "over") || !g.due) return 0;
     if (g.actor >= 0) {
@@ -322,7 +328,7 @@ export function makeTable(spec) {
     init(opts = {}) {
       const now = Date.now();
       return {
-        phase: "lobby", cfg: spec.cleanCfg(opts.cfg || {}), pub: !!opts.public, startAt: 0,
+        phase: "lobby", cfg: spec.cleanCfg(opts.cfg || {}), pub: !!opts.public, startAt: 0, serverSolo: !!opts.serverSolo,
         // quick match: the first player sits down after ~1-2 s, the deal is at the latest WAIT_MS from now
         dealBy: opts.public ? now + WAIT_MS : 0,
         fillAt: opts.public ? now + ((WAIT_MS - 900) / Math.max(1, spec.seatList(spec.cleanCfg(opts.cfg || {})).length - 1)) * (0.6 + Math.random() * 0.3) : 0,

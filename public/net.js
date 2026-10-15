@@ -329,7 +329,7 @@ function NETWORK(G){
     if (!N.room) return;
     N.want = true;
     if (N.ws && N.ws.readyState < 2) return;
-    const q = new URLSearchParams({ name: savedName() || 'Lojtar', k: KEY });
+    const q = new URLSearchParams({ name: savedName() || 'Lojtar', k: KEY, v: '2' });   // v2: this page drives the table's clock
     const host = store.get('host.' + N.room, ''); if (host) q.set('host', host);
     const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/${N.room}?${q}`);
     N.ws = sock;
@@ -402,7 +402,7 @@ function NETWORK(G){
     N.ws = null; N.S = null; N.room = null; N.table = false; N.quick = false; badge.hidden = true; N.seen = null;
     store.set('table', null);
     history.replaceState(null, '', location.pathname);
-    clearTimeout(voteT); clearTimeout(awayT); document.querySelectorAll('.plate.vw-away').forEach(el => el.classList.remove('vw-away')); if (window.ENDP) ENDP.reset();
+    clearTimeout(voteT); clearTimeout(awayT); clearTimeout(goT); document.querySelectorAll('.plate.vw-away').forEach(el => el.classList.remove('vw-away')); if (window.ENDP) ENDP.reset();
     if (wasTable || G.onLeave) G.onLeave();
     show('home'); err(msg || '');
   }
@@ -529,6 +529,7 @@ function NETWORK(G){
       const names = rotateSeats(t);
       N.want = false; try { N.ws.close(); } catch(e) {}
       N.ws = null; N.room = null; N.S = null; N.quick = false;
+      store.set('table', null);
       history.replaceState(null, '', location.pathname);
       local(names.slice(1));
       return;
@@ -540,6 +541,25 @@ function NETWORK(G){
     G.onTable(t, S);
     voteUI();
     awayMarks();
+    clock(t);
+  }
+
+  /* ---------- the phones are the table's clock ----------
+     The server says when the next move is due (a player's move, a turn running out, the next hand). At that moment
+     every phone at the table says "go" and the server makes it happen. That costs the site almost nothing, while
+     the server's own timer costs a paid request and a storage write each time (it only keeps a slow backup). */
+  let goT = 0;
+  function clock(t){
+    clearTimeout(goT);
+    if (!t || (t.phase !== 'play' && t.phase !== 'over') || !t.due) return;
+    const seq = t.seq;
+    const fire = n => {
+      const cur = N.S && N.S.tbl;
+      if (!N.room || !cur || cur.seq !== seq) return;          // the table already moved: the new state set a new timer
+      send({ t: 'nudge' });
+      if (n < 6) goT = setTimeout(() => fire(n + 1), 900);       // our clock was a hair early, or the message got lost: again
+    };
+    goT = setTimeout(() => fire(0), Math.max(30, t.due - (Date.now() + skew()) + 120));
   }
 
   /* ---------- someone isn't at the table any more: the others see it on their plate ---------- */
@@ -686,6 +706,8 @@ box-shadow:inset 0 0 0 1px rgba(255,179,166,.4);pointer-events:none;z-index:2}`;
     // the game's replay stalled: events from the server aren't being drawn any more
     if (G.applied) {
       const a = G.applied(), srv = lastLogSeq(t);
+      // the table is behind what this phone already drew (the server had to restart and lost a few moves): redraw
+      if (srv && a > srv) { W.since = now; kick('table rewound ' + a + '/' + srv); return; }
       if (a >= srv || a !== W.applied) { W.applied = a; W.since = now; }
       else if (now - W.since > STALL_MS) { W.since = now; kick('replay stalled ' + a + '/' + srv); }
     }

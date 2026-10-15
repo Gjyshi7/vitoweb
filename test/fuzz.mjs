@@ -81,7 +81,8 @@ const newPid = () => "p" + (++pidN);
 async function runTable(name, mod, cfg, pub, t) {
   let now = 10_000_000 + t * 1e7;
   const realNow = Date.now; Date.now = () => now;
-  const s = { players: [], g: mod.init({ cfg, public: pub }) };
+  // most tables keep the match on the server even with one person (that's what this tests); some don't (solo path)
+  const s = { players: [], g: mod.init({ cfg, public: pub, serverSolo: t % 5 !== 0 }) };
   const people = new Map();       // pid -> { online, next }
   const join = (pid) => { s.players.push({ pid, name: "H" + pid, keys: [] }); people.set(pid, { online: true, next: now + 300 + rng() * 4000 }); return mod.onJoin(s, pid, now); };
   const host = newPid(); join(host);
@@ -96,7 +97,7 @@ async function runTable(name, mod, cfg, pub, t) {
 
   try {
     for (; steps < 2500; steps++) {
-      if (s.g.phase === "closed") break;
+      if (s.g.phase === "closed" || s.g.phase === "solo") break;
       if (name === "derri" && hands >= 4) break;
       // the next thing that happens: the server's own clock, or a person doing something
       const on = online();
@@ -166,12 +167,13 @@ async function runTable(name, mod, cfg, pub, t) {
 for (const name of ["murlan", "spathi", "derri", "domino"]) {
   const mod = (await import(`../worker/games/${name}.js`)).default;
   for (const cfg of CFGS[name]) {
-    let cpu = 0, steps = 0, maxTable = 0, cpuWhat = "";
+    let cpu = 0, steps = 0, maxTable = 0, cpuWhat = "", warm = false;
     const before = problems.length, refusedBefore = refused;
     const t0 = performance.now();
     for (let t = 0; t < TABLES; t++) {
       const r = await runTable(name, mod, cfg, t % 2 === 0, t);
-      if (r.cpuMax > cpu) { cpu = r.cpuMax; cpuWhat = r.cpuWhat + (t === 0 ? " (first table: cold start)" : ""); }
+      const cold = !warm && r.steps > 20; if (r.steps > 20) warm = true;      // the first table that really played warms the code up
+      if (r.cpuMax > cpu) { cpu = r.cpuMax; cpuWhat = r.cpuWhat + (cold ? " (first table: cold start)" : ""); }
       steps += r.steps; maxTable = Math.max(maxTable, r.maxTable);
     }
     const bad = problems.length - before, ref = refused - refusedBefore;

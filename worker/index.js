@@ -13,6 +13,7 @@ import { Guard } from "./guard.js";
 import { verifyGoogle, signIn, currentUser, sessionUid, signSessionFor, sessionCookie, setUname, friendList, friendAction, areFriends, publicUser, deleteUser } from "./auth.js";
 import { json, roomCode, secretId, safeEqual } from "./util.js";
 import { logIncident } from "./incidents.js";
+import { meter } from "./meter.js";
 
 export { Room, Guard };
 
@@ -71,6 +72,7 @@ async function newRoom(env, game, opts) {
 
 async function route(req, env, url) {
   const path = url.pathname;
+  meter(env, "worker", path.startsWith("/ws/") ? "/ws" : path);
   const ip = req.headers.get("CF-Connecting-IP") || "local";
   let gid = readCookie(req);
   const setCookie = gid ? null : (gid = secretId());
@@ -114,7 +116,7 @@ async function route(req, env, url) {
     const game = String(body.game || "");
     if (!GAMES[game]) return withCookie(json({ error: "bad_game" }, 400));
     const cfg = body.cfg && typeof body.cfg === "object" ? body.cfg : {};
-    const r = await newRoom(env, game, { cfg });
+    const r = await newRoom(env, game, { cfg, serverSolo: env.SOLO_ON_SERVER === "1" });
     return withCookie(json(r, r.code ? 200 : 503));
   }
 
@@ -146,7 +148,7 @@ async function route(req, env, url) {
     } catch (e) { await logIncident(env, { src: "server", kind: "matchmaking list failed", game, msg: e && e.message }); }
     const pick = lobby || (live && live.code);
     if (pick) return withCookie(json({ code: pick, game }));
-    const r = await newRoom(env, game, { cfg, public: true });
+    const r = await newRoom(env, game, { cfg, public: true, serverSolo: env.SOLO_ON_SERVER === "1" });   // tests only
     if (!r.code) return withCookie(json(r, 503));
     try { await guard.addPublic(key, r.code); } catch (e) { await logIncident(env, { src: "server", kind: "matchmaking list failed", game, msg: e && e.message }); }
     return withCookie(json({ code: r.code, game }));
@@ -173,8 +175,8 @@ async function route(req, env, url) {
     try { body = await req.json(); } catch {}
     const guard = env.GUARD.get(env.GUARD.idFromName("guard"));
     const uid = env.DB ? await sessionUid(env, req) : null;
-    const r = await guard.seen(gid, body, uid);
-    return withCookie(json({ ...(await guard.online()), invites: r.invites || [] }));
+    const r = await guard.seen(gid, body, uid);             // one call: records this page, answers counts + invitations
+    return withCookie(json({ all: r.all, by: r.by, invites: r.invites || [] }));
   }
 
   // ---- accounts (worker/auth.js) ----
@@ -243,6 +245,26 @@ async function route(req, env, url) {
     if (await limited(env.RL_IP, "ip:" + ip)) return withCookie(json({ error: "slow_down" }, 429));
     const stub = env.ROOM.get(env.ROOM.idFromName(rm[1]));
     return withCookie(json(await stub.info()));
+  }
+
+  // the owner's dashboard (public/admin.html): live people, today's usage against the Free plan, incidents
+  if (path === "/api/admin/dash") {
+    if (await limited(env.RL_JOIN, "adm:" + ip)) return json({ error: "slow_down" }, 429);
+    const got = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").slice(0, 200);
+    const hex = async (t) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    const allowed = got && (env.ADMIN_KEY ? await safeEqual(env.ADMIN_KEY, got) : env.ADMIN_HASH ? await safeEqual(env.ADMIN_HASH, await hex(got)) : false);
+    if (!allowed) return json({ error: "not_found" }, 404);
+    const guard = env.GUARD.get(env.GUARD.idFromName("guard"));
+    const d = await guard.dash();
+    let incidents = [], kinds = [];
+    if (env.DB) {
+      try {
+        incidents = (await env.DB.prepare("SELECT at, src, kind, game, room, msg FROM incidents ORDER BY at DESC LIMIT 60").all()).results || [];
+        kinds = (await env.DB.prepare("SELECT kind, src, count(*) n FROM incidents WHERE at > ? GROUP BY kind, src ORDER BY n DESC").bind(Date.now() - 86400_000).all()).results || [];
+      } catch {}
+    }
+    return json({ ...d, incidents, kinds, paused: String(env.PAUSE_NEW_ROOMS || "0") === "1",
+      limits: { do: 100_000, rows: 100_000, worker: 100_000 } });
   }
 
   if (path === "/api/admin/stats") {

@@ -7,7 +7,9 @@
      VWP.pause(on)           the hub stops reporting while a game page (in its frame) reports for itself
      VWP.count               the last { all, by } the server answered (people on the site, per page) */
 (() => {
-  const KEY = 'vw.hist', EVERY = 25_000;
+  // Every report costs the site a request, so: once a minute on menus (30 s signed in, for friends' invitations),
+  // once every 5 minutes while playing (the table itself knows you're there), and right away when the place changes.
+  const KEY = 'vw.hist', EVERY = 60_000, EVERY_SIGNED = 30_000, EVERY_PLAY = 300_000;
   const page = (location.pathname.split('/').pop() || '').replace(/\.html$/, '').toLowerCase();
   const P = { where: /^[a-z]{2,12}$/.test(page) && page !== 'index' ? page : 'hub', state: 'menu', count: null, t: 0, last: 0, paused: false };
   const hist = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { return {}; } };
@@ -23,12 +25,12 @@
         if (j.invites && j.invites.length) dispatchEvent(new CustomEvent('vw-invites', { detail: j.invites }));
       }).catch(() => {});
   }
-  function loop(){ clearTimeout(P.t); send(true); P.t = setTimeout(loop, P.signed ? 12_000 : EVERY); }
+  function loop(){ clearTimeout(P.t); send(true); P.t = setTimeout(loop, P.state === 'play' ? EVERY_PLAY : P.signed ? EVERY_SIGNED : EVERY); }
   window.VWP = {
     set(where, state){
       const changed = where !== P.where || state !== P.state;
       P.where = where || P.where; P.state = state || P.state;
-      if (changed) send(true);
+      if (changed) loop();          // report now, and set the next report for the new state's pace
     },
     played(game){
       const h = hist(); h[game] = (h[game] || 0) + 1;

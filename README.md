@@ -138,8 +138,31 @@ A few `table clock missed, nudged` or `page healed` lines are normal. Many of th
 | `node test/fuzz.mjs 30` | Random people (legal moves, junk, drops, leaves, votes) on every game: no freeze, no leak, no refused bot move, CPU per step |
 | `node test/heal.mjs` | Broken bots on purpose: every table heals or closes cleanly, never freezes |
 | `BASE=http://localhost:8787 node test/live.mjs` | Real server: lobby within 7 s, bots move, 4 people start together, friends' rooms start when full |
-| `BASE=http://localhost:8787 node test/chaos.mjs 36 240` | 36 phones, drops, second tabs, leaving, friends' rooms; start the server with `--var CHAOS_DROP_ALARMS:0.3` to also lose 30 % of its timer ticks |
-| `BASE=http://localhost:8787 npm test` | The 74 smoke checks |
+| `BASE=http://localhost:8787 node test/chaos.mjs 36 240` | 36 phones, drops, second tabs, leaving, friends' rooms; start the server with `--var SOLO_ON_SERVER:1 --var CHAOS_DROP_ALARMS:0.3` (keep one-person tables on the server, lose 30 % of its timer ticks) |
+| `BASE=http://localhost:8787 npm test` | The 76 smoke checks |
+| `BASE=… LOG=… node test/meter.mjs` | What one player-hour costs (server started with `--var METER:1`) |
+
+## 8. Capacity on Cloudflare (measured, not guessed)
+
+Measured with `test/meter.mjs` (server started with `--var METER:1`, which prints every billable thing). Free plan limits per day:
+100,000 game-server (Durable Object) requests, 100,000 storage rows written, 100,000 Worker requests. They reset at 02:00 Tirana.
+
+| One player-hour | Requests | Storage writes |
+|---|---|---|
+| Before (one person + 3 players on the server, page reporting every 25 s) | ~1,900 | ~4,200 → **~24 player-hours a day** |
+| Now: alone with players (the match moves onto the phone after the lobby; ~4 games an hour) | ~70 | ~90 → **~1,100 player-hours a day** |
+| Now: 2 people + 2 players (server; the phones drive the clock) | ~360 | ~900 → ~110 player-hours a day |
+| Now: 4 people (server) | ~180 | ~400 → ~250 player-hours a day |
+| An open page on a menu | 60 | ~0 (only when it changes place) |
+
+What made the difference: one-person tables play on the phone after the 7 s lobby; the phones are the table's clock (a "go" message bills 1/20 of a request and writes nothing, a server alarm bills a request and a write); pages report every 60 s on menus and every 5 min while playing; presence is kept in memory; empty tables really close (they used to wake every 90 s for 6 hours).
+
+On Workers Paid ($5/month) nothing stops at a daily limit: 1 million requests and 50 million storage writes a month are included, then $0.15 per million requests and $1.00 per million writes.
+
+## 9. The dashboard
+
+`https://loja.vitoweb.al/admin`, opened with the owner's key (only its SHA-256 is in `wrangler.toml` as `ADMIN_HASH`; to change the key, put the SHA-256 of a new one there and deploy). It shows who is on the site now and where, today's use of the Free limits, games today (on the phone / on the server), what the site fixed by itself (the incident log) and the last 14 days.
+Tables report what they cost when they close; the Guard's own counts are saved at most once a minute, so on a very quiet site they read a little low (marked ≈). Cloudflare's own numbers: Workers & Pages → vitoweb-loja → Metrics.
 
 ## If something goes wrong
 

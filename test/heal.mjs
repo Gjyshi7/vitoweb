@@ -6,7 +6,7 @@ for (const name of ["murlan", "spathi", "derri", "domino"]) {
   for (const mode of ["refused", "crash", "crash-everything"]) {
     const mod = (await import(`../worker/games/${name}.js?${mode}`)).default;
     let now = 50_000_000; const realNow = Date.now; Date.now = () => now;
-    const s = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: name === "domino" ? { teams: true } : {} }) };
+    const s = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: name === "domino" ? { teams: true } : {}, serverSolo: true }) };
     mod.onJoin(s, "a", now); mod.onMessage(s, { pid: "a", isHost: true, now }, { t: "start" });
     const on = new Set(["a"]);
     // sabotage: every 3rd bot decision is illegal or throws; in "crash-everything" the fallbacks fail too

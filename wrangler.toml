@@ -69,6 +69,8 @@ MAX_NEW_ROOMS_PER_DAY = "2000"
 ROOM_TTL_MINUTES = "360"
 # "Hyr me Google": the OAuth client id from Google Cloud (it is public, not a secret). Empty = sign-in hidden.
 GOOGLE_CLIENT_ID = ""
+# The dashboard (loja.vitoweb.al/admin) opens with a key only the owner has. Only its SHA-256 is here, not the key.
+ADMIN_HASH = "7cbeaf348a6f9f6c7d744f30366877ccb3d8277f26e3c804a93383a0b6927659"
 
 # Logs in the dashboard (Workers & Pages -> vitoweb-loja -> Logs). Useful while testing.
 [observability]

@@ -125,7 +125,18 @@ for (const [pub, gone, out] of [[true, 150_000, true], [true, 30_000, false], [f
 {
   const mod = (await import("../worker/games/murlan.js")).default;
   let now = 4_000_000; const realNow = Date.now; Date.now = () => now;
-  const s = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: { teams: true }, public: true, plan: { reserve: 1, hold: 6000 } }) };
+  // one person alone: after the lobby the match moves onto the phone ("solo"), with the same players
+  {
+    let n0 = 3_000_000; Date.now = () => n0;
+    const s0 = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: { teams: true }, public: true }) };
+    mod.onJoin(s0, "a", n0); const on0 = new Set(["a"]);
+    while (s0.g.phase === "lobby" && n0 < 3_020_000) { const w = mod.wakeAt(s0, on0); if (!w) break; n0 = Math.max(n0, w); mod.onTick(s0, n0, on0); }
+    const v0 = mod.view(s0, "a").tbl;
+    ok(s0.g.phase === "solo" && v0.seats.filter(Boolean).length === 4 && mod.wakeAt(s0, on0) === 0, `one person alone: the table moves onto the phone after ${n0 - 3_000_000} ms with 4 seats, and the server stops`);
+    Date.now = () => now;
+  }
+  // the rest of these check matches that stay on the server (2+ people, or the test switch)
+  const s = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: { teams: true }, public: true, serverSolo: true }) };
   mod.onJoin(s, "a", now);
   const on = new Set(["a"]), seated = () => s.g.seats.filter(Boolean).length, times = [];
   const t0 = now;
@@ -136,7 +147,7 @@ for (const [pub, gone, out] of [[true, 150_000, true], [true, 30_000, false], [f
   // a second person arrives at 3 s: the deal is still at 7 s at the latest
   {
     let n2 = 5_000_000; Date.now = () => n2;
-    const s3 = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: { teams: true }, public: true }) };
+    const s3 = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: { teams: true }, public: true, serverSolo: true }) };
     mod.onJoin(s3, "a", n2); const on3 = new Set(["a"]); const t3 = n2; let joined = false;
     while (s3.g.phase === "lobby" && n2 - t3 < 20_000) {
       const w = mod.wakeAt(s3, on3); if (!w) break;
@@ -156,7 +167,7 @@ for (const [pub, gone, out] of [[true, 150_000, true], [true, 30_000, false], [f
   for (let i = 0; i < 40 && s.g.acts < 2; i++) { now = Math.max(now, mod.wakeAt(s, new Set(["a", "b"]))); mod.onTick(s, now, new Set(["a", "b"])); }
   ok(!mod.canJoin(s), "once cards are being played, nobody new takes a seat");
   // a full lobby of bots: a person still gets in
-  const s2 = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: { teams: true }, public: true }) };
+  const s2 = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: { teams: true }, public: true, serverSolo: true }) };
   mod.onJoin(s2, "a", now);
   s2.g.fillAt = now; for (let i = 0; i < 3; i++) { mod.onTick(s2, now, on); now += 10; s2.g.fillAt = now; if (s2.g.phase !== "lobby") break; }
   if (s2.g.phase === "lobby") { s2.players.push({ pid: "c", name: "Cimi" }); mod.onJoin(s2, "c", now); }

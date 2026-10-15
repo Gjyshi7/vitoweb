@@ -2,6 +2,7 @@
 //   BASE=http://localhost:8787 node test/live.mjs
 // Phones press LUAJ (quick match) the way the page does, then just watch. It reports:
 //   how long until the deal, who sat down when, and any bot that takes too long to play.
+import { driveClock } from "./clock.mjs";
 const BASE = process.env.BASE || "http://localhost:8787";
 const WS = BASE.replace(/^http/, "ws");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -20,15 +21,16 @@ function phone(name) {
   };
   P.connect = (code) => new Promise((res) => {
     P.t0 = P.t0 || Date.now();
-    const ws = new WebSocket(`${WS}/ws/${code}?name=${encodeURIComponent(name)}&k=${key}`, { headers: { origin: BASE } });
+    const ws = new WebSocket(`${WS}/ws/${code}?v=2&name=${encodeURIComponent(name)}&k=${key}`, { headers: { origin: BASE } });
     P.ws = ws;
     ws.onopen = () => res();
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data);
       if (m.t !== "state" || !m.tbl) return;
       const t = m.tbl;
+      driveClock(P, m);
       P.me = t.me;
-      if (t.phase === "play" && !P.dealAt) P.dealAt = Date.now();
+      if ((t.phase === "play" || t.phase === "solo") && !P.dealAt) P.dealAt = Date.now();   // solo: the phone plays it from here
       P.states.push({ at: Date.now(), phase: t.phase, actor: t.actor, step: t.step, seats: t.seats.map((x) => x && x.name), turnStart: t.turnStart, closed: t.phase === "closed" });
     };
     ws.onclose = (e) => { P.closed = e.code; };
