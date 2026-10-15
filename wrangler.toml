@@ -6,6 +6,11 @@ name = "vitoweb-loja"
 main = "worker/index.js"
 compatibility_date = "2026-10-01"
 workers_dev = true
+# The site's own address. Cloudflare makes the DNS record and the certificate by itself (vitoweb.al is on this account).
+# The workers.dev address keeps working too.
+[[routes]]
+pattern = "loja.vitoweb.al"
+custom_domain = true
 
 # The room server imports the same game engine as the pages: this copies it into worker/gen.
 [build]
