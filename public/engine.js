@@ -197,6 +197,7 @@ const M = (() => {
       const p = S.cur;
       let oppMin = 99; for (let q = 0; q < 4; q++) if (q !== p && (mate < 0 || (q & 1) !== (p & 1)) && S.active[q] && S.n[q] < oppMin) oppMin = S.n[q];
       simApply(S, p, policy(S.c[p], S.top, oppMin, S.n[p], rand));
+      S.work++;
     }
     return 1;
   }
@@ -210,7 +211,7 @@ const M = (() => {
     let oppMin = 99; for (let q = 0; q < 4; q++) if (q !== me && q !== mate && view.active[q] && view.n[q] < oppMin) oppMin = view.n[q];
     const urgent = oppMin <= 2;
     const scored = cands.map(m => { apply(myC, m, -1); const v = evalHand(myC) + (urgent ? 0 : controlCost(m)) - size(m) * .05; apply(myC, m, 1); return { m, v }; }).sort((a, b) => a.v - b.v);
-    const list = scored.slice(0, view.top ? 10 : 16);
+    const list = scored.slice(0, view.top ? (view.maxCands || 10) : (view.maxCands ? view.maxCands + 2 : 16));
     if (view.top) list.push({ m: null, v: evalHand(myC) + (urgent ? 1 : .25) });
     if (list.length === 1) return list[0].m;
     const played = view.played instanceof Set ? view.played : new Set(view.played);
@@ -225,7 +226,11 @@ const M = (() => {
     const tot = list.map(() => 0); let rounds = 0;
     const t0 = Date.now(), budget = view.budgetMs || 260, maxRounds = view.maxRounds || 400;
     const base = new Array(4);
-    while (rounds < maxRounds && (rounds < 24 || Date.now() - t0 < budget)) {
+    const minRounds = view.minRounds != null ? view.minRounds : 24;
+    // work = simulated plays so far. On a server the clock stands still while code runs (Cloudflare), so a time
+    // budget can't stop the search there; a work cap keeps every decision cheap and predictable instead.
+    const maxWork = view.maxWork || Infinity; let work = 0;
+    while (rounds < maxRounds && work < maxWork && (rounds < minRounds || Date.now() - t0 < budget)) {
       shuffle(unknown, rand); let k = 0;
       for (let q = 0; q < 4; q++) {
         if (q === me) { base[q] = myC; continue; }
@@ -237,11 +242,14 @@ const M = (() => {
         const S = { c: base.map(c => Int8Array.from(c)), n: view.n.slice(), active: view.active.slice(), ac: view.active.filter(Boolean).length,
           top: view.top, last: view.last, passes: view.passes, cur: me, place: view.place ? view.place.slice() : [0, 0, 0, 0], fin: 4 - view.active.filter(Boolean).length, mate };
         S.n[me] = myN;
+        S.work = 0;
         simApply(S, me, list[i].m);
         tot[i] += rollout(S, me, rand);
+        work += S.work + 1;
       }
       rounds++;
     }
+    if (!rounds) return list[0].m;                // no search allowed (a server under pressure): the best-looking move
     let bi = 0, bs = -1e9;
     for (let i = 0; i < list.length; i++) { const s = tot[i] / rounds - list[i].v * .03; if (s > bs) { bs = s; bi = i; } }
     return list[bi].m;

@@ -334,8 +334,9 @@ function NETWORK(G){
     const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/${N.room}?${q}`);
     N.ws = sock;
     const slow = setTimeout(() => { if (N.ws === sock && sock.readyState !== 1) badge.hidden = !N.table; }, 1500);
-    sock.onopen = () => { clearTimeout(slow); N.retry = 0; badge.hidden = true; clearInterval(N.pingT); N.pingT = setInterval(() => send({ t: 'ping' }), 25000); };
+    sock.onopen = () => { clearTimeout(slow); N.retry = 0; N.heard = Date.now(); badge.hidden = true; clearInterval(N.pingT); N.pingT = setInterval(() => send({ t: 'ping' }), 20000); };
     sock.onmessage = e => {
+      N.heard = Date.now();
       let m; try { m = JSON.parse(e.data); } catch(_) { return; }
       if (m.t === 'state') onState(m);
       else if (m.t === 'error') { if (G.onError) G.onError(m.e, m.why); if (ERR[m.e]) err(ERR[m.e], true); }
@@ -416,13 +417,14 @@ function NETWORK(G){
     if (!needName(quick)) return;
     $('#mQuick').disabled = true;
     try {
-      const j = await post('/api/quick', { game: G.game, cfg: cfgNow() });
+      const j = await post('/api/quick', { game: G.game, cfg: cfgNow(), k: KEY });
       if (!j.code) throw (ERR[j.error] || 0);
       enter(j.code, true);
     } catch(e) {
-      // no server (offline, blocked): play the table on this phone
-      if (typeof e !== 'string') { local(); }
-      else err(e);
+      // the server can't give us a table right now (offline, blocked, busy, too many tries): LUAJ never fails,
+      // the table is played on this phone instead
+      report('quick failed, played locally', String(e || 'no server'));
+      local();
     }
     $('#mQuick').disabled = false;
   }
@@ -437,7 +439,7 @@ function NETWORK(G){
     if (!needName(() => $('#mCreate').click())) return;
     $('#mCreate').disabled = true;
     try {
-      const j = await post('/api/create', { game: G.game, cfg: cfgNow() });
+      const j = await post('/api/create', { game: G.game, cfg: cfgNow(), k: KEY });
       if (!j.code) throw (ERR[j.error] || 0);
       store.set('host.' + j.code, j.hostToken);
       enter(j.code, false);
@@ -531,7 +533,7 @@ function NETWORK(G){
       local(names.slice(1));
       return;
     }
-    if (t.phase === 'closed') return leave('Loja mbaroi.');
+    if (t.phase === 'closed') return leave(t.closedWhy === 'error' ? 'Tavolina pati një problem dhe u mbyll. Na falni, provo përsëri.' : 'Loja mbaroi.');
     if (t.out) return leave(t.why === 'away' ? AWAY_MSG : '');
     if (!N.table) { N.table = true; show('none'); if (window.VWP) VWP.played(G.game); }
     seatNews(t);
@@ -634,6 +636,69 @@ box-shadow:inset 0 0 0 1px rgba(255,179,166,.4);pointer-events:none;z-index:2}`;
   function rotateSeats(t){
     const list = t.seatList, k = list.indexOf(t.me);
     return list.map((_, j) => list[(k + j) % list.length]).map(i => ({ name: i === t.me ? 'Ti' : t.seats[i].name, fem: !!t.seats[i].fem, color: t.seats[i].color }));
+  }
+
+  /* ---------- the page's own bug hunter ----------
+     Every second while at an online table it checks that this phone is still following the table:
+       - the table's events keep getting drawn (the game's replay never stalls): else redraw from the server's state;
+       - a move that is overdue on the server gets a "nudge" (the table's clock may have died);
+       - a connection that has gone silent is reopened (phones keep dead sockets "open");
+       - a quick-match lobby never waits more than a few seconds past the 7 s: else play the table on this phone.
+     Anything it had to fix, and any error on the page, is reported to the incident log. */
+  const STALL_MS = 10000, SILENT_MS = 45000;
+  let reports = 0;
+  function report(kind, msg, extra){
+    if (reports++ >= 8) return;
+    try {
+      const body = JSON.stringify({ kind, game: G.game, room: N.room || '', msg: String(msg || '').slice(0, 300), stack: (extra && extra.stack) || '', extra: extra && extra.info || null });
+      if (navigator.sendBeacon) navigator.sendBeacon('/api/report', new Blob([body], { type: 'application/json' }));
+      else fetch('/api/report', { method: 'POST', headers: { 'content-type': 'application/json' }, body, keepalive: true });
+    } catch(e) {}
+  }
+  addEventListener('error', e => { if (N.room || N.table) { report('page error', e.message, { stack: e.error && e.error.stack }); kick('error'); } });
+  addEventListener('unhandledrejection', e => { if (N.room || N.table) { const r = e.reason || {}; report('page error', r.message || r, { stack: r.stack }); kick('error'); } });
+  const lastLogSeq = t => { const l = t && t.log; return l && l.length ? l[l.length - 1].seq : 0; };
+  const W = { applied: -1, since: 0, nudged: 0, kicked: 0, lobbyAt: 0 };
+  // redraw the table from the server's state (the game's own resync), at most once every few seconds
+  function kick(why){
+    if (!N.room || !N.table || !G.recover || Date.now() - W.kicked < 4000) return;
+    W.kicked = Date.now();
+    try { G.recover(); report('page healed', why, { info: { applied: G.applied ? G.applied() : null, server: lastLogSeq(N.S && N.S.tbl) } }); }
+    catch(e) { report('page heal failed', e.message, { stack: e.stack }); }
+  }
+  setInterval(() => {
+    const now = Date.now();
+    if (!N.room) { W.lobbyAt = 0; return; }
+    // a connection that went silent (no state, no pong) is dead even if it says it's open
+    if (N.ws && N.ws.readyState === 1 && N.heard && now - N.heard > SILENT_MS) { report('silent connection', Math.round((now - N.heard) / 1000) + ' s'); N.heard = now; try { N.ws.close(); } catch(e) {} }
+    const t = N.S && N.S.tbl;
+    if (!t) return;
+    // quick match: the deal comes by 7 s. If the table is late, nudge it; if it's very late, play here.
+    if (t.phase === 'lobby' && N.quick) {
+      if (!W.lobbyAt) W.lobbyAt = now;
+      const late = now - W.lobbyAt;
+      if (late > 9000 && now - W.nudged > 2500) { W.nudged = now; send({ t: 'nudge' }); }
+      if (late > 13000) { report('lobby stuck, played locally', late + ' ms'); const names = rotateLobby(t); leave(); local(names); }
+      return;
+    }
+    W.lobbyAt = 0;
+    if (!N.table) return;
+    // the game's replay stalled: events from the server aren't being drawn any more
+    if (G.applied) {
+      const a = G.applied(), srv = lastLogSeq(t);
+      if (a >= srv || a !== W.applied) { W.applied = a; W.since = now; }
+      else if (now - W.since > STALL_MS) { W.since = now; kick('replay stalled ' + a + '/' + srv); }
+    }
+    // the next move is overdue on the server's own clock: nudge the table
+    const srvNow = now + skew();
+    if (t.phase === 'play' && t.due && srvNow > t.due + 4000 && now - (N.S._at || now) > 3000 && now - W.nudged > 5000) { W.nudged = now; send({ t: 'nudge' }); }
+  }, 1000);
+  // the people already at a lobby (for playing the same table on this phone)
+  function rotateLobby(t){
+    const list = t.seatList, k = Math.max(0, list.indexOf(t.me));
+    const others = list.map((_, j) => list[(k + j) % list.length]).slice(1).map(i => t.seats[i]).filter(Boolean)
+      .map(x => ({ name: x.name, fem: !!x.fem, color: x.color }));
+    return others.length === list.length - 1 ? others : undefined;
   }
 
   /* ---------- start ---------- */

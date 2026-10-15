@@ -9,6 +9,7 @@
 // or word); the game modules build a separate view for every socket.
 import { DurableObject } from "cloudflare:workers";
 import { publicId, cleanName } from "./util.js";
+import { logIncident } from "./incidents.js";
 import mafia from "./games/mafia.js";
 import imposter from "./games/imposter.js";
 import murlan from "./games/murlan.js";
@@ -41,7 +42,30 @@ export class Room extends DurableObject {
 
   async save() {
     this.s.touched = Date.now();
+    await this.flush();
     await this.ctx.storage.put("s", this.s);
+  }
+
+  // ---- faults: the game modules write them on s.faults; they go to the incident log, never into storage ----
+  fault(kind, e, extra) {
+    if (!this.s) return;
+    (this.s.faults = this.s.faults || []).push({ kind, msg: String((e && e.message) || e || "").slice(0, 300), stack: e && e.stack ? String(e.stack).slice(0, 900) : "", ...(extra || {}) });
+  }
+  async flush() {
+    const s = this.s;
+    if (!s || !s.faults || !s.faults.length) { if (s) delete s.faults; return; }
+    const list = s.faults; delete s.faults;
+    for (const f of list.slice(0, 6)) {
+      const { kind, msg, ...detail } = f;
+      await logIncident(this.env, { src: "server", kind, game: s.game, room: s.code, msg, detail });
+    }
+  }
+  // one step of the table's own clock (also used by "nudge"); never throws
+  tick(cheap) {
+    const s = this.s, game = GAMES[s.game];
+    if (!game.onTick) return false;
+    try { return game.onTick(s, Date.now(), this.online(), { cheap }); }
+    catch (e) { this.fault("tick threw", e); return true; }
   }
 
   // ---- called by the Worker (RPC) ----
@@ -74,21 +98,30 @@ export class Room extends DurableObject {
   async schedule() {
     if (!this.s) return;
     const game = GAMES[this.s.game];
-    const wake = game.wakeAt ? game.wakeAt(this.s, this.online()) : 0;
+    let wake = 0;
+    try { wake = game.wakeAt ? game.wakeAt(this.s, this.online()) : 0; } catch (e) { this.fault("wakeAt threw", e); wake = Date.now() + 2000; }
     const ttl = this.s.touched + this.ttl();
-    await this.ctx.storage.setAlarm(wake ? Math.min(wake, ttl) : ttl);
+    // tests only: CHAOS_DROP_ALARMS (set with `wrangler dev --var`, never on the live site) loses some of the
+    // table's clock ticks on purpose, like Cloudflare giving up on an alarm, to prove the phones' nudges save the table
+    const chaos = Number(this.env.CHAOS_DROP_ALARMS || 0);
+    if (chaos && wake && Math.random() < chaos) { await this.ctx.storage.setAlarm(ttl); return; }
+    await this.ctx.storage.setAlarm(wake ? Math.max(Date.now() + 50, Math.min(wake, ttl)) : ttl);
+    await this.flush();
   }
 
-  async alarm() {
+  // alarmInfo.isRetry: Cloudflare stopped the last attempt (an error, or too much CPU) and is trying again.
+  // Then the bots move without thinking, so the same step can't fail the same way twice.
+  async alarm(alarmInfo) {
     if (!this.s) { await this.ctx.storage.deleteAll(); return; }
     const game = GAMES[this.s.game];
     if (game.onTick && Date.now() - this.s.touched < this.ttl()) {
-      let changed = false, failed = false;
-      try { changed = game.onTick(this.s, Date.now(), this.online()); } catch (e) { failed = true; console.error("tick", e && e.stack || e); }
+      const retry = !!(alarmInfo && alarmInfo.isRetry);
+      if (retry) this.fault("alarm retried", `retry ${alarmInfo.retryCount}`, { phase: this.s.g && this.s.g.phase });
+      const changed = this.tick(retry);
+      await this.flush();
       if (changed) { await this.ctx.storage.put("s", this.s); this.broadcast(); } // not save(): the table moving alone is not activity
-      if (game.canJoin && this.s.g && this.s.g.phase === "closed") return this.close();   // a card table nobody came back to
-      if (failed) await this.ctx.storage.setAlarm(Date.now() + 10_000);           // a bug must not spin the alarm
-      else await this.schedule();
+      if (game.canJoin && this.s.g && this.s.g.phase === "closed") return this.close();   // a card table that ended (or had to close)
+      await this.schedule();
       return;
     }
     if (Date.now() - this.s.touched >= this.ttl()) {
@@ -147,7 +180,10 @@ export class Room extends DurableObject {
     // One live connection per player: a second tab or a reconnect replaces the old one.
     for (const w of this.ctx.getWebSockets(p.pid)) { try { w.send('{"t":"replaced"}'); w.close(4002, "replaced"); } catch {} }
     this.ctx.acceptWebSocket(server, [p.pid]);
-    if (game.onJoin) game.onJoin(s, p.pid, Date.now());
+    if (game.onJoin) {
+      try { game.onJoin(s, p.pid, Date.now()); }
+      catch (e) { this.fault("join crashed", e); if (game.recover) try { game.recover(s, Date.now(), "join crashed"); } catch {} }
+    }
     await this.save();
     this.broadcast();
     await this.schedule();
@@ -172,9 +208,11 @@ export class Room extends DurableObject {
 
   remove(pid, code, reason) {
     const s = this.s;
-    if (!s.players.some((x) => x.pid === pid)) return false;
+    const gone = s.players.find((x) => x.pid === pid);
+    if (!gone) return false;
     s.players = s.players.filter((x) => x.pid !== pid);
-    GAMES[s.game].onRemove(s, pid, Date.now());
+    try { GAMES[s.game].onRemove(s, pid, Date.now(), gone.name); }     // the name: a friend's seat keeps it when the table plays on for them
+    catch (e) { this.fault("remove crashed", e); const g = GAMES[s.game]; if (g.recover) try { g.recover(s, Date.now(), "remove crashed"); } catch {} }
     for (const w of this.ctx.getWebSockets(pid)) {
       try { w.send(code === 4001 ? '{"t":"kicked"}' : '{"t":"left"}'); w.close(code, reason); } catch {}
     }
@@ -230,8 +268,30 @@ export class Room extends DurableObject {
         changed = true;
         break;
       }
+      // a phone saw a move that is overdue: the table's clock may have died (Cloudflare gave up on an alarm).
+      // Run the table now if something is due, and set the clock again either way.
+      case "nudge": {
+        const game = GAMES[s.game];
+        if (!game.wakeAt) return;
+        let w = 0;
+        try { w = game.wakeAt(s, this.online()); } catch {}
+        if (w && w < Date.now() - 1500) {
+          this.fault("table clock missed, nudged", `${Date.now() - w} ms late`, { phase: s.g && s.g.phase, step: s.g && s.g.step });
+          if (this.tick(false)) { await this.flush(); await this.ctx.storage.put("s", s); this.broadcast(); }
+        }
+        await this.schedule();
+        return;
+      }
       default: {
-        const r = GAMES[s.game].onMessage(s, { pid, isHost, now: Date.now() }, msg);
+        let r;
+        const game = GAMES[s.game];
+        try { r = game.onMessage(s, { pid, isHost, now: Date.now() }, msg); }
+        catch (e) {
+          // a message crashed the rules: log it and put the table back on its feet, never leave it half-done
+          this.fault("message crashed", e, { t: String(msg.t).slice(0, 12) });
+          if (game.recover) try { game.recover(s, Date.now(), "message crashed"); } catch (e2) { this.fault("recover crashed", e2); }
+          r = { changed: true };
+        }
         if (r && r.error) return err(r.error, r.why);
         changed = !!(r && r.changed);
       }
@@ -266,7 +326,9 @@ export class Room extends DurableObject {
     const online = this.online();
     const now = Date.now();
     const game = GAMES[s.game];
-    const players = (game.listPlayers && game.listPlayers(s, online)) || s.players.map((x) => ({ pid: x.pid, name: x.name, online: online.has(x.pid) }));
+    let players = null;
+    try { players = game.listPlayers && game.listPlayers(s, online); } catch (e) { this.fault("listPlayers crashed", e); }
+    players = players || s.players.map((x) => ({ pid: x.pid, name: x.name, online: online.has(x.pid) }));
     const base = {
       t: "state", code: s.code, game: s.game, hostPid: s.hostPid, hostOnline: online.has(s.hostPid),
       hostOffAt: s.hostOffAt || 0, hostGraceMs: HOST_GRACE_MS, players, round: s.round, now,
@@ -274,7 +336,10 @@ export class Room extends DurableObject {
     for (const w of this.ctx.getWebSockets()) {
       if (w.readyState !== 1) continue;
       const pid = this.ctx.getTags(w)[0];
-      try { w.send(JSON.stringify({ ...base, me: pid, ...game.view(s, pid, now, online) })); } catch {}
+      let body;
+      try { body = JSON.stringify({ ...base, me: pid, ...game.view(s, pid, now, online) }); }
+      catch (e) { this.fault("view crashed", e); body = JSON.stringify({ ...base, me: pid }); }   // the phone still hears from the table
+      try { w.send(body); } catch {}
     }
   }
 }

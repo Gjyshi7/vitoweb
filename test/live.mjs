@@ -68,7 +68,7 @@ async function soloQuick(game, cfg, label) {
   }
   const last = turns[turns.length - 1];
   const tail = last && last.actor !== a.me && last.actor >= 0 ? Date.now() - Math.max(last.turnStart, last.at) : 0;
-  ok(turns.length > 3, `${game}: ${turns.length} turns in 40 s`);
+  ok(turns.length >= 3, `${game}: ${turns.length} turns in 40 s (this phone lets its own 15 s clock run out)`);
   ok(tail < 6000, `${game}: last turn not stuck (bot on it for ${(tail / 1000).toFixed(1)} s)`);
   console.log(`    slowest bot turn ${(worst / 1000).toFixed(1)} s (incl. animation)`);
   a.close();

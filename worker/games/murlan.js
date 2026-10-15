@@ -5,6 +5,8 @@ import { G, M } from "../gen/murlan-engine.js";
 import { makeTable } from "./table.js";
 
 // the engine takes a random source; it can't be stored, so it's attached only while dealing
+const BOT = { minRounds: 3, maxRounds: 80, budgetMs: 0, maxCands: 10, maxWork: 9000 };
+const CHEAP = { minRounds: 0, maxRounds: 0, budgetMs: 0 };      // no search at all: for a step Cloudflare is retrying
 const withRand = (mt, fn) => { mt.rand = Math.random; try { return fn(); } finally { delete mt.rand; } };
 
 function snap(mt, me) {
@@ -27,6 +29,7 @@ const spec = {
   newMatch(cfg) { const mt = G.newMatch(Math.random, { teams: cfg.teams }); delete mt.rand; return mt; },
 
   deal(mt, emit) {
+    if (!mt.lastOrder && mt.handNo >= 1) mt.handNo = 0;     // dealing again before any hand finished (a rescue): it's still the first hand
     const H = withRand(mt, () => G.deal(mt));
     const ex = H.exchange;
     const priv = {}; H.hands.forEach((h, p) => (priv[p] = { hand: h.slice() }));
@@ -77,9 +80,22 @@ const spec = {
     return { wait: ev.type === "pass" ? (ev.cleared ? 900 : 300) : ev.out ? 1100 : 500 };
   },
 
-  auto(mt, seat, step) {
+  auto(mt, seat, step, o) {
     if (step === "gift") return { card: M.chooseGift(mt.hand.hands[seat]) };
-    return { ids: G.botMove(mt, seat, { maxRounds: 140, budgetMs: 80 }) };
+    if (o && o.cheap) return { ids: G.botMove(mt, seat, CHEAP) };
+    // a fixed amount of work, never a time budget: on Cloudflare the clock stands still while code runs, and a
+    // step that runs too long is killed (Free plan ~10 ms CPU). ~1 ms typical, <6 ms worst; plays as well as the old 140 rounds.
+    return { ids: G.botMove(mt, seat, BOT) };
+  },
+
+  // moves that are always legal, tried in order if the bot's own move is ever refused or crashes
+  fallbacks(mt, seat, step) {
+    const H = mt.hand;
+    if (step === "gift") return G.giftOptions(H.hands[seat]).map((card) => ({ card }));
+    const out = [];
+    if (H.top) out.push({ ids: null });
+    for (const m of M.allMoves(H.hands[seat], H.top, H.must3).slice(0, 6)) out.push({ ids: M.cardsFor(H.hands[seat], m, H.must3) });
+    return out;
   },
 
   think(mt, seat, step) {

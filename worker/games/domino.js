@@ -65,6 +65,10 @@ const spec = {
     if (E.canDraw(mt)) return { kind: "draw" };
     return { kind: "pass" };
   },
+  fallbacks(mt, seat) {
+    const H = mt.hand;
+    return [...E.movesFor(H, seat).slice(0, 4).map((m) => ({ kind: "play", id: m.id, side: m.side })), { kind: "draw" }, { kind: "pass" }];
+  },
   think(mt, seat) {
     const H = mt.hand, n = E.movesFor(H, seat).length;
     return { forced: n <= 1, options: n, hard: H.hands[seat].length <= 2 };

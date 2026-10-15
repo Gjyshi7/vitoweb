@@ -921,9 +921,17 @@ function askOrWait(t){
   } else { if (mode === 'play' || mode === 'gift') stopInput(); refresh(); status(t.step === 'gift' ? `Shkëmbimi · <em>${NAMES[a]}</em>` : ''); }
 }
 let lastT = null;
+// the page's bug hunter (net.js) calls this when this phone stopped following the table: draw it again from the server
+function recoverOnline(){
+  if (!lastT) return;
+  ON.tok = (ON.tok || 0) + 1; ON.busy = false; ON.again = false; ON.asked = '';
+  resync(lastT); ON.seq = (lastT.log || []).reduce((a, x) => Math.max(a, x.seq), 0);
+  askOrWait(lastT);
+}
 async function pump(){
   if (ON.busy) { ON.again = true; return; }
   ON.busy = true;
+  const tok = ON.tok = (ON.tok || 0) + 1;
   try {
     do {
       ON.again = false;
@@ -952,7 +960,11 @@ async function pump(){
         }
       }
     } while (ON.again);
-  } finally { ON.busy = false; }
+  } catch (e) {
+    // anything that breaks while drawing (not only inside one event): draw the table again from the server
+    console.warn('pump', e); if (ON.tok === tok && lastT) { try { resync(lastT); ON.seq = (lastT.log || []).reduce((a, x) => Math.max(a, x.seq), 0); } catch (e2) {} }
+    throw e;
+  } finally { if (ON.tok === tok) ON.busy = false; }
 }
 function onTable(t, S){
   const first = !lastT;
@@ -970,6 +982,8 @@ const NET = NETWORK({
   voteOptions: (kind, t) => [{ v: 'raise', label: `Deri në ${((t.snap && t.snap.target) || 21) + 10}` }, { v: 'golden', label: 'Gol i artë' }],
   onLocal: (cfg, seats) => { lastT = null; startLocal(cfg, seats); },
   onTable,
+  applied: () => ON.seq,
+  recover: recoverOnline,
   onLeave: () => { lastT = null; stopTable(); },
   onError: () => { ON.asked = ''; pump(); },
 });

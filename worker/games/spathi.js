@@ -54,7 +54,9 @@ const spec = {
     return { wait };
   },
 
-  auto: (mt, seat) => { const m = S.botMove(mt, seat, { samples: 40 }); return { card: m.card, take: m.take }; },
+  // 24 samples: <3 ms worst case (40 reached ~8 ms, too close to Cloudflare's Free-plan CPU limit)
+  auto: (mt, seat, step, o) => { const m = S.botMove(mt, seat, { samples: o && o.cheap ? 2 : 24 }); return { card: m.card, take: m.take }; },
+  fallbacks: (mt, seat) => S.options(S.viewFor(mt, seat)).slice(0, 8).map((o) => ({ card: o.card, take: o.take })),
   think(mt, seat) {
     const H = mt.hand;
     const opts = H.hands[seat].reduce((n, c) => n + Math.max(1, S.takes(c, H.table).length), 0);

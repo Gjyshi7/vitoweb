@@ -12,6 +12,7 @@ import { Room, GAMES } from "./room.js";
 import { Guard } from "./guard.js";
 import { verifyGoogle, signIn, currentUser, sessionUid, signSessionFor, sessionCookie, setUname, friendList, friendAction, areFriends, publicUser, deleteUser } from "./auth.js";
 import { json, roomCode, secretId, safeEqual } from "./util.js";
+import { logIncident } from "./incidents.js";
 
 export { Room, Guard };
 
@@ -54,7 +55,10 @@ async function newRoom(env, game, opts) {
   const guard = env.GUARD.get(env.GUARD.idFromName("guard"));
   const max = Number(env.MAX_NEW_ROOMS_PER_DAY) || 2000;
   const paused = String(env.PAUSE_NEW_ROOMS || "0") === "1";
-  const gate = await guard.allowRoom(game, max, paused);
+  if (paused) return { error: "paused" };
+  let gate = { ok: true };
+  try { gate = await guard.allowRoom(game, max, paused); }
+  catch (e) { await logIncident(env, { src: "server", kind: "guard down (room allowed)", game, msg: e && e.message }); }   // the brake failing must not stop the games
   if (!gate.ok) return { error: gate.reason === "paused" ? "paused" : "busy" };
   for (let i = 0; i < 8; i++) {
     const code = roomCode();
@@ -103,9 +107,10 @@ async function route(req, env, url) {
     if (req.method !== "POST") return json({ error: "method" }, 405);
     if (badOrigin(req, url)) return json({ error: "origin" }, 403);
     if (await limited(env.RL_IP, "ip:" + ip)) return withCookie(json({ error: "slow_down" }, 429));
-    if (await limited(env.RL_CREATE, "create:" + (readCookie(req) || ip))) return withCookie(json({ error: "slow_down" }, 429));
     let body = {};
     try { body = await req.json(); } catch {}
+    const who = readCookie(req) || (typeof body.k === "string" && KEY_RE.test(body.k) ? "k:" + body.k : "ip:" + ip);
+    if (await limited(env.RL_CREATE, "create:" + who)) return withCookie(json({ error: "slow_down" }, 429));
     const game = String(body.game || "");
     if (!GAMES[game]) return withCookie(json({ error: "bad_game" }, 400));
     const cfg = body.cfg && typeof body.cfg === "object" ? body.cfg : {};
@@ -118,29 +123,45 @@ async function route(req, env, url) {
     if (req.method !== "POST") return json({ error: "method" }, 405);
     if (badOrigin(req, url)) return json({ error: "origin" }, 403);
     if (await limited(env.RL_IP, "ip:" + ip)) return withCookie(json({ error: "slow_down" }, 429));
-    if (await limited(env.RL_CREATE, "quick:" + (readCookie(req) || ip))) return withCookie(json({ error: "slow_down" }, 429));
     let body = {};
     try { body = await req.json(); } catch {}
+    // per phone, not per IP: in Albania many phones on mobile data share one IP, and in-app browsers often refuse cookies
+    const who = readCookie(req) || (typeof body.k === "string" && KEY_RE.test(body.k) ? "k:" + body.k : "ip:" + ip);
+    if (await limited(env.RL_CREATE, "quick:" + who)) return withCookie(json({ error: "slow_down" }, 429));
     const game = String(body.game || "");
     if (!GAMES[game] || !GAMES[game].canJoin) return withCookie(json({ error: "bad_game" }, 400));
     const cfg = GAMES[game].init({ cfg: body.cfg && typeof body.cfg === "object" ? body.cfg : {} }).cfg;
     const key = game + ":" + JSON.stringify(cfg);
     const guard = env.GUARD.get(env.GUARD.idFromName("guard"));
-    // a table still filling up first; else a match in progress with a seat a bot holds (most people first)
+    // a table still filling up first; else a match in progress with a seat a bot holds (most people first).
+    // If the shared list is down, everyone still gets a table of their own: matching is a bonus, playing is not.
     let lobby = null, live = null;
-    for (const code of await guard.findPublic(key)) {
-      const info = await env.ROOM.get(env.ROOM.idFromName(code)).info();
-      if (!info.ok || !info.open) { await guard.closePublic(key, code); continue; }
-      if (info.phase === "lobby") { lobby = code; break; }
-      if (info.phase === "play" && info.humans > 0 && (!live || info.humans > live.humans)) live = { code, humans: info.humans };   // only to meet someone
-    }
+    try {
+      for (const code of await guard.findPublic(key)) {
+        const info = await env.ROOM.get(env.ROOM.idFromName(code)).info();
+        if (!info.ok || !info.open) { await guard.closePublic(key, code); continue; }
+        if (info.phase === "lobby") { lobby = code; break; }
+        if (info.phase === "play" && info.humans > 0 && (!live || info.humans > live.humans)) live = { code, humans: info.humans };   // only to meet someone
+      }
+    } catch (e) { await logIncident(env, { src: "server", kind: "matchmaking list failed", game, msg: e && e.message }); }
     const pick = lobby || (live && live.code);
     if (pick) return withCookie(json({ code: pick, game }));
-    const plan = await guard.plan(game, gid);
-    const r = await newRoom(env, game, { cfg, public: true, plan });
+    const r = await newRoom(env, game, { cfg, public: true });
     if (!r.code) return withCookie(json(r, 503));
-    await guard.addPublic(key, r.code);
+    try { await guard.addPublic(key, r.code); } catch (e) { await logIncident(env, { src: "server", kind: "matchmaking list failed", game, msg: e && e.message }); }
     return withCookie(json({ code: r.code, game }));
+  }
+
+  // a page hit an error or had to heal itself (net.js): into the incident log, capped per phone
+  if (path === "/api/report") {
+    if (req.method !== "POST") return json({ error: "method" }, 405);
+    if (badOrigin(req, url)) return json({ error: "origin" }, 403);
+    if (await limited(env.RL_JOIN, "rep:" + ip)) return json({ ok: true });
+    let b = {};
+    try { b = JSON.parse((await req.text()).slice(0, 4000)); } catch {}
+    await logIncident(env, { src: "page", kind: String(b.kind || "error").slice(0, 60), game: String(b.game || "").slice(0, 12), room: String(b.room || "").slice(0, 8),
+      msg: String(b.msg || "").slice(0, 300), detail: { stack: String(b.stack || "").slice(0, 900), ua: (req.headers.get("user-agent") || "").slice(0, 120), extra: b.extra || null } });
+    return json({ ok: true });
   }
 
   // presence: every open page says where it is (see public/presence.js); answers with how many are online

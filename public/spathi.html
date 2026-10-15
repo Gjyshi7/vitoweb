@@ -886,9 +886,17 @@ function askOrWait(t){
     humanTurn().then(mv => { if (NET.online) NET.send({ t: 'act', step: 'turn', card: mv.card, take: mv.take }); });
   } else { if (mode === 'play') stopInput(); render(); refresh(); status(''); }
 }
+// the page's bug hunter (net.js) calls this when this phone stopped following the table: draw it again from the server
+function recoverOnline(){
+  if (!lastT) return;
+  ON.tok = (ON.tok || 0) + 1; ON.busy = false; ON.again = false; ON.asked = '';
+  resync(lastT); ON.seq = (lastT.log || []).reduce((a, x) => Math.max(a, x.seq), 0);
+  askOrWait(lastT);
+}
 async function pump(){
   if (ON.busy) { ON.again = true; return; }
   ON.busy = true;
+  const tok = ON.tok = (ON.tok || 0) + 1;
   try {
     do {
       ON.again = false;
@@ -910,7 +918,11 @@ async function pump(){
       }
       if (!ON.again && lastT) askOrWait(lastT);
     } while (ON.again);
-  } finally { ON.busy = false; }
+  } catch (e) {
+    // anything that breaks while drawing (not only inside one event): draw the table again from the server
+    console.warn('pump', e); if (ON.tok === tok && lastT) { try { resync(lastT); ON.seq = (lastT.log || []).reduce((a, x) => Math.max(a, x.seq), 0); } catch (e2) {} }
+    throw e;
+  } finally { if (ON.tok === tok) ON.busy = false; }
 }
 function onTable(t, S2){
   const first = !lastT;
@@ -926,6 +938,8 @@ const NET = NETWORK({
   seatsFor: () => [0, 1],
   onLocal: (cfg, seats) => { lastT = null; startLocal(cfg, seats); },
   onTable,
+  applied: () => ON.seq,
+  recover: recoverOnline,
   onLeave: () => { lastT = null; stopTable(); },
   onError: () => { ON.asked = ''; pump(); },
 });

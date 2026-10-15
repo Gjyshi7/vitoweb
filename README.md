@@ -41,7 +41,7 @@ Cloudflare's drag-and-drop upload only hosts plain files. It cannot create the r
 4. Check the servers (put your address in place of the example):
 
    ```
-   BASE=https://vitoweb-loja.vitoweb.workers.dev npm test
+   BASE=https://loja.vitoweb.al npm test
    ```
 
    It should end with `68 passed, 0 failed`. It creates 3 test rooms, which delete themselves.
@@ -109,6 +109,37 @@ Change in `wrangler.toml`, then `npx wrangler deploy`:
 - Turnstile (bot check) on room creation, Google login with accounts in D1, AdSense with privacy and terms pages, a bot stress test.
 - Your own domain (for example `loja.vitoweb.al`; Cloudflare advises against running a business on `workers.dev`): Workers & Pages → vitoweb-loja → Domains → Add domain.
 - Ads: see `public/ads.js`. AdSense needs your own domain, a privacy page and Google's consent message for EU/UK/CH visitors. Turn on H5 Games Ads in AdSense for the break between hands.
+
+## 7. Self-healing ("the bug hunter") and the incident log
+
+The site is built so that a table can never stay frozen. When something breaks, it is fixed on the spot and written down.
+
+**On the server (every table):**
+- The Murlan and Spathi players think with a fixed amount of work, never a time limit (on Cloudflare the clock stands still while code runs). Worst case ~6 ms per move, well under the Free plan's ~10 ms.
+- If Cloudflare had to stop a step and retries it, the players move instantly without thinking, so the same step can't fail twice.
+- If a player's move is ever refused or crashes: simpler moves that are always legal; if none work, the hand is dealt again (scores kept); then a fresh match; only as the very last resort the table closes with *"Tavolina pati një problem dhe u mbyll"* and everyone goes back to the menu. It never just stops.
+- A message, a join or a leave that crashes the rules is caught and the table is put back on its feet.
+
+**On every phone (net.js):**
+- If the page stops following the table (its replay got stuck), it redraws the table from the server within ~10 s.
+- If a move is overdue on the server's clock (Cloudflare dropped a timer), the phone sends a *nudge* and the server moves at once.
+- A connection that went silent is reopened; a quick-match lobby that is late is played on the phone instead; if LUAJ can't get a table from the server for any reason, the table is played on the phone.
+
+**The incident log** (D1 database `vitoweb-loja`, table `incidents`): everything above that had to happen, plus page errors.
+```
+npx wrangler d1 execute vitoweb-loja --remote --command "SELECT datetime(at/1000,'unixepoch') t, src, kind, game, msg FROM incidents ORDER BY at DESC LIMIT 50"
+```
+A few `table clock missed, nudged` or `page healed` lines are normal. Many of the same kind, or any `crashed` / `rescue`, is a bug to look at.
+
+**Tests** (run before every deploy):
+| Command | What it proves |
+|---|---|
+| `node test/sim.mjs` | Whole matches, privacy, quick-match pacing, seats given away |
+| `node test/fuzz.mjs 30` | Random people (legal moves, junk, drops, leaves, votes) on every game: no freeze, no leak, no refused bot move, CPU per step |
+| `node test/heal.mjs` | Broken bots on purpose: every table heals or closes cleanly, never freezes |
+| `BASE=http://localhost:8787 node test/live.mjs` | Real server: lobby within 7 s, bots move, 4 people start together, friends' rooms start when full |
+| `BASE=http://localhost:8787 node test/chaos.mjs 36 240` | 36 phones, drops, second tabs, leaving, friends' rooms; start the server with `--var CHAOS_DROP_ALARMS:0.3` to also lose 30 % of its timer ticks |
+| `BASE=http://localhost:8787 npm test` | The 74 smoke checks |
 
 ## If something goes wrong
 

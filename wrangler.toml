@@ -5,9 +5,10 @@
 name = "vitoweb-loja"
 main = "worker/index.js"
 compatibility_date = "2026-10-01"
-workers_dev = true
-# The site's own address. Cloudflare makes the DNS record and the certificate by itself (vitoweb.al is on this account).
-# The workers.dev address keeps working too.
+# One address only: loja.vitoweb.al. The old workers.dev address is switched off.
+workers_dev = false
+preview_urls = false
+# Cloudflare makes the DNS record and the certificate by itself (vitoweb.al is on this account).
 [[routes]]
 pattern = "loja.vitoweb.al"
 custom_domain = true

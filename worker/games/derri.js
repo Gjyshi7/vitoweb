@@ -56,6 +56,7 @@ const spec = {
     mt.hand.hands[seat] = want;
   },
   auto: (mt, seat) => ({ idx: (Math.random() * mt.hand.hands[E.source(mt.hand, seat)].length) | 0 }),
+  fallbacks: () => [{ idx: 0 }],
   think: () => ({ forced: true }),
   matchOver: () => false,                     // Derri goes on round after round
   snap,

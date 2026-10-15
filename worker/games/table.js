@@ -51,7 +51,7 @@ export function makeTable(spec) {
     const x = s.g.seats[i];
     if (!x) return "";
     if (!x.bot) { const p = s.players.find((q) => q.pid === x.pid); if (p) return p.name; }
-    return x.name;
+    return x.name || "Lojtar";
   };
 
   function emitter(g) {
@@ -81,7 +81,7 @@ export function makeTable(spec) {
   }
   function usedNames(s) {
     const set = new Set(s.players.map((p) => p.name.toLowerCase()));
-    for (const x of s.g.seats) if (x && x.bot) set.add(x.name.toLowerCase());
+    for (const x of s.g.seats) if (x && x.bot && x.name) set.add(x.name.toLowerCase());
     return set;
   }
   function newBot(s) {
@@ -214,9 +214,10 @@ export function makeTable(spec) {
     if (!full) g.fillAt = 0;
     else if (!g.fillAt) g.fillAt = now + FULL_START_MS;
   }
-  // Quick match (Devit's rule): the cards are dealt at most WAIT_MS after the table opened.
-  // Players sit down one by one inside that time; a real person who comes in meanwhile takes a free
-  // seat (or one a player took). A full table deals in a moment. Nothing ever pushes the deal later.
+  // Quick match (Devit's rule): you never wait more than WAIT_MS. The other players sit down one by one,
+  // spread over that time, so you see the 2nd, the 3rd, the 4th arrive; the table opens a moment after
+  // the last one sits. A real person who comes in meanwhile takes a free seat (or one a player took) and
+  // never pushes the deal later. Nothing is ever filled in a lump at the end.
   function fillStep(s, now) {
     const g = s.g;
     syncLobby(s);
@@ -226,15 +227,39 @@ export function makeTable(spec) {
     g.seq += 1;
     nextFill(g, now);
   }
-  // when the next one sits down: the time left shared out among the seats still free, a little uneven
+  // when the next one sits down: the time left until ~0.9 s before the deal, shared among the free seats
   function nextFill(g, now) {
     const free = spec.seatList(g.cfg).filter((i) => !g.seats[i]).length;
-    if (!free) { g.fillAt = Math.min(g.dealBy, now + gap(500, 900)); return; }
-    const left = g.dealBy - 1300 - now;          // the last one is seated ~1 s before the deal
-    g.fillAt = Math.min(g.dealBy, now + Math.max(350, (left / free) * (0.65 + Math.random() * 0.6)));
+    if (!free) { g.fillAt = Math.min(g.dealBy, now + gap(650, 950)); return; }      // full: open in a moment
+    const slot = Math.max(300, (g.dealBy - 900 - now) / free);
+    const f = free === 1 ? 0.7 + Math.random() * 0.3 : 0.75 + Math.random() * 0.4;
+    g.fillAt = Math.min(g.dealBy - 600, now + slot * f);
   }
 
-  function autoMove(s, now) {
+  // ---- self-healing ----
+  // A table must never stop. Every fault is written to s.faults (room.js sends them to the incident log) and
+  // the table is moved on anyway: the bot's move, else simpler moves that are always legal, else a fresh
+  // deal (same scores), else a fresh match, and only as the very last resort a clean close with a message.
+  function fault(s, kind, e, extra) {
+    const g = s.g;
+    (s.faults = s.faults || []).push({ kind, msg: String((e && e.message) || e || "").slice(0, 300), stack: e && e.stack ? String(e.stack).slice(0, 900) : "",
+      phase: g.phase, step: g.step, actor: g.actor, seq: g.seq, ...(extra || {}) });
+  }
+  function rescue(s, now, why) {
+    const g = s.g;
+    g.rescues = (g.rescues || []).filter((t) => now - t < 10 * 60_000);
+    g.rescues.push(now);
+    fault(s, "rescue", why, { n: g.rescues.length });
+    const n = g.rescues.length;
+    if (n <= 2 && g.mt) {                                                                                 // a fresh hand, same scores
+      try { g.vote = null; g.phase = "play"; dealHand(s, now); return; } catch (e) { fault(s, "rescue: new hand failed", e); }
+    }
+    if (n <= 3) {                                                                                         // a fresh match, same people
+      try { g.vote = null; g.phase = "play"; fillSeats(s); startMatch(s, now); return; } catch (e) { fault(s, "rescue: new match failed", e); }
+    }
+    g.phase = "closed"; g.closedWhy = "error"; g.due = 0; g.vote = null; g.seq += 1;                          // never frozen: close, and say so
+  }
+  function autoMove(s, now, cheap) {
     const g = s.g;
     if (g.phase === "lobby") return g.pub ? fillStep(s, now) : begin(s, now);
     if (g.phase === "over") return settle(s, now, true);
@@ -242,9 +267,23 @@ export function makeTable(spec) {
     if (g.step === "choice") return settle(s, now, true);
     if (g.step === "end") return dealHand(s, now);
     if (settling(g, now)) { g.due = Math.max(g.stepAt + GUARD_MS, g.holdUntil) + 300; return; }
-    const msg = spec.auto(g.mt, g.actor, g.step);
-    const r = apply(s, now, g.actor, g.step, msg);
-    if (r.error) { console.error("auto move refused", g.step, r.error); g.due = now + 5000; }
+    const seat = g.actor, step = g.step;
+    if (g.faultTurn !== g.turnId) { g.faultTurn = g.turnId; g.faultN = 0; }
+    // cheap: Cloudflare is retrying a step it had to stop (too much CPU), or this turn already failed once
+    const quick = !!cheap || g.faultN > 0;
+    let moves = [];
+    try { moves.push(spec.auto(g.mt, seat, step, { cheap: quick })); } catch (e) { g.faultN++; fault(s, "bot crashed", e); }
+    if (spec.fallbacks) { try { moves = moves.concat(spec.fallbacks(g.mt, seat, step)); } catch (e) { fault(s, "fallbacks crashed", e); } }
+    for (let i = 0; i < moves.length; i++) {
+      const msg = moves[i];
+      if (!msg) continue;
+      let r;
+      try { r = apply(s, now, seat, step, msg); }
+      catch (e) { g.faultN++; fault(s, "move crashed", e, { move: JSON.stringify(msg).slice(0, 200) }); continue; }
+      if (!r.error) { if (i > 0) fault(s, "fallback move used", "", { tried: i }); return; }
+      if (i === 0) { g.faultN++; fault(s, "bot move refused", r.error, { move: JSON.stringify(msg).slice(0, 200) }); }
+    }
+    rescue(s, now, `no move accepted (seat ${seat}, ${step})`);
   }
 
   // nobody real is at the table (everyone closed the page): the table doesn't wait for them forever
@@ -264,8 +303,21 @@ export function makeTable(spec) {
     return g.due;
   }
 
+  // when the table should move next on its own (for the phones' nudge): a seat whose phone is gone plays after OFFLINE_MS
+  function nextDue(g, now, online) {
+    if (!g.due) return 0;
+    const x = g.actor >= 0 && g.seats[g.actor];
+    if (online && x && !x.bot && !online.has(x.pid)) return Math.min(g.due, Math.max(g.stepAt, now) + OFFLINE_MS);
+    return g.due;
+  }
+  const realAuto = spec.auto, realFallbacks = spec.fallbacks;
   return {
     maxPlayers: 4,
+    // tests only (test/heal.mjs): swap in a broken bot to prove the table heals
+    __setSabotage(wrap, breakFallbacks) {
+      spec.auto = wrap ? wrap(realAuto) : realAuto;
+      spec.fallbacks = wrap && breakFallbacks ? () => { throw new Error("sabotaged fallbacks"); } : realFallbacks;
+    },
 
     init(opts = {}) {
       const now = Date.now();
@@ -273,7 +325,7 @@ export function makeTable(spec) {
         phase: "lobby", cfg: spec.cleanCfg(opts.cfg || {}), pub: !!opts.public, startAt: 0,
         // quick match: the first player sits down after ~1-2 s, the deal is at the latest WAIT_MS from now
         dealBy: opts.public ? now + WAIT_MS : 0,
-        fillAt: opts.public ? now + ((WAIT_MS - 1300) / Math.max(1, spec.seatList(spec.cleanCfg(opts.cfg || {})).length - 1)) * (0.45 + Math.random() * 0.35) : 0,
+        fillAt: opts.public ? now + ((WAIT_MS - 900) / Math.max(1, spec.seatList(spec.cleanCfg(opts.cfg || {})).length - 1)) * (0.6 + Math.random() * 0.3) : 0,
         seats: [null, null, null, null], mt: null, step: null, actor: -1, due: 0, stepAt: 0, seq: 0, log: [],
       };
     },
@@ -314,12 +366,12 @@ export function makeTable(spec) {
       return true;
     },
 
-    onRemove(s, pid) {
+    onRemove(s, pid, now, name) {
       const g = s.g;
       if (g.phase === "lobby") { syncLobby(s); g.seq += 1; friendsReady(s, Date.now()); return; }
       const i = seatOf(g, pid);
       if (i >= 0) g.seats[i] = g.pub ? { ...newBot(s), color: g.seats[i].color }                    // someone new sits down
-        : { ...g.seats[i], name: nameOf(s, i), bot: true, stand: true, speed: 0.95 + Math.random() * 0.15 };   // friends: the seat keeps the name (shown as not here)
+        : { ...g.seats[i], name: name || nameOf(s, i), bot: true, stand: true, speed: 0.95 + Math.random() * 0.15 };   // friends: the seat keeps the name (shown as not here)
     },
 
     onMessage(s, me, msg) {
@@ -391,23 +443,33 @@ export function makeTable(spec) {
 
     wakeAt,
 
-    onTick(s, now, online) {
+    onTick(s, now, online, opts) {
       let changed = false;
       const g = s.g;
-      if (g.away) for (const pid of Object.keys(g.away)) if (online.has(pid)) delete g.away[pid];
-      if (nobody(s, online) && g.emptySince && now - g.emptySince >= ABANDON_MS) {
-        g.phase = "closed"; g.due = 0; g.vote = null; g.seq += 1;
-        return true;
-      }
-      for (let i = 0; i < 8; i++) {
-        const w = wakeAt(s, online);
-        if (!w || w > now || nobody(s, online)) break;
-        awayCheck(s, now, online);
-        autoMove(s, now);
+      try {
+        if (g.away) for (const pid of Object.keys(g.away)) if (online.has(pid)) delete g.away[pid];
+        if (nobody(s, online) && g.emptySince && now - g.emptySince >= ABANDON_MS) {
+          g.phase = "closed"; g.due = 0; g.vote = null; g.seq += 1;
+          return true;
+        }
+        for (let i = 0; i < 8; i++) {
+          const w = wakeAt(s, online);
+          if (!w || w > now || nobody(s, online)) break;
+          awayCheck(s, now, online);
+          autoMove(s, now, opts && opts.cheap);
+          changed = true;
+          if (opts && opts.cheap) break;          // a retried step does one thing and lets go
+        }
+      } catch (e) {
+        fault(s, "tick crashed", e);
+        rescue(s, now, "tick crashed");
         changed = true;
       }
       return changed;
     },
+
+    // room.js calls this when a message from a phone crashed the rules: the table is put back on its feet
+    recover(s, now, why) { if (s.g.phase === "play" || s.g.phase === "over") rescue(s, now, why); },
 
     // every phone sees everyone at the table as a player
     listPlayers(s, online) {
@@ -431,6 +493,8 @@ export function makeTable(spec) {
       const t = {
         phase: g.phase, cfg: g.cfg, pub: g.pub, startAt: g.startAt, seq: g.seq, me, seats, seatList: spec.seatList(g.cfg),
       };
+      if (g.closedWhy) t.closedWhy = g.closedWhy;
+      if (g.phase === "lobby" && g.pub) t.dealBy = g.dealBy;
       if (g.phase === "lobby" || g.phase === "solo" || !g.mt) return { tbl: t };
       const hs = humans(g);
       if (g.vote) t.vote = { kind: g.vote.kind, until: g.vote.until, mine: g.vote.votes[pid] || null, n: hs.length,
@@ -439,7 +503,7 @@ export function makeTable(spec) {
       if (g.left && g.left.includes(pid)) { t.out = true; if (g.why && g.why[pid]) t.why = g.why[pid]; }   // didn't stay for the new match, or was gone too long
       Object.assign(t, {
         step: g.step, actor: g.actor,
-        turnStart: g.actor >= 0 ? g.stepAt : 0, turnMs: turnMs + (g.extra || 0),
+        turnStart: g.actor >= 0 ? g.stepAt : 0, turnMs: turnMs + (g.extra || 0), due: nextDue(g, now, online),
         hold: g.holdUntil > Date.now() ? { seat: holderOf(g), until: g.holdUntil } : null,
         holdUsed: g.holdTurn === g.turnId, guardUntil: holderOf(g) >= 0 ? g.stepAt + GUARD_MS : 0,
         snap: spec.snap(g.mt, me),
