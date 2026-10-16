@@ -620,7 +620,8 @@ const IG_HANDLE = 'vitoweb.al';      // e.g. 'vitoweb.al' (without @). Empty = n
   const KEEP_MS = 10 * 60_000;
   // The site opened again while a game of yours is still going (the phone reloaded the page after the screen
   // was locked, or the page was closed without DIL): straight back to the table, like an app.
-  const auto = firstLook && t && !t.left; firstLook = false;
+  // (Not when the game is open right now in another tab: that tab keeps "at" fresh every 10 s.)
+  const auto = firstLook && t && !t.left && Date.now() - (t.at || 0) > 15_000; firstLook = false;
   const drop = () => { try { localStorage.removeItem('vw.table'); } catch (e) {} };
   // pressed DIL: 6 s to go back to a quick-match table, longer to a friends' room
   const keep = t && t.left ? (t.quick ? 6_000 : KEEP_MS) : KEEP_MS, since = t ? (t.left || t.at) : 0;
