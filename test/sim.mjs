@@ -42,7 +42,7 @@ for (const name of games) {
         const v = mod.view(s, pid).tbl, me = seatOf(pid);
         for (const e of v.log || []) {
           if (e.k === "deal" && e.hand && e.counts && e.hand.length !== e.counts[me]) leaks++;
-          if ((e.k === "give" || e.k === "ret") && e.card != null && me !== e.from && me !== e.to) leaks++;
+          // Murlan's exchange is shown to the whole table on purpose (the two exchanged cards only)
           if (e.k === "draw" && e.card != null && me !== e.p && me !== e.from) leaks++;
           if (e.k === "draw" && e.id != null && me !== e.p) leaks++;
           if (e.order) for (const o of e.order) if (o.to !== "table" && o.to !== me && o.id != null) leaks++;

@@ -1,6 +1,6 @@
 // Room server smoke test: fake phones play Mafia and Imposter against a running copy of the site.
 //   Local:     npx wrangler dev        then   npm test
-//   Deployed:  BASE=https://vitoweb-loja.<you>.workers.dev npm test
+//   Deployed:  BASE=https://vitoweb.al npm test
 // Needs Node 22+ (built-in WebSocket). Creates 2 rooms; they delete themselves after 6 idle hours.
 const BASE = (process.env.BASE || "http://127.0.0.1:8787").replace(/\/$/, "");
 const WS = BASE.replace(/^http/, "ws");
@@ -288,6 +288,22 @@ async function misc() {
   }
 }
 
+// the pages every visitor and Google's reviewers open: legal pages, old addresses, no "Loja" brand left
+async function pages() {
+  console.log("\nPages");
+  const get = (p) => fetch(BASE + p, { redirect: "manual" });
+  for (const [p, want] of [["/privacy", "Privacy Policy"], ["/terms", "Terms of Service"]]) {
+    const r = await get(p), t = await r.text();
+    ok(r.status === 200 && t.includes(want) && t.includes("info@vitoweb.al"), `${p} opens (${r.status})`);
+  }
+  for (const [p, to] of [["/privatesia", "/privacy"], ["/kushtet", "/terms"]]) {
+    const r = await get(p);
+    ok(r.status === 301 && (r.headers.get("location") || "").endsWith(to), `${p} forwards to ${to} (${r.status})`);
+  }
+  const hub = await (await get("/")).text();
+  ok(hub.includes("VITOWEB") && !/\bLOJA\b|VitoWeb Loja/.test(hub) && hub.includes('href="/privacy"'), "home page says VITOWEB, links the Privacy Policy");
+}
+await pages();
 await murlan();
 await quick();
 await mafia();

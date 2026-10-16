@@ -49,6 +49,12 @@ async function soloQuick(game, cfg, label) {
   const wait = a.dealAt ? (a.dealAt - start) / 1000 : null;
   ok(wait !== null && wait <= 7.5, `${game}: one person alone, the cards are dealt after ${wait === null ? "never (20 s)" : wait.toFixed(1) + " s"}`);
   if (wait === null) { a.close(); return; }
+  if (a.states.some((s) => s.phase === "solo")) {     // one person: the phone plays the bots from here (start the server with SOLO_ON_SERVER=1 to watch server bots)
+    const t1 = Date.now();
+    while (a.closed === undefined && Date.now() - t1 < 20000) await sleep(200);   // the room closes on its next clock tick
+    ok(a.closed !== undefined, `${game}: alone, the table moved onto the phone and the room closed quietly (code ${a.closed})`);
+    a.close(); return;
+  }
   // watch the bots play for 40 s: every bot turn must end in < 3.5 s
   const watchEnd = Date.now() + 40000;
   let moves = 0;

@@ -1,4 +1,4 @@
-// VitoWeb Loja — Worker entry.
+// VITOWEB games — Worker entry.
 // The pages and games in ../public are served by Cloudflare's static assets before this code runs.
 // This code only runs for /api/* and /ws/* (see run_worker_first in wrangler.toml):
 //   POST /api/create            {game, cfg}  -> {code, hostToken, game}   new private room

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Murlan</title>
+<title>Murlan · VITOWEB</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
@@ -579,16 +579,19 @@ async function dealAnim(my){
 /* the exchange, seat to seat: the card stops halfway, raised, then lands in the other hand.
    Face up only for the two players involved. */
 const seatXY = p => p ? SEATPOS[p] : [640, 600, 0];
-async function passCard(id, from, to, show, my){
-  const a = seatXY(from), b = seatXY(to);
+// Everyone at the table sees the exchanged card face up: it leaves the giver, stops big in the middle of
+// the table for a moment with who gives it to whom, then goes into the other hand.
+async function passCard(id, from, to, show, my, what){
+  const a = seatXY(from);
   els[id].el.classList.remove('gone','mine','sel','dim');
-  put(id, a[0], a[1], 0, .7, 420, show);
+  put(id, a[0], a[1], 0, .7, 440, true);
+  status(`Shkëmbimi · <em>${NAMES[from]}</em> → <em>${NAMES[to]}</em>${what ? ' · ' + what : ''}`);
   await sleep(40);
-  put(id, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 30, 0, .95, 420, show);
-  snap(.3);
-  await sleep(D(1000)); if (my !== gen) return;
+  put(id, 640, 330, 0, 1.25, 440, true);
+  snap(.3); bubble(from, what === 'kthen' ? 'Kthen' : 'Jep', true);
+  await sleep(D(1700)); if (my !== gen) return;
   layoutSeat(from); layoutSeat(to); snap(.25);
-  await sleep(D(420));
+  await sleep(D(450));
 }
 // the last player holds both jokers: shows them, there's no exchange and the winner of the last hand leads
 const NEARJ = [[640, 470], [330, 400], [640, 250], [950, 400]];
@@ -606,16 +609,14 @@ async function exchange(my){
   const ex = H.exchange; if (!ex) return;
   const { first, last } = ex;
   if (ex.jokers) { await showJokers(last, my); return; }
-  status(`Shkëmbimi · <em>${NAMES[last]}</em> → <em>${NAMES[first]}</em>`);
   const up = G.exchangeGive(mt);
-  await passCard(up, last, first, last === 0 || first === 0, my); if (my !== gen) return;
+  await passCard(up, last, first, true, my, 'letra më e lartë'); if (my !== gen) return;
   let gift;
   clock(first, first === 0 ? () => { if (mode === 'gift' && giftResolve) giftResolve(M.chooseGift(H.hands[0])); } : null);
   if (first === 0) { gift = await humanGift(); if (my !== gen) return; }
   else await sleep(PLAYERS.think(SEAT[first], { options: 6 }));
   gift = G.exchangeReturn(mt, gift);
-  status(`Shkëmbimi · <em>${NAMES[first]}</em> → <em>${NAMES[last]}</em>`);
-  await passCard(gift, first, last, last === 0 || first === 0, my); if (my !== gen) return;
+  await passCard(gift, first, last, true, my, 'kthen'); if (my !== gen) return;
   status('');
 }
 async function animatePlay(p, ids, ev){
@@ -851,8 +852,7 @@ async function applyEv(ev, my){
     if (card == null) card = H.hands[F][(Math.random() * H.hands[F].length) | 0]; else if (F) ensureIn(F, [card]);
     H.hands[F] = H.hands[F].filter(x => x !== card); H.hands[T].push(card);
     if (ev.k === 'give') H.exchange.up = card; else H.exchange.down = card;
-    status(`Shkëmbimi · <em>${NAMES[F]}</em> → <em>${NAMES[T]}</em>`);
-    await passCard(card, F, T, F === 0 || T === 0, my);
+    await passCard(card, F, T, true, my, ev.k === 'give' ? 'letra më e lartë' : 'kthen');
     return;
   }
   if (ev.k === 'pass') {

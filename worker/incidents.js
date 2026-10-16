@@ -23,11 +23,13 @@ export async function logIncident(env, rec) {
       await env.DB.prepare("CREATE INDEX IF NOT EXISTS incidents_at ON incidents (at)").run();
       ready = true;
     }
-    await env.DB.prepare("INSERT INTO incidents (at, src, kind, game, room, msg, detail) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .bind(now, String(rec.src || "server").slice(0, 10), String(rec.kind || "").slice(0, 60), String(rec.game || "").slice(0, 12),
-        String(rec.room || "").slice(0, 8), String(rec.msg || "").slice(0, 300), JSON.stringify(rec.detail || {}).slice(0, 2500))
-      .run();
-    if (Math.random() < 0.02) await env.DB.prepare("DELETE FROM incidents WHERE at < ?").bind(now - 30 * 86400_000).run();
+    // one round trip: the new line, and anything older than 30 days goes (the Privacy Policy promises 30 days)
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO incidents (at, src, kind, game, room, msg, detail) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .bind(now, String(rec.src || "server").slice(0, 10), String(rec.kind || "").slice(0, 60), String(rec.game || "").slice(0, 12),
+          String(rec.room || "").slice(0, 8), String(rec.msg || "").slice(0, 300), JSON.stringify(rec.detail || {}).slice(0, 2500)),
+      env.DB.prepare("DELETE FROM incidents WHERE at < ?").bind(now - 30 * 86400_000),
+    ]);
   } catch (e) {
     console.error("incident log failed", e && e.message);
   }

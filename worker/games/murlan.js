@@ -13,11 +13,11 @@ function snap(mt, me) {
   const H = mt.hand;
   const o = { teams: mt.teams, scores: mt.scores, team: mt.team, target: mt.target, handNo: mt.handNo, dealer: mt.dealer, winner: mt.winner, tie: mt.tie, golden: !!mt.golden };
   if (!H) return o;
-  const ex = H.exchange, inEx = ex && (me === ex.first || me === ex.last);
+  const ex = H.exchange;
   Object.assign(o, {
     hand: me >= 0 ? H.hands[me].slice() : [], counts: H.hands.map((h) => h.length),
     cur: H.cur, active: H.active, order: H.order, top: H.top, topCards: H.topCards, last: H.last, passes: H.passes, must3: H.must3, trick: H.trick,
-    exchange: ex ? { first: ex.first, last: ex.last, jokers: !!ex.jokers, up: inEx ? ex.up ?? null : null, down: inEx ? ex.down ?? null : null, done: ex.jokers || ex.down !== undefined } : null,
+    exchange: ex ? { first: ex.first, last: ex.last, jokers: !!ex.jokers, up: ex.up ?? null, down: ex.down ?? null, done: ex.jokers || ex.down !== undefined } : null,
   });
   if (H.result) { o.result = H.result; o.left = H.hands[H.result.order[3]].slice(); }
   return o;
@@ -37,9 +37,10 @@ const spec = {
       scores: mt.scores.slice(), team: mt.team.slice(), teams: mt.teams, ex: ex ? { first: ex.first, last: ex.last, jokers: !!ex.jokers } : null }, priv);
     if (!ex) return 2600;                                    // the phones animate the deal
     if (ex.jokers) { emit({ k: "jokers", first: ex.first, last: ex.last }); return 4600; }
+    // the exchange is shown to the whole table (Devit: everyone sees which cards change hands)
     const card = G.exchangeGive(mt);
-    emit({ k: "give", from: ex.last, to: ex.first }, { [ex.last]: { card }, [ex.first]: { card } });
-    return 3600;
+    emit({ k: "give", from: ex.last, to: ex.first, card });
+    return 4400;
   },
 
   actor(mt) {
@@ -57,8 +58,8 @@ const spec = {
       if (!G.giftOptions(H.hands[seat]).includes(card)) return { error: "bad_gift" };
       const ex = H.exchange;
       G.exchangeReturn(mt, card);
-      emit({ k: "ret", from: ex.first, to: ex.last }, { [ex.first]: { card }, [ex.last]: { card } });
-      return { wait: 1500 };
+      emit({ k: "ret", from: ex.first, to: ex.last, card });
+      return { wait: 2300 };
     }
     let ids = msg.ids;
     if (ids === null || ids === undefined) {

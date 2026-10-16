@@ -181,7 +181,7 @@ function NETWORK(G){
   const modeTiles = G.modes && G.modes.length > 1 ? `<div class="modes" id="mMode">${G.modes.map((m, i) => `<button type="button" data-i="${i}">${esc(m.label)}${m.sub ? `<small>${esc(m.sub)}</small>` : ''}</button>`).join('')}</div>` : '';
   menu.innerHTML = `<div class="wrap">
     <div class="bar"><button class="back" id="mBack" type="button" aria-label="Kthehu te lojërat"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <div class="brand"><img id="mLogo" alt="">LOJA</div>
+      <div class="brand"><img id="mLogo" alt="">VITOWEB</div>
       <button class="me anon" id="mMe" type="button"><svg class="gi" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.4-4.6 7.1l7.4 5.8c4.3-4 6.9-9.9 6.9-17.4z"/><path fill="#FBBC05" d="M10.6 28.5c-.5-1.4-.8-2.9-.8-4.5s.3-3.1.8-4.5l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.8c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.8l-7.9 6.2C6.6 42.6 14.6 48 24 48z"/></svg><span class="av" id="mMeAv">?</span><span id="mMeName">Emri yt</span></button></div>
     <section id="mHome" class="home">
       <div class="hero"><canvas id="mArt" width="900" height="600" aria-hidden="true"></canvas>

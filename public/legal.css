@@ -1,0 +1,30 @@
+/* Privacy Policy and Terms of Service: same room colours as the games, plain and readable. */
+:root{color-scheme:dark;--bg:#0a1020;--shelf:#101a2c;--ink:#eef1f6;--text:#c9d1de;--sub:#93a0b4;--line:rgba(255,255,255,.08);--gold:#f3c76a;--pink:#ef5a86}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.65 "Barlow Semi Condensed","Segoe UI",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--gold)}
+.top{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:16px;padding:14px max(16px,calc((100% - 760px)/2));background:rgba(10,16,32,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top .mark{font:900 22px/1 "Big Shoulders Display","Barlow Condensed","Arial Narrow",sans-serif;letter-spacing:.08em;color:var(--ink);text-decoration:none}
+.top nav{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.top nav a{padding:6px 10px;border-radius:999px;color:var(--sub);text-decoration:none;font-size:15px;font-weight:600}
+.top nav a:hover{color:var(--ink)}
+.top nav a[aria-current]{background:var(--shelf);color:var(--ink)}
+main{max-width:760px;margin:0 auto;padding:34px 16px 40px}
+h1{font-size:40px;line-height:1.1;margin:0 0 6px;letter-spacing:-.01em}
+.upd{color:var(--sub);margin:0 0 26px}
+h2{font-size:22px;line-height:1.25;margin:34px 0 8px;color:#fff;scroll-margin-top:70px}
+h3{font-size:18px;margin:20px 0 4px;color:var(--ink)}
+p,li,td{color:var(--text)}
+ul{padding-left:20px;margin:8px 0}
+li{margin:6px 0}
+b{color:var(--ink)}
+code{font:15px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--shelf);padding:1px 6px;border-radius:6px;color:var(--ink)}
+.box{background:var(--shelf);border:1px solid var(--line);border-radius:16px;padding:6px 20px 12px;margin:22px 0}
+.box h2{margin-top:14px}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:16px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--sub);font-weight:600;font-size:14px;letter-spacing:.04em;text-transform:uppercase}
+.foot{max-width:760px;margin:0 auto;padding:18px 16px 48px;border-top:1px solid var(--line);display:flex;gap:18px;flex-wrap:wrap}
+.foot a{color:var(--sub);text-decoration:none;font-weight:600}
+.foot a:hover{color:var(--ink)}
+@media (max-width:520px){h1{font-size:32px}.top nav a{font-size:14px;padding:5px 8px}table{font-size:15px}}
