@@ -5,6 +5,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { meter } from "./meter.js";
 import { roomCode } from "./util.js";
+import { mirrorDay } from "./usage.js";
 
 const DAYS_KEPT = 14;
 // Quick match: a new table takes people for this long (its deal comes at 7 s; the last ones need a moment to connect)
@@ -41,6 +42,15 @@ export class Guard extends DurableObject {
     for (const [g, n] of Object.entries(c.plays)) d.plays[g] = (d.plays[g] || 0) + n;
     meter(this.env, "rows", "guard usage day", 1);
     await this.ctx.storage.put(key, d);
+    await this.mirror(key, d);
+  }
+  // the same record in D1 (worker/usage.js); the first time after a restart, every day kept here
+  async mirror(key, d) {
+    if (!this.mirroredAll) {
+      this.mirroredAll = true;
+      for (const [k, v] of await this.ctx.storage.list({ prefix: "u:" })) if (k !== key) await mirrorDay(this.env, k.slice(2), v);
+    }
+    await mirrorDay(this.env, key.slice(2), d);
   }
   // a table closed: what it cost (rooms count their own requests, messages and storage writes)
   async usage(game, u, phase) {
@@ -55,6 +65,7 @@ export class Guard extends DurableObject {
     if (phase === "solo") d.solo[g] = (d.solo[g] || 0) + 1; else d.server[g] = (d.server[g] || 0) + 1;
     meter(this.env, "rows", "guard usage day", 1);
     await this.ctx.storage.put(key, d);
+    await this.mirror(key, d);
     return true;
   }
   // everything the dashboard shows, in one call

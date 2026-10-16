@@ -10,6 +10,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { publicId, cleanName } from "./util.js";
 import { logIncident } from "./incidents.js";
+import { mirrorTable } from "./usage.js";
 import { meter } from "./meter.js";
 import mafia from "./games/mafia.js";
 import imposter from "./games/imposter.js";
@@ -192,6 +193,10 @@ export class Room extends DurableObject {
     if (this.s) {
       this.use("do", "rpc guard.usage");
       try { await this.env.GUARD.get(this.env.GUARD.idFromName("guard")).usage(this.s.game, this.s.u || {}, this.s.g && this.s.g.phase); } catch {}
+      const g = this.s.g || {}, u = this.s.u || {};
+      await mirrorTable(this.env, { game: this.s.game, phase: g.phase || "", room: this.s.code, ...u, secs: Math.round((Date.now() - this.s.created) / 1000),
+        people: Array.isArray(g.seats) ? g.seats.filter((x) => x && !x.bot && !x.stand).length || this.s.players.length : this.s.players.length,
+        seats: Array.isArray(g.seats) ? g.seats.filter(Boolean).length : 0, hands: (g.mt && (g.mt.handNo || g.mt.round)) || 0, only: !!g.only });
     }
     // quiet: the phone already has the table (it plays it itself), so no "the room closed" message
     for (const w of this.ctx.getWebSockets()) { try { if (!quiet) w.send('{"t":"closed"}'); w.close(quiet ? 1000 : 4004, quiet ? "on the phone" : "room closed"); } catch {} }
