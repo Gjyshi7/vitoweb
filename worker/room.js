@@ -275,6 +275,11 @@ export class Room extends DurableObject {
     const gone = s.players.find((x) => x.pid === pid);
     if (!gone) return false;
     s.players = s.players.filter((x) => x.pid !== pid);
+    if (s.hostPid === pid) {                          // the host left: the next person (one who is here, if any) hosts
+      const on = this.online();
+      const next = s.players.find((x) => on.has(x.pid)) || s.players[0];
+      s.hostPid = next ? next.pid : null; s.hostOffAt = next && on.has(next.pid) ? 0 : Date.now();
+    }
     try { GAMES[s.game].onRemove(s, pid, Date.now(), gone.name); }     // the name: a friend's seat keeps it when the table plays on for them
     catch (e) { this.fault("remove crashed", e); const g = GAMES[s.game]; if (g.recover) try { g.recover(s, Date.now(), "remove crashed"); } catch {} }
     for (const w of this.ctx.getWebSockets(pid)) {
@@ -308,7 +313,14 @@ export class Room extends DurableObject {
         break;
       }
       case "leave": {
-        if (isHost) return err("host_cant_leave");
+        const game = GAMES[s.game];
+        // a card game in progress: the seat waits for you a little (a friends' room: until the game ends)
+        if (game.softLeave && game.softLeave(s, pid, Date.now())) {
+          for (const w of this.ctx.getWebSockets(pid)) { try { w.send('{"t":"left"}'); w.close(4000, "left"); } catch {} }
+          changed = true;
+          break;
+        }
+        if (isHost && !game.canJoin) return err("host_cant_leave");
         changed = this.remove(pid, 4000, "left");
         break;
       }

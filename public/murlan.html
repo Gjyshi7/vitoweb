@@ -568,9 +568,10 @@ function resetCards(){
 async function dealAnim(my){
   dealt = [[], [], [], []]; renderPlates();
   await sleep(300);
-  for (let i = 0; i < 54; i++) {
+  const ring = [1, 2, 3, 4].map(k => (mt.dealer + k) % 4).filter(p => H.hands[p].length);
+  for (let i = 0; i < H.dealOrder.length; i++) {
     if (my !== gen) return;
-    const p = (mt.dealer + 1 + i) % 4;
+    const p = ring[i % ring.length];
     dealt[p].push(H.dealOrder[i]); layoutSeat(p);
     if (i % 2 === 0) snap(.18, 2400, .04);
     await sleep(D(34));
@@ -668,7 +669,7 @@ async function runHand(){
 }
 async function endHand(res, my){
   setTurn(-1); stopInput(); refresh(); setTimer(-1);
-  const lp = res.order[3];
+  const lp = res.order[res.order.length - 1];
   await sleep(D(500)); if (my !== gen) return;
   await clearPile();
   if (H.hands[lp].length) { reveal = lp; layoutSeat(lp); $('#cap').textContent = `I mbetën ${NAMES[lp]}`; }
@@ -785,7 +786,9 @@ const lwin = (r, isTeams) => r == null ? null : isTeams ? (ON.me % 2 ? 1 - r : r
 
 function seatNames(t){
   ON.me = t.me;
-  t.seats.forEach((x, s) => { if (!x) return; const l = lpos(s); NAMES[l] = l ? x.name : 'Ti'; FEM[l] = !!x.fem; if (x.color) AVC[l] = x.color; });
+  t.seats.forEach((x, s) => { const l = lpos(s); if (!x) { if (l) NAMES[l] = ''; return; } NAMES[l] = l ? x.name : 'Ti'; FEM[l] = !!x.fem; if (x.color) AVC[l] = x.color; });
+  // someone sat down in place of someone who left: show the new name now, not at the next move
+  const sig = NAMES.join('|'); if (ON.names !== sig) { const was = ON.names; ON.names = sig; if (was) try { renderPlates(); } catch (e) {} }
 }
 function ensureIn(p, ids){
   for (const id of ids) {
@@ -829,7 +832,7 @@ function resync(t){
   const inHands = new Set(hands.flat());
   for (let id = 0; id < 54; id++) if (!inHands.has(id) && !onTable.includes(id)) put(id, DISCARD[0] + (Math.random() * 8 - 4), DISCARD[1] - discardN * .35, Math.random() * 16 - 8, .62, 5 + discardN++, false);
   pile = trick; renderPile();
-  if (s.result && s.left) { const lp = lpos(s.result.order[3]); ensureIn(lp, s.left); reveal = lp; }
+  if (s.result && s.left) { const lp = lpos(s.result.order[s.result.order.length - 1]); ensureIn(lp, s.left); reveal = lp; }
   for (let p = 0; p < 4; p++) layoutSeat(p);
   renderPlates(); meta();
 }
@@ -839,7 +842,9 @@ async function applyEv(ev, my){
     mt = matchFrom(ev); mt.handNo = ev.handNo;
     const hands = standIns(ev.hand, rot(ev.counts), []);
     const pools = hands.map(h => h.slice()), order = [];
-    for (let i = 0; i < 54; i++) { const p = (mt.dealer + 1 + i) % 4; order.push(pools[p].shift()); }
+    // the deal goes round the seats that get cards (2, 3 or 4 of them), starting after the dealer
+    const ring = [1, 2, 3, 4].map(k => (mt.dealer + k) % 4).filter(p => pools[p].length);
+    for (let i = 0; i < 54 && ring.length; i++) { const p = ring[i % ring.length]; order.push(pools[p].shift()); }
     H = freshHand({ hands, cur: lpos(ev.cur), must3: ev.handNo === 1, dealOrder: order, exchange: exMap(ev.ex) });
     mt.hand = H; meta(); status('');
     resetCards(); renderPlates(); setTurn(-1);
@@ -891,7 +896,7 @@ async function applyEv(ev, my){
     const res = { order: r.order.map(lpos), pts: rot(r.pts), scores: rot(r.scores), team: rotTeams(r.team || [0, 0]), teams: !!r.teams, target: r.target,
       choice: !!r.choice, golden: !!r.golden, winner: lwin(r.winner, r.teams), tie: r.tie ? r.tie.map(x => lwin(x, r.teams)) : null };
     Object.assign(mt, { scores: res.scores, team: res.team, target: res.target, winner: res.winner, tie: res.tie, golden: false });
-    const lp = res.order[3];
+    const lp = res.order[res.order.length - 1];
     ensureIn(lp, ev.left);
     setTurn(-1); setTimer(-1); stopInput(); refresh();
     await sleep(D(400)); await clearPile();

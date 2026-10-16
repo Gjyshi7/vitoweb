@@ -18,14 +18,18 @@ const spec = {
   turnMs: 20_000,
   seatList: () => [0, 1, 2, 3],
   cleanCfg: () => ({}),
-  newMatch() { const mt = E.newMatch(Math.random); delete mt.rand; return mt; },
+  newMatch(cfg, seats) { const mt = E.newMatch(Math.random, seats || undefined); delete mt.rand; return mt; },
+  // friends' room, only the people there: all 49 cards split among 2, 3 or 4
+  onlyUs: (cfg, n) => (n === 4 ? { cfg, seats: [0, 1, 2, 3] } : n === 3 ? { cfg, seats: [0, 1, 2] } : n === 2 ? { cfg, seats: [0, 2] } : null),
 
   deal(mt, emit) {
     const H = withRand(mt, () => E.deal(mt));
     const priv = {}; H.hands.forEach((h, p) => (priv[p] = { hand: h.slice() }));
     emit({ k: "deal", round: mt.round, dealer: mt.dealer, counts: H.hands.map((h) => h.length), losses: mt.losses.slice() }, priv);
     const res = withRand(mt, () => E.initialDiscard(mt));
-    emit({ k: "pairs", pairs: res.pairs, outs: res.outs, cur: H.cur, over: H.over, loser: H.loser });
+    // n: every seat's card count after the event. Public anyway (each plate shows it); the phones keep their
+    // copy of the others' hands exactly that size, so what you pick from always has the cards it really has.
+    emit({ k: "pairs", pairs: res.pairs, outs: res.outs, cur: H.cur, over: H.over, loser: H.loser, n: H.hands.map((h) => h.length) });
     const thrown = res.pairs.filter((p) => p.length).length;
     if (H.over) { emit({ k: "end", loser: H.loser, losses: mt.losses.slice(), order: H.order.slice() }); return 2600 + thrown * 900; }
     return 2600 + thrown * 900 + 500;
@@ -39,7 +43,7 @@ const spec = {
     const idx = Number(msg.idx);
     if (!Number.isInteger(idx) || from < 0 || idx < 0 || idx >= H.hands[from].length) return { error: "bad_move" };
     const ev = withRand(mt, () => E.draw(mt, seat, idx));
-    emit({ k: "draw", p: seat, from, idx, pair: ev.pair, outs: ev.outs, cur: H.cur, over: ev.over },
+    emit({ k: "draw", p: seat, from, idx, pair: ev.pair, outs: ev.outs, cur: H.cur, over: ev.over, n: H.hands.map((h) => h.length) },
       { [seat]: { card: ev.card }, [from]: { card: ev.card } });
     if (ev.over) { emit({ k: "end", loser: ev.loser, losses: mt.losses.slice(), order: H.order.slice() }); return { wait: 0 }; }
     return { wait: ev.pair ? 2400 : 1300 };   // the phones show the card arrive, and a pair meet and go to the table

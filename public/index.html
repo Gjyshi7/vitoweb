@@ -522,14 +522,16 @@ const IG_HANDLE = 'vitoweb.al';      // e.g. 'vitoweb.al' (without @). Empty = n
   // after 90 s away the server ends a game nobody is at, and your seat is gone anyway)
   const KEEP_MS = 90_000;
   const drop = () => { try { localStorage.removeItem('vw.table'); } catch (e) {} };
-  if (t && NAMES[t.game] && /^[A-Z]{4}$/.test(t.code) && Date.now() - t.at < KEEP_MS) {
+  // pressed DIL: 6 s to go back to a quick-match table, longer to a friends' room
+  const keep = t && t.left ? (t.quick ? 6_000 : KEEP_MS) : KEEP_MS, since = t ? (t.left || t.at) : 0;
+  if (t && NAMES[t.game] && /^[A-Z]{4}$/.test(t.code) && Date.now() - since < keep) {
     fetch('/api/room/' + t.code).then(r => r.json()).then(j => {
       if (!j.ok || j.game !== t.game || j.phase === 'closed') { drop(); return; }
-      const left = KEEP_MS - (Date.now() - t.at);
+      const left = keep - (Date.now() - since);
       if (left <= 0) { drop(); return; }
       const b = document.getElementById('backTable');
       b.innerHTML = `<span>Ke një lojë ${NAMES[t.game]} të hapur${t.quick ? '' : ' me shokët'}</span><b>KTHEHU</b>`;
-      b.hidden = false; b.onclick = () => { b.hidden = true; window.__openGame(t.game); };
+      b.hidden = false; b.onclick = () => { b.hidden = true; try { localStorage.setItem('vw.table', JSON.stringify({ ...t, go: true })); } catch (e) {} window.__openGame(t.game); };
       clearTimeout(backT); backT = setTimeout(() => { b.hidden = true; }, left);
     }).catch(() => {});
   } else if (t) drop();

@@ -857,6 +857,8 @@ function seatNames(t){
   ON.myTeam = t.cfg.teams ? t.me % 2 : (t.me === 0 ? 0 : 1);
   for (let p = 0; p < 4; p++) NAMES[p] = p ? '' : 'Ti';
   t.seats.forEach((x, s) => { if (!x) return; const l = lpos(s); NAMES[l] = l ? x.name : 'Ti'; FEM[l] = !!x.fem; if (x.color) AVC[l] = x.color; });
+  // someone sat down in place of someone who left: show the new name now, not at the next move
+  const sig = NAMES.join('|'); if (ON.names !== sig) { const was = ON.names; ON.names = sig; if (was) try { renderPlates(); } catch (e) {} }
 }
 const standIn = list => list.find(x => !ON.known.has(x));
 function claim(id, list){

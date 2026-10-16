@@ -14,9 +14,11 @@
      onLeave:    the player left the room: reset the table */
 function NETWORK(G){
   const $ = s => document.querySelector(s);
+  const $$ = s => [...document.querySelectorAll(s)];
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const ERR = {
     paused: 'Dhomat e reja janë ndalur për pak.', busy: 'Serveri është plot. Provo pas pak.', slow_down: 'Shumë kërkesa. Prit pak.',
+    only_count: 'Me kaq veta nuk mund të luani vetëm ju. Ftoni edhe një shok ose zgjidhni «Luaj me të tjerë».',
     bad_game: 'Gabim.', not_your_turn: '', bad_move: '', bad_gift: '', must_lead: '', host_cant_leave: 'Hosti nuk del dot nga dhoma.',
   };
   const store = {
@@ -73,6 +75,14 @@ function NETWORK(G){
 #menu .modes button.on{color:var(--ink);background:rgba(239,90,134,.12);box-shadow:inset 0 0 0 2px var(--pk)}
 #menu .b{display:block;width:100%;height:56px;border:0;border-radius:16px;font:700 18px inherit;font-family:inherit;letter-spacing:.04em;cursor:pointer;color:var(--ink);background:var(--card);box-shadow:inset 0 0 0 1px var(--ln)}
 #menu .b:active{transform:scale(.98)}
+#menu .only{margin:4px 0 10px}
+#menu .only .seg{display:flex;gap:4px;padding:4px;border-radius:14px;background:var(--card);box-shadow:inset 0 0 0 1px var(--ln)}
+#menu .only .seg button{flex:1;border:0;border-radius:10px;padding:11px 8px;background:transparent;color:var(--sub);font:700 15px inherit;font-family:inherit;cursor:pointer;white-space:nowrap}
+#menu .only .seg button.on{background:var(--pk);color:#fff}
+#menu .only .seg button:disabled{cursor:default}
+#menu .b.ret{height:64px;color:#1a2233;background:var(--gd);box-shadow:0 8px 22px rgba(243,199,106,.25)}
+#menu .b.ret span{display:block;font:800 22px/1 var(--f-d, "Barlow Condensed", sans-serif);letter-spacing:.1em}
+#menu .b.ret small{display:block;margin-top:4px;font-size:13px;font-weight:700;opacity:.75}
 #menu .b.main{height:76px;color:#fff;background:linear-gradient(#f37399,var(--pk) 45%,var(--pk2));box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 10px 26px rgba(176,42,99,.38)}
 #menu .b.main span{display:block;font:800 30px/1 var(--f-d, "Barlow Condensed", sans-serif);letter-spacing:.12em}
 #menu .b.main small{display:block;margin-top:4px;font-size:14px;font-weight:600;letter-spacing:.02em;opacity:.9}
@@ -187,6 +197,7 @@ function NETWORK(G){
       <div class="hero"><canvas id="mArt" width="900" height="600" aria-hidden="true"></canvas>
         <div class="htxt"><h1>${esc(G.title)}</h1>${G.sub ? `<p class="sub">${esc(G.sub)}</p>` : ''}<div class="live" id="mLive" hidden><i></i><span></span></div></div></div>
       <div class="act">
+        <button class="b ret" id="mReturn" type="button" hidden><span>KTHEHU NË TAVOLINË</span><small id="mReturnT"></small></button>
         ${modeTiles}
         <button class="b main" id="mQuick" type="button"><span>LUAJ</span><small>me lojtarë online</small></button>
         <button class="b chev" id="mFriends" type="button" aria-expanded="false">Me shokët</button>
@@ -213,6 +224,7 @@ function NETWORK(G){
       <div class="tbl" id="mSeats"></div>
       <div class="rside">
         <div class="code" id="mCodeBox"><span>KODI</span><b id="mCodeTxt"></b></div>
+        <div class="only" id="mOnly" hidden><div class="seg"><button type="button" data-v="0">Luaj me të tjerë</button><button type="button" data-v="1">Vetëm ne</button></div></div>
         <div class="rbtns" id="mRoomBtns"><button class="b" id="mShare" type="button">Dërgo linkun</button><button class="b" id="mInvite" type="button" hidden>Fto shokët</button><button class="b main" id="mStart" type="button"><span style="font-size:24px">FILLO</span></button></div>
         <p class="err" id="mErr2"></p>
         <div class="adslot" data-ad="lobby"></div>
@@ -395,12 +407,31 @@ function NETWORK(G){
     show('room');
     connect();
   }
+  // DIL during a game: the server keeps your seat for a while (6 s at a quick-match table, the whole game at a
+  // friends' room). The menu offers the way back for that long.
+  const BACK_QUICK_MS = 6_000, BACK_FRIENDS_MS = 90_000;
+  let retT = 0;
+  function offerReturn(t){
+    clearInterval(retT);
+    const b = $('#mReturn');
+    const tick = () => {
+      const left = (t.quick ? BACK_QUICK_MS : BACK_FRIENDS_MS) - (Date.now() - t.left);
+      if (left <= 0 || N.room) { b.hidden = true; clearInterval(retT); if (left <= 0) { const cur = store.get('table', null); if (cur && cur.code === t.code) store.set('table', null); } return; }
+      b.hidden = false;
+      $('#mReturnT').textContent = t.quick ? `vendi yt të pret edhe ${Math.ceil(left / 1000)} s` : 'vendi yt të pret';
+    };
+    b.onclick = () => { clearInterval(retT); b.hidden = true; enter(t.code, t.quick); };
+    tick(); retT = setInterval(tick, 250);
+  }
   function leave(msg){
     const wasTable = N.table;
-    if (N.ws && N.room) { if (!isHost() || N.quick) send({ t: 'leave' }); }
+    const inGame = !!(N.ws && N.room && N.table && N.S && N.S.tbl && (N.S.tbl.phase === 'play' || N.S.tbl.phase === 'over') && N.S.tbl.me >= 0 && msg === undefined);
+    const was = inGame ? { game: G.game, code: N.room, quick: !!N.quick, at: Date.now(), left: Date.now() } : null;
+    if (N.ws && N.room) { if (inGame || !isHost() || N.quick) send({ t: 'leave' }); }
     N.want = false; if (N.ws) try { N.ws.close(); } catch(e) {}
     N.ws = null; N.S = null; N.room = null; N.table = false; N.quick = false; badge.hidden = true; N.seen = null;
-    store.set('table', null);
+    store.set('table', was);
+    if (was) setTimeout(() => offerReturn(was), 0);
     history.replaceState(null, '', location.pathname);
     clearTimeout(voteT); clearTimeout(awayT); clearTimeout(goT); document.querySelectorAll('.plate.vw-away').forEach(el => el.classList.remove('vw-away')); if (window.ENDP) ENDP.reset();
     if (wasTable || G.onLeave) G.onLeave();
@@ -477,6 +508,7 @@ function NETWORK(G){
   $('#mBack').onclick = () => { if (window.parent !== window) { try { parent.postMessage({ vw: 'home' }, '*'); } catch(e) {} } else location.href = './'; };
   $('#mLeave').onclick = () => leave();
   $('#mStart').onclick = () => send({ t: 'start' });
+  $$('#mOnly button').forEach(b => b.onclick = () => { if (isHost()) send({ t: 'only', v: b.dataset.v === '1' }); });
   $('#mShare').onclick = async () => {
     const url = `${location.origin}${location.pathname}?r=${N.room}`;
     try { if (navigator.share) { await navigator.share({ title: G.title, text: `${G.title} · dhoma ${N.room}`, url }); return; } } catch(e) { return; }
@@ -492,7 +524,8 @@ function NETWORK(G){
   const SPOT = { 4: [[50, 80], [9, 47], [50, 14], [91, 47]], 2: [[50, 80], [50, 14]] };
   function renderRoom(t){
     const list = t.seatList, n = list.length, k = Math.max(0, list.indexOf(t.me));
-    const teams = G.teamsFor && G.teamsFor(t.cfg);
+    // "Vetëm ne" with fewer than four: everyone plays for themselves, no partners
+    const teams = G.teamsFor && G.teamsFor(t.cfg) && !(t.only && list.filter(i => t.seats[i]).length < 4);
     const spots = SPOT[n] || SPOT[4];
     $('#mSeats').innerHTML = list.map((_, j) => {
       const i = list[(k + j) % n], x = t.seats[i], [left, top] = spots[j];
@@ -513,7 +546,15 @@ function NETWORK(G){
       $('#mRoomBtns').hidden = false;
       $('#mStart').hidden = !isHost();
       $('#mInvite').hidden = !signed;
-      $('#mLead').textContent = isHost() ? (filled < n ? 'Dërgoju kodin ose linkun. Vendet që mbeten bosh i zënë lojtarë të tjerë kur shtyp Fillo.' : 'Gati. Shtyp Fillo.') : 'Pret hostin të fillojë.';
+      const people = list.filter(i => t.seats[i]).length;
+      const only = t.only === true, can = t.only !== undefined && n > 2;
+      $('#mOnly').hidden = !can;
+      $$('#mOnly button').forEach(b => { b.classList.toggle('on', (b.dataset.v === '1') === only); b.disabled = !isHost(); });
+      const odd = only && G.game === 'domino' && people === 3;
+      $('#mLead').textContent = !isHost() ? 'Pret hostin të fillojë.'
+        : odd ? 'Domino luhet me 2 ose 4 veta. Ftoni edhe një shok ose zgjidhni «Luaj me të tjerë».'
+        : only ? (people >= 2 ? `Gati. Luani vetëm ju të ${people}. Shtyp Fillo.` : 'Dërgoju kodin ose linkun. Duhen të paktën 2 veta.')
+        : filled < n ? 'Dërgoju kodin ose linkun. Vendet që mbeten bosh i zënë lojtarë të tjerë kur shtyp Fillo.' : 'Gati. Shtyp Fillo.';
     }
   }
   function onState(S){
@@ -730,6 +771,11 @@ box-shadow:inset 0 0 0 1px rgba(255,179,166,.4);pointer-events:none;z-index:2}`;
   const code = (new URLSearchParams(location.search).get('r') || '').toUpperCase();
   const back = store.get('table', null);
   if (/^[A-Z]{4}$/.test(code)) { $('#mCode').value = code; if (savedName()) enter(code, !!(back && back.code === code && back.quick)); }
+  else if (back && back.left && back.game === G.game && /^[A-Z]{4}$/.test(back.code)) {
+    // pressed KTHEHU on the main page: straight back to the table (still inside the time the seat waits)
+    if (back.go && savedName() && Date.now() - back.left < (back.quick ? BACK_QUICK_MS : BACK_FRIENDS_MS)) enter(back.code, !!back.quick);
+    else offerReturn(back);
+  }
   else if (back && back.game === G.game && /^[A-Z]{4}$/.test(back.code) && Date.now() - back.at < KEEP_MS && savedName()) {
     // you closed the page at a table a moment ago: go back to it. Gone longer than that, the game is gone.
     fetch('/api/room/' + back.code).then(r => r.json()).then(j => { if (j.ok && j.game === G.game && j.phase !== 'closed' && !N.room) enter(back.code, !!back.quick); else store.set('table', null); }).catch(() => {});

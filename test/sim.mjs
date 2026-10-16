@@ -158,14 +158,9 @@ for (const [pub, gone, out] of [[true, 150_000, true], [true, 30_000, false], [f
     now = n2; Date.now = () => now;
   }
   ok(s.g.phase === "play", "lobby: the match starts once the table is full");
-  // someone new arrives mid-match: takes a bot's seat
-  s.players.push({ pid: "b", name: "Beni" });
-  ok(mod.canJoin(s), "a match that was just dealt with bots can take a person");
-  mod.onJoin(s, "b", now);
-  const sb = s.g.seats.findIndex((x) => x && x.pid === "b");
-  ok(sb >= 0 && !s.g.seats[sb].bot && mod.view(s, "b").tbl.snap.hand.length > 0, "the newcomer sits in a bot's seat with its cards");
-  for (let i = 0; i < 40 && s.g.acts < 2; i++) { now = Math.max(now, mod.wakeAt(s, new Set(["a", "b"]))); mod.onTick(s, now, new Set(["a", "b"])); }
-  ok(!mod.canJoin(s), "once cards are being played, nobody new takes a seat");
+  // Devit: nobody joins a game late. Once dealt, a quick-match table takes no one new.
+  ok(!mod.canJoin(s), "a dealt match takes nobody new (no late joiners)");
+  ok(mod.onJoin(s, "zz", now) === false && !s.g.seats.some((x) => x && x.pid === "zz"), "a late phone gets no seat");
   // a full lobby of bots: a person still gets in
   const s2 = { players: [{ pid: "a", name: "Ana" }], g: mod.init({ cfg: { teams: true }, public: true, serverSolo: true }) };
   mod.onJoin(s2, "a", now);

@@ -134,23 +134,17 @@ async function route(req, env, url) {
     if (!GAMES[game] || !GAMES[game].canJoin) return withCookie(json({ error: "bad_game" }, 400));
     const cfg = GAMES[game].init({ cfg: body.cfg && typeof body.cfg === "object" ? body.cfg : {} }).cfg;
     const key = game + ":" + JSON.stringify(cfg);
-    const guard = env.GUARD.get(env.GUARD.idFromName("guard"));
-    // a table still filling up first; else a match in progress with a seat a bot holds (most people first).
-    // If the shared list is down, everyone still gets a table of their own: matching is a bonus, playing is not.
-    let lobby = null, live = null;
-    try {
-      for (const code of await guard.findPublic(key)) {
-        const info = await env.ROOM.get(env.ROOM.idFromName(code)).info();
-        if (!info.ok || !info.open) { await guard.closePublic(key, code); continue; }
-        if (info.phase === "lobby") { lobby = code; break; }
-        if (info.phase === "play" && info.humans > 0 && (!live || info.humans > live.humans)) live = { code, humans: info.humans };   // only to meet someone
-      }
-    } catch (e) { await logIncident(env, { src: "server", kind: "matchmaking list failed", game, msg: e && e.message }); }
-    const pick = lobby || (live && live.code);
-    if (pick) return withCookie(json({ code: pick, game }));
-    const r = await newRoom(env, game, { cfg, public: true, serverSolo: env.SOLO_ON_SERVER === "1" });   // tests only
-    if (!r.code) return withCookie(json(r, 503));
-    try { await guard.addPublic(key, r.code); } catch (e) { await logIncident(env, { src: "server", kind: "matchmaking list failed", game, msg: e && e.message }); }
+    const seats = GAMES[game].seatsFor ? GAMES[game].seatsFor(cfg) : 4;
+    const opts = { cfg, public: true, serverSolo: env.SOLO_ON_SERVER === "1" };      // serverSolo: tests only
+    const max = Number(env.MAX_NEW_ROOMS_PER_DAY) || 2000, paused = String(env.PAUSE_NEW_ROOMS || "0") === "1";
+    if (paused) return withCookie(json({ error: "paused" }, 503));
+    // one place decides (the Guard), so people pressing LUAJ together sit together; if it is down, everyone
+    // still gets a table of their own: matching is a bonus, playing is not
+    let r = null;
+    try { r = await env.GUARD.get(env.GUARD.idFromName("guard")).quickMatch(key, game, seats, opts, max, paused); }
+    catch (e) { await logIncident(env, { src: "server", kind: "matchmaking failed", game, msg: e && e.message }); }
+    if (!r || (!r.code && !r.error)) r = await newRoom(env, game, opts);
+    if (!r.code) return withCookie(json({ error: r.error || "busy" }, 503));
     return withCookie(json({ code: r.code, game }));
   }
 

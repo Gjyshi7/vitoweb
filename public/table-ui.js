@@ -16,6 +16,10 @@
 .top .l{min-width:0!important;gap:14px!important}
 .top .r{min-width:0!important;gap:10px!important}
 .top .l .ib{width:56px;height:48px;border-radius:12px}
+.top .l .ib.dil{width:auto;padding:0 16px 0 11px;gap:7px;display:flex;align-items:center;color:#fff;font:800 19px var(--f-ui, system-ui);letter-spacing:.1em;
+  background:rgba(239,90,134,.2);box-shadow:inset 0 0 0 1.5px rgba(239,90,134,.75)}
+.top .l .ib.dil svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.top .l .ib.dil:active{transform:scale(.96)}
 .top .l .ib svg,.top .r .ib svg{width:26px;height:26px}
 .top .r .ib.hideTop{display:none}
 .top .r .ib{width:54px;height:46px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
@@ -48,6 +52,13 @@
 #ovMenu .mb:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 `;
   document.head.appendChild(css);
+  // leaving the table: a clear red "DIL" button, top left, on every phone
+  const home = $('#bHome');
+  if (home) {
+    home.classList.add('dil');
+    home.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M14 8l4 4-4 4"/><path d="M18 12H9"/></svg>DIL';
+    home.setAttribute('aria-label', 'Dil nga tavolina'); home.title = 'Dil nga tavolina';
+  }
 
   const ICON = {
     pause: '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>',

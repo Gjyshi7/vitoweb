@@ -271,24 +271,33 @@ const G = (() => {
   const { rankOf, classify, beats, POINTS, shuffle, highest, chooseGift, decide } = M;
   /* opts.teams: 2 kundër 2. Partners sit across (seats 0+2 and 1+3); a team scores both partners' places.
      mt.winner / mt.tie are seats in a free-for-all and teams (0 or 1) in 2 kundër 2. */
+  /* opts.seats: the seats in play when fewer than 4 play (a friends' room "vetëm ne"): e.g. [0,2] or [0,1,2].
+     The whole deck is split equally among them; 2 kundër 2 needs all four. */
   function newMatch(rand, opts) {
     opts = opts || {};
-    const teams = !!opts.teams;
-    return { rand: rand || Math.random, teams, teamOf: teams ? [0, 1, 0, 1] : [0, 1, 2, 3], scores: [0, 0, 0, 0], team: [0, 0],
-      target: 21, handNo: 0, dealer: ((rand || Math.random)() * 4) | 0, lastOrder: null, winner: null, tie: null, hand: null };
+    const seats = Array.isArray(opts.seats) && opts.seats.length >= 2 ? opts.seats.slice().sort() : [0, 1, 2, 3];
+    const teams = !!opts.teams && seats.length === 4;
+    const r = rand || Math.random;
+    return { rand: r, teams, seats, teamOf: teams ? [0, 1, 0, 1] : [0, 1, 2, 3], scores: [0, 0, 0, 0], team: [0, 0],
+      target: 21, handNo: 0, dealer: seats[(r() * seats.length) | 0], lastOrder: null, winner: null, tie: null, hand: null };
   }
+  const seatsOf = mt => mt.seats || [0, 1, 2, 3];
+  const seatAfter = (mt, p) => { const S = seatsOf(mt); return S[(S.indexOf(p) + 1) % S.length]; };
   function deal(mt) {
     mt.handNo++;
-    if (mt.handNo > 1) mt.dealer = (mt.dealer + 1) % 4;
+    const S = seatsOf(mt);
+    if (!S.includes(mt.dealer)) mt.dealer = S[0];
+    if (mt.handNo > 1) mt.dealer = seatAfter(mt, mt.dealer);
     const deck = shuffle(Array.from({ length: 54 }, (_, i) => i), mt.rand);
     const hands = [[], [], [], []];
-    deck.forEach((id, i) => hands[(mt.dealer + 1 + i) % 4].push(id));
-    const H = { hands, active: [true, true, true, true], order: [], top: null, topCards: [], last: -1, passes: 0, cur: 0, golden: !!mt.golden,
+    const from = S.indexOf(mt.dealer) + 1;
+    deck.forEach((id, i) => hands[S[(from + i) % S.length]].push(id));
+    const H = { hands, active: [0, 1, 2, 3].map(q => S.includes(q)), order: [], top: null, topCards: [], last: -1, passes: 0, cur: 0, golden: !!mt.golden,
       played: new Set(), known: [new Map(), new Map(), new Map(), new Map()], must3: false, trick: [], dealOrder: deck };
     mt.hand = H;
     if (mt.handNo === 1) { H.cur = hands.findIndex(h => h.includes(0)); H.must3 = true; H.exchange = null; }
     else {
-      const first = mt.lastOrder[0], last = mt.lastOrder[3];
+      const first = mt.lastOrder[0], last = mt.lastOrder[mt.lastOrder.length - 1];
       const hl = hands[last];
       if (hl.includes(52) && hl.includes(53)) { H.exchange = { first, last, jokers: true }; H.cur = first; }
       else { H.exchange = { first, last, jokers: false }; H.cur = last; }
@@ -363,7 +372,9 @@ const G = (() => {
   }
   function finishHand(mt) {
     const H = mt.hand;
-    const pts = [0, 0, 0, 0]; H.order.forEach((p, i) => pts[p] = POINTS[i]);
+    // places score 3, 2, 1; the last one always scores 0 (with 3 players: 3, 2, 0; with 2: 3, 0)
+    const nIn = seatsOf(mt).length;
+    const pts = [0, 0, 0, 0]; H.order.forEach((p, i) => pts[p] = i === nIn - 1 ? 0 : POINTS[i]);
     for (let p = 0; p < 4; p++) mt.scores[p] += pts[p];
     if (mt.teams) for (let p = 0; p < 4; p++) mt.team[mt.teamOf[p]] += pts[p];
     mt.lastOrder = H.order.slice();

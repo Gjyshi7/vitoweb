@@ -26,6 +26,8 @@ const spec = {
     return { teams, stock: !teams && !!c.stock, target: t >= 10 && t <= 1000 ? t : 100 };
   },
   newMatch(cfg) { const mt = E.newMatch({ teams: cfg.teams, stock: cfg.stock, target: cfg.target }); delete mt.rand; return mt; },
+  // friends' room, only the people there: 2 play 1 kundër 1, 4 play 2 kundër 2 (Domino here is 2 or 4)
+  onlyUs: (cfg, n) => (n === 4 ? { cfg: { ...cfg, teams: true }, seats: [0, 1, 2, 3] } : n === 2 ? { cfg: { ...cfg, teams: false }, seats: [0, 2] } : null),
 
   deal(mt, emit) {
     const H = withRand(mt, () => E.deal(mt));

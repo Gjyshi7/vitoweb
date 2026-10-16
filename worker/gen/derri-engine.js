@@ -11,14 +11,23 @@ const E = (() => {
   const natural = id => { const r = rankOf(id); return r === 14 ? 1 : r === 15 ? 2 : r; };
   const label = id => ({ 11: 'J', 12: 'Q', 13: 'K', 14: 'A', 15: '2' })[rankOf(id)] || String(rankOf(id));
   function shuffle(a, rand) { rand = rand || Math.random; for (let i = a.length - 1; i > 0; i--) { const j = (rand() * (i + 1)) | 0; const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
-  function newMatch(rand) { return { rand: rand || Math.random, losses: [0, 0, 0, 0], round: 0, dealer: ((rand || Math.random)() * 4) | 0, hand: null }; }
+  /* seats: the seats in play when fewer than 4 play (e.g. [0,2] or [0,1,2]); all 49 cards are split among them */
+  function newMatch(rand, seats) {
+    const r = rand || Math.random;
+    const S = Array.isArray(seats) && seats.length >= 2 ? seats.slice().sort() : [0, 1, 2, 3];
+    return { rand: r, seats: S, losses: [0, 0, 0, 0], round: 0, dealer: S[(r() * S.length) | 0], hand: null };
+  }
+  const seatsOf = mt => mt.seats || [0, 1, 2, 3];
   function deal(mt) {
     mt.round++;
-    if (mt.round > 1) mt.dealer = (mt.dealer + 1) % 4;
+    const S = seatsOf(mt);
+    if (!S.includes(mt.dealer)) mt.dealer = S[0];
+    if (mt.round > 1) mt.dealer = S[(S.indexOf(mt.dealer) + 1) % S.length];
     const deck = shuffle(Array.from({ length: 52 }, (_, i) => i).filter(i => !DROP.includes(i)), mt.rand);
     const hands = [[], [], [], []];
-    deck.forEach((id, i) => hands[(mt.dealer + 1 + i) % 4].push(id));
-    const H = { hands, order: [], cur: (mt.dealer + 1) % 4, dealOrder: deck, over: false, loser: -1 };
+    const from = S.indexOf(mt.dealer) + 1;
+    deck.forEach((id, i) => hands[S[(from + i) % S.length]].push(id));
+    const H = { hands, order: [], cur: S[from % S.length], dealOrder: deck, over: false, loser: -1 };
     mt.hand = H;
     return H;
   }
@@ -30,7 +39,7 @@ const E = (() => {
   const live = (H, p) => H.hands[p].length > 0;
   function nextLive(H, p) { for (let i = 1; i <= 3; i++) { const q = (p + i) % 4; if (live(H, q)) return q; } return -1; }
   function checkOver(mt) {
-    const H = mt.hand, alive = [0, 1, 2, 3].filter(q => live(H, q));
+    const H = mt.hand, alive = seatsOf(mt).filter(q => live(H, q));
     if (alive.length > 1) return;
     H.over = true; H.loser = alive.length ? alive[0] : -1;
     if (H.loser >= 0) { H.order.push(H.loser); mt.losses[H.loser]++; }
@@ -42,8 +51,8 @@ const E = (() => {
       H.hands[p] = shuffle(H.hands[p].filter(id => !gone.has(id)), mt.rand);
       pairs.push(pr);
     }
-    const outs = [];
-    for (let k = 0; k < 4; k++) { const p = (mt.dealer + 1 + k) % 4; if (!live(H, p)) { H.order.push(p); outs.push(p); } }
+    const outs = [], S = seatsOf(mt), from = S.indexOf(mt.dealer) + 1;
+    for (let k = 0; k < S.length; k++) { const p = S[(from + k) % S.length]; if (!live(H, p)) { H.order.push(p); outs.push(p); } }
     checkOver(mt);
     if (!H.over && !live(H, H.cur)) H.cur = nextLive(H, H.cur);
     return { pairs, outs };

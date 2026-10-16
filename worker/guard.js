@@ -4,8 +4,11 @@
 // Cloudflare has no spending cap, so this is our own brake against a bug or abuse burning the quota.
 import { DurableObject } from "cloudflare:workers";
 import { meter } from "./meter.js";
+import { roomCode } from "./util.js";
 
 const DAYS_KEPT = 14;
+// Quick match: a new table takes people for this long (its deal comes at 7 s; the last ones need a moment to connect)
+const LOBBY_MS = 6_100;
 const MENU_TTL = 75_000, PLAY_TTL = 330_000;
 
 export class Guard extends DurableObject {
@@ -223,6 +226,39 @@ export class Guard extends DurableObject {
   // ---- quick match: public tables people can sit at, newest first, one list per game + settings ----
   // A table stays listed while it may have a seat for someone (lobby, or a bot's seat in a match);
   // the Worker asks the table itself before sending anyone there.
+  // ---- quick match ----
+  // Decided here, in one place, so that people who press LUAJ at the same instant land at the same table
+  // (two requests checking a shared list at the same moment would each make a table of their own).
+  // A table takes people only inside its lobby: from the first LUAJ until shortly before the 7 s deal.
+  // After the deal nobody new sits down at it. The room still checks every seat when the phone connects.
+  async quickMatch(key, game, seats, opts, max, paused) {
+    this.count("rpc guard.quickMatch");
+    const now = Date.now();
+    const L = this.lobbies || (this.lobbies = new Map());
+    for (const [k, l] of L) if (l.until <= now) L.delete(k);
+    const open = L.get(key);
+    if (open && open.n < seats) {
+      open.n += 1;
+      try { await open.ready; } catch {}             // the table is being made at this very moment
+      if (open.code) return { code: open.code, joined: true };
+    }
+    const entry = { code: null, n: 1, until: now + LOBBY_MS, ready: null };
+    L.set(key, entry);
+    entry.ready = (async () => {
+      const gate = await this.allowRoom(game, max, paused);
+      if (!gate.ok) { entry.err = gate.reason === "paused" ? "paused" : "busy"; return; }
+      for (let i = 0; i < 8 && !entry.code; i++) {
+        const code = roomCode();
+        const r = await this.env.ROOM.get(this.env.ROOM.idFromName(code)).init(code, game, opts);
+        if (r) entry.code = code;
+      }
+      if (!entry.code) entry.err = "busy";
+    })();
+    try { await entry.ready; } catch (e) { entry.err = "busy"; }
+    if (!entry.code) { if (L.get(key) === entry) L.delete(key); return { error: entry.err || "busy" }; }
+    return { code: entry.code, joined: false };
+  }
+
   async findPublic(key) {
     this.count("rpc guard.findPublic");
     const q = this.sql();

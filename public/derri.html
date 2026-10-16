@@ -491,9 +491,9 @@ function layoutSeat(p){
     const step = n > 1 ? Math.min(118, (920 - CW * .92) / (n - 1)) : 0;
     h.forEach((id, i) => {
       const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
-      const x = 640 + (i - (n - 1) / 2) * step, y = 322 + t * t * 16 - (hov === id ? 30 : 0);
+      const x = 640 + (i - (n - 1) / 2) * step, y = 322 + t * t * 16 - (hov === id ? 46 : 0);
       const e = els[id].el; clean(e); e.classList.add('pickable'); e.classList.toggle('hov', hov === id);
-      put(id, x, y, t * 6, .92, 300 + i, false);
+      put(id, x, y, hov === id ? 0 : t * 6, hov === id ? 1.02 : .92, hov === id ? 360 : 300 + i, false);
     });
   } else {
     h.forEach((id, i) => {
@@ -579,13 +579,24 @@ function refresh(){
   w.style.visibility = LK.on && (!LK.used || LK.held) ? '' : 'hidden';
   w.textContent = LK.held ? 'GATI' : 'PRIT'; w.classList.toggle('hot', LK.held);
 }
+// Taking a card: the first tap lifts it (you feel and hear it), a second tap on the same card takes it.
+// Tapping another card moves the choice there.
 $('#cards').addEventListener('click', e => {
   audio();
   if (mode !== 'pick') return;
   const c = e.target.closest('.card.pickable'); if (!c) return;
   const id = +c.dataset.id, idx = H.hands[pickSrc].indexOf(id);
-  if (idx >= 0) choose(idx);
+  if (idx < 0) return;
+  if (hov !== id) {
+    hov = id; layoutSeat(pickSrc);
+    snap(.22, 2900, .05); buzz(12);
+    return;
+  }
+  if (pickBlocked()) { snap(.1, 1800, .03); return; }
+  buzz([18, 40, 18]); snap(.32, 2200, .06);
+  choose(idx);
 });
+function buzz(p){ try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 function choose(idx){
   if (mode !== 'pick' || !humanResolve) return;
   if (pickBlocked()) return;
@@ -666,7 +677,7 @@ $('#bSort').onclick = () => { audio(); if (LK.on && !LK.held) return; handOrder 
 let orderT = 0;
 function orderSoon(){ if (!NET.online || !H) return; clearTimeout(orderT); orderT = setTimeout(() => { if (H && H.hands[0].length) NET.send({ t: 'order', ids: myOrder() }); }, 120); }
 async function humanPick(src, my){
-  pickSrc = src; layoutSeat(src);
+  hov = -1; pickSrc = src; layoutSeat(src);
   const tag = $('#pickTag'); tag.innerHTML = ''; tag.appendChild(document.createTextNode(NAMES[src])); tag.hidden = false;
   status('Radha jote');
   snap(.2, 2000, .08);
@@ -734,9 +745,10 @@ function resetCards(){
 async function dealAnim(my){
   dealt = [[], [], [], []]; renderPlates();
   await sleep(300);
+  const ring = [1, 2, 3, 4].map(k => (mt.dealer + k) % 4).filter(p => H.hands[p].length);
   for (let i = 0; i < H.dealOrder.length; i++) {
     if (my !== gen) return;
-    const p = (mt.dealer + 1 + i) % 4;
+    const p = ring[i % ring.length];
     dealt[p].push(H.dealOrder[i]); layoutSeat(p);
     if (i % 2 === 0) snap(.18, 2400, .04);
     await sleep(D(34));
@@ -868,13 +880,19 @@ const rot = a => { const o = [0, 0, 0, 0]; a.forEach((v, s) => o[lpos(s)] = v); 
 let lastT = null;
 function seatNames(t){
   ON.me = t.me;
-  t.seats.forEach((x, s) => { if (!x) return; const l = lpos(s); NAMES[l] = l ? x.name : 'Ti'; FEM[l] = !!x.fem; if (x.color) AVC[l] = x.color; });
+  t.seats.forEach((x, s) => { const l = lpos(s); if (!x) { if (l) NAMES[l] = ''; return; } NAMES[l] = l ? x.name : 'Ti'; FEM[l] = !!x.fem; if (x.color) AVC[l] = x.color; });
+  // someone sat down in place of someone who left: show the new name now, not at the next move
+  const sig = NAMES.join('|'); if (ON.names !== sig) { const was = ON.names; ON.names = sig; if (was) try { renderPlates(); } catch (e) {} }
 }
 // make seat q hold the real card `id`, trading places with one of q's stand-ins (instantly, so nothing seems to move)
+// If every card q holds is one we "know", one of those was a guess that turned out wrong (a card that moved
+// between two other players without us seeing which): swap with one of them anyway, so the counts stay right.
 function claim(id, q, prefer){
   if (H.hands[q].includes(id)) return;
   const from = [1, 2, 3].find(x => x !== q && H.hands[x].includes(id));
-  const y = prefer != null && H.hands[q].includes(prefer) && !ON.known.has(prefer) ? prefer : H.hands[q].find(x => !ON.known.has(x));
+  let y = prefer != null && H.hands[q].includes(prefer) && !ON.known.has(prefer) ? prefer : H.hands[q].find(x => !ON.known.has(x));
+  if (y === undefined) y = H.hands[q].find(x => x !== PIG);
+  if (y === undefined) y = H.hands[q][0];
   if (from === undefined || y === undefined) return;
   H.hands[from][H.hands[from].indexOf(id)] = y;
   H.hands[q][H.hands[q].indexOf(y)] = id;
@@ -882,6 +900,20 @@ function claim(id, q, prefer){
   a.style.transition = b.style.transition = 'none';
   const ta = a.style.transform, za = a.style.zIndex; a.style.transform = b.style.transform; a.style.zIndex = b.style.zIndex; b.style.transform = ta; b.style.zIndex = za;
   a.offsetWidth; a.style.transition = b.style.transition = '';
+}
+// After every event the server says how many cards each seat holds (ev.n). The others' hands here are
+// stand-ins; make them exactly that size. Returns false if it can't (then the page redraws from the server).
+function fitCounts(nServer){
+  if (!nServer || !H) return true;
+  const n = rot(nServer), spare = [];
+  for (let q = 1; q < 4; q++) while (H.hands[q].length > n[q]) {
+    const h = H.hands[q], i = h.findIndex(x => !ON.known.has(x) && x !== PIG);
+    spare.push(h.splice(i >= 0 ? i : h.length - 1, 1)[0]);
+  }
+  for (let q = 1; q < 4; q++) while (H.hands[q].length < n[q] && spare.length) H.hands[q].push(spare.pop());
+  // cards nobody holds any more went out in pairs we didn't see: under the pile, face down
+  for (const id of spare) put(id, PILE[0] + (Math.random() * 60 - 30), PILE[1] + (Math.random() * 30 - 15), Math.random() * 30 - 15, .62, 1, false);
+  return H.hands.every((h, q) => h.length === n[q]);
 }
 function handsFrom(mine, counts){
   ON.known = new Set(mine);
@@ -909,7 +941,8 @@ async function applyEv(ev, my){
     mt = matchFrom(ev);
     const hands = handsFrom(ev.hand, rot(ev.counts));
     const pools = hands.map(h => h.slice()), order = [];
-    for (let i = 0; i < 49; i++) { const p = (mt.dealer + 1 + i) % 4; order.push(pools[p].shift()); }
+    const ring = [1, 2, 3, 4].map(k => (mt.dealer + k) % 4).filter(p => pools[p].length);
+    for (let i = 0; i < 49 && ring.length; i++) { const p = ring[i % ring.length]; order.push(pools[p].shift()); }
     H = { hands, order: [], cur: 0, dealOrder: order, over: false, loser: -1 };
     mt.hand = H; meta(); status('');
     resetCards(); renderPlates(); setTurn(-1, -1);
@@ -924,15 +957,21 @@ async function applyEv(ev, my){
     for (let p = 0; p < 4; p++) { const gone = new Set(pairs[p].flat()); H.hands[p] = H.hands[p].filter(id => !gone.has(id)); }
     H.order = ev.outs.map(lpos);
     H.cur = lpos(ev.cur);
+    if (!fitCounts(ev.n)) ON.redraw = true;
     await firstPairs({ pairs, outs: ev.outs.map(lpos) }, my);
     return;
   }
   if (ev.k === 'draw') {
+    if (dealt) { dealt = null; layoutAll(); }          // the deal's picture must never outlive the deal
     const p = lpos(ev.p), from = lpos(ev.from);
     let card = ev.card;
     if (card == null && ev.pair) card = ev.pair[1];
     if (card != null) { ON.known.add(card); if (from) claim(card, from, p === 0 ? hov : null); }
-    else card = H.hands[from][(Math.random() * H.hands[from].length) | 0];
+    else {
+      // a card moved between two other players and we don't see which: one we haven't seen goes, if they have one
+      const blind = H.hands[from].filter(x => !ON.known.has(x)), pool = blind.length ? blind : H.hands[from];
+      card = pool[(Math.random() * pool.length) | 0];
+    }
     const pair = ev.pair ? [ev.pair[0], card] : null;
     if (pair) { ON.known.add(pair[0]); if (p) claim(pair[0], p); }
     // the card leaves `from`, lands with `p` (or goes out with its match)
@@ -941,6 +980,7 @@ async function applyEv(ev, my){
     else H.hands[p].push(card);
     for (const q of ev.outs.map(lpos)) if (!H.order.includes(q)) H.order.push(q);
     H.cur = lpos(ev.cur);
+    if (!fitCounts(ev.n)) ON.redraw = true;
     await animateDraw({ p, from, card, pair, outs: ev.outs.map(lpos) }, my);
     return;
   }
@@ -998,7 +1038,14 @@ async function pump(){
         if (my !== gen || !NET.online) return;
         ON.seq = ev.seq;
       }
-      if (!ON.again && lastT) askOrWait(lastT);
+      if (!ON.again && lastT) {
+        if (ON.redraw || !matchesServer(lastT)) {
+          ON.redraw = false;
+          report('derri counts healed', JSON.stringify({ model: H && H.hands.map(h => h.length), server: lastT.snap && lastT.snap.counts }));
+          resync(lastT); ON.seq = (lastT.log || []).reduce((a, x) => Math.max(a, x.seq), 0);
+        }
+        askOrWait(lastT);
+      }
     } while (ON.again);
   } catch (e) {
     // anything that breaks while drawing (not only inside one event): draw the table again from the server
@@ -1006,6 +1053,18 @@ async function pump(){
     throw e;
   } finally { if (ON.tok === tok) ON.busy = false; }
 }
+// the page's copy against the server's: same number of cards in every hand, and your own hand card for card
+function matchesServer(t){
+  const s = t && t.snap;
+  if (!s || !s.counts || !H || dealt || t.phase !== 'play') return true;
+  const last = (t.log || []).reduce((a, x) => Math.max(a, x.seq), 0);
+  if (ON.seq !== last) return true;
+  const n = rot(s.counts);
+  if (!H.hands.every((h, q) => h.length === n[q])) return false;
+  const mine = (s.hand || []).slice().sort((a, b) => a - b).join(), have = H.hands[0].slice().sort((a, b) => a - b).join();
+  return mine === have;
+}
+function report(kind, msg){ try { navigator.sendBeacon && navigator.sendBeacon('/api/report', new Blob([JSON.stringify({ kind, game: 'derri', room: '', msg: String(msg).slice(0, 300) })], { type: 'application/json' })); } catch (e) {} }
 function onTable(t, S2){
   const first = !lastT;
   lastT = t; ON.skew = S2.now - Date.now();
@@ -1024,7 +1083,7 @@ const NET = NETWORK({
   onLeave: () => { lastT = null; stopTable(); },
   onError: () => { ON.asked = ''; pump(); },
 });
-window.__derri = { get mode(){ return mode; }, get H(){ return H; }, get lk(){ return LK; }, pick(i){ choose(i); } };   // for tests
+window.__derri = { get mode(){ return mode; }, get H(){ return H; }, get lk(){ return LK; }, get on(){ return ON; }, get t(){ return lastT; }, get src(){ return pickSrc; }, get dealt(){ return dealt; }, shown: p => handOf(p).length, pick(i){ choose(i); } };   // for tests
 
 /* ---------- start ---------- */
 async function start(){

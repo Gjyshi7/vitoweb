@@ -24,12 +24,16 @@ const E = (() => {
 
   function shuffle(arr, rand) { rand = rand || Math.random; for (let i = arr.length - 1; i > 0; i--) { const j = (rand() * (i + 1)) | 0; [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
 
+  /* o.seats with three seats: three players, each for themselves (a friends' room "vetëm ne"):
+     7 tiles each, the other 7 drawn or out of play like 1 kundër 1. Each player is their own side. */
   function newMatch(o) {
     o = o || {};
-    const teams = o.teams !== false;
-    return { teams, stock: !teams && !!o.stock, target: o.target || 100, rand: o.rand || Math.random,
-      seats: teams ? [0, 1, 2, 3] : [0, 2], teamOf: teams ? [0, 1, 0, 1] : [0, 1, 1, 1],
-      scores: [0, 0], handNo: 0, lastWinner: -1, winner: null, hand: null };
+    const three = Array.isArray(o.seats) && o.seats.length === 3;
+    const teams = !three && o.teams !== false;
+    const seats = three ? o.seats.slice().sort() : teams ? [0, 1, 2, 3] : [0, 2];
+    const teamOf = three ? [0, 1, 2, 3].map(q => seats.indexOf(q) < 0 ? 0 : seats.indexOf(q)) : teams ? [0, 1, 0, 1] : [0, 1, 1, 1];
+    return { teams, three, stock: !teams && !!o.stock, target: o.target || 100, rand: o.rand || Math.random,
+      seats, teamOf, scores: three ? [0, 0, 0] : [0, 0], handNo: 0, lastWinner: -1, winner: null, hand: null };
   }
   const nextSeat = (mt, p) => mt.seats[(mt.seats.indexOf(p) + 1) % mt.seats.length];
 
@@ -116,12 +120,17 @@ const E = (() => {
     const H = mt.hand;
     const left = [0, 0, 0, 0];
     for (const q of mt.seats) left[q] = handValue(H.hands[q]);
-    const teamLeft = [0, 0];
+    const sides = mt.scores.length;
+    const teamLeft = new Array(sides).fill(0);
     for (const q of mt.seats) teamLeft[mt.teamOf[q]] += left[q];
     let winTeam = null;
     if (kind === 'domino') winTeam = mt.teamOf[p];
-    else if (teamLeft[0] !== teamLeft[1]) winTeam = teamLeft[0] < teamLeft[1] ? 0 : 1;
-    const gain = winTeam === null ? 0 : teamLeft[1 - winTeam];
+    else {
+      // blocked: the side with the fewest pips wins, if it is the only one with that few
+      const low = Math.min(...teamLeft);
+      if (teamLeft.filter(v => v === low).length === 1) winTeam = teamLeft.indexOf(low);
+    }
+    const gain = winTeam === null ? 0 : teamLeft.reduce((a, v, i) => a + (i === winTeam ? 0 : v), 0);
     if (winTeam !== null) mt.scores[winTeam] += gain;
     // next hand is opened by whoever went out; after a block, by the winning side's lightest hand
     if (kind === 'domino') mt.lastWinner = p;
