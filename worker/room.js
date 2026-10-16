@@ -125,6 +125,7 @@ export class Room extends DurableObject {
   phonesClock() {
     const s = this.s, g = s && s.g, game = s && GAMES[s.game];
     if (!g || !game.canJoin || (g.phase !== "play" && g.phase !== "over")) return false;
+    if (this.phonesQuiet) return false;        // the phones stopped saying "go" (asleep, in the background): the server keeps time
     const on = this.online();
     return s.players.some((p) => p.clock && on.has(p.pid) && g.seats.some((x) => x && !x.bot && x.pid === p.pid));
   }
@@ -137,9 +138,11 @@ export class Room extends DurableObject {
     const ttl = this.s.touched + this.ttl();
     let target = wake ? Math.max(Date.now() + 50, Math.min(wake, ttl)) : ttl;
     if (wake && this.phonesClock()) {
-      // a backup alarm is already waiting: leave it (it runs whatever is due when it fires, then sets the next)
-      if (this.alarmSetTo && this.alarmSetTo > Date.now()) { await this.flush(); return; }
       target = Math.min(ttl, Math.max(wake, Date.now()) + BACKUP_MS);
+      // a backup alarm is already waiting and fires no later than the backup is needed: leave it (it runs whatever
+      // is due, then sets the next). A later one (the 6-hour clean-up, or the empty-table close) is replaced, or a
+      // table whose phones went quiet would wait that long.
+      if (this.alarmSetTo && this.alarmSetTo > Date.now() && this.alarmSetTo <= target) { await this.flush(); return; }
     }
     // exactly this future time is already set (and hasn't fired): setting it again would only cost a storage write
     if (this.alarmSetTo === target && target > Date.now() + 20) { await this.flush(); return; }
@@ -160,6 +163,12 @@ export class Room extends DurableObject {
     if (!this.s) { await this.ctx.storage.deleteAll(); return; }
     const game = GAMES[this.s.game];
     if (game.onTick && Date.now() - this.s.touched < this.ttl()) {
+      // the backup alarm found a move overdue: no phone said "go" in time, so the server keeps the exact time
+      // again until a phone does (see "nudge")
+      if (!this.phonesQuiet && this.phonesClock()) {
+        let w0 = 0; try { w0 = game.wakeAt ? game.wakeAt(this.s, this.online()) : 0; } catch {}
+        if (w0 && w0 < Date.now() - 1500) this.phonesQuiet = true;
+      }
       const retry = !!(alarmInfo && alarmInfo.isRetry);
       if (retry) this.fault("alarm retried", `retry ${alarmInfo.retryCount}`, { phase: this.s.g && this.s.g.phase });
       const changed = this.tick(retry);
@@ -331,6 +340,7 @@ export class Room extends DurableObject {
       case "nudge": {
         const game = GAMES[s.game];
         if (!game.wakeAt) return;
+        this.phonesQuiet = false;                // a phone keeps time again
         let w = 0;
         try { w = game.wakeAt(s, this.online()); } catch {}
         if (w && w <= Date.now() + 30) {
