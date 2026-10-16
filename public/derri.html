@@ -1109,10 +1109,12 @@ function matchesServer(t){
   return mine === have;
 }
 function report(kind, msg){ try { navigator.sendBeacon && navigator.sendBeacon('/api/report', new Blob([JSON.stringify({ kind, game: 'derri', room: '', msg: String(msg).slice(0, 300) })], { type: 'application/json' })); } catch (e) {} }
+let READY = false, readyQ = null;
 function onTable(t, S2){
   const first = !lastT;
   lastT = t; ON.skew = S2.now - Date.now();
   if (first) { ON.seq = 0; H = null; $('#bNew').hidden = true; audio(); showRotHint(); }
+  if (!READY) return;          // the page is still drawing its cards (a link or a return opens the table at once): pump when ready
   pump();
 }
 
@@ -1120,7 +1122,7 @@ function onTable(t, S2){
 const NET = NETWORK({
   game: 'derri', rematch: false, title: 'Derri në dorë', sub: '4 lojtarë · mos mbet me derrin', art: [9, 10, 40, 35, 20],
   seatsFor: () => [0, 1, 2, 3],
-  onLocal: (cfg, seats) => { lastT = null; startLocal(cfg, seats); },
+  onLocal: (cfg, seats) => { lastT = null; if (!READY) { readyQ = () => startLocal(cfg, seats); return; } startLocal(cfg, seats); },
   onTable,
   applied: () => ON.seq,
   recover: recoverOnline,
@@ -1139,6 +1141,8 @@ async function start(){
   mkCards(); resetCards();
   renderPlates();
   $('#loading').hidden = true;
+  READY = true;
+  if (readyQ) { const go = readyQ; readyQ = null; go(); } else if (lastT) pump();
 }
 start();
 })();

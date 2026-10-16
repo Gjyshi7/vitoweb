@@ -28,9 +28,13 @@ const COLORS = ["#2c6e8f", "#7a4fa8", "#2f8a62", "#a8662c", "#8f2c4f", "#3d5aa8"
 const ME_COLOR = "#b02a63";
 const TURN_MS = 15_000;        // a game can set its own (spec.turnMs)
 const OFFLINE_MS = 6_000;      // a phone that is gone this long plays its turn on autopilot
-const AWAY_PUB_MS = 60_000;    // gone this long at a quick-match table: the seat goes to someone else
-// At a friends' room nobody loses a seat: the table plays for you and waits for you to come back.
-const ABANDON_MS = 90_000;     // no real person at the table this long: the game is over and the room closes
+const AWAY_FAST_MS = 2_000;    // ...and once it has missed a turn, its next turns play this quickly (the others don't wait)
+// A phone that goes dark (screen locked, a text opened) never loses its seat: the table plays for it and it comes
+// back to the same game. Only DIL gives a seat away (see quitCheck). Nobody joins after the deal, so a seat given
+// away would only have been a player with another name.
+const END_AWAY_MS = 30_000;    // end of a hand with someone gone: wait this long for them (once each time they go)
+const ABANDON_MS = 10 * 60_000; // no real person at the table this long: the game is over and the room closes.
+                               // Meanwhile the table stands still (costs nothing) and carries on when someone is back.
 const LEAVE_BACK_MS = 6_000;   // pressed DIL at a quick-match table: this long to come back to the same seat
 const WAIT_MS = 7_000;         // quick match: the longest anyone waits for the deal
 const END_MS = 9_000;          // result screen between hands
@@ -46,6 +50,7 @@ const AGAIN_MS = 25_000;       // end of a match: this long to say yes to anothe
 
 export function makeTable(spec) {
   const turnMs = spec.turnMs || TURN_MS;
+  let ONLINE = null;            // who is at the table right now, for decisions made inside onTick
   const seatOf = (g, pid) => g.seats.findIndex((x) => x && x.pid === pid);
   const humansAt = (g) => g.seats.filter((x) => x && !x.bot).length;
   const nameOf = (s, i) => {
@@ -194,6 +199,8 @@ export function makeTable(spec) {
     const count = (x) => voted.filter((p) => v.votes[p] === x).length;
     if (v.kind === "again") {
       const yes = voted.filter((p) => v.votes[p] === "yes");
+      // whoever's phone is gone right now didn't say no: they stay for the next match (the table plays for them)
+      if (yes.length && ONLINE) for (const p of hs) if (!v.votes[p] && !ONLINE.has(p)) yes.push(p);
       g.vote = null; g.pre = {};
       if (!yes.length) { g.phase = "closed"; g.due = 0; g.seq += 1; return; }
       // whoever said no (or nothing) gives the seat to someone new
@@ -212,21 +219,19 @@ export function makeTable(spec) {
     if (spec.matchOver(g.mt)) overNow(s, now);
   }
 
-  // someone who has been gone too long loses the seat (the table carries on under the same name)
+  // a turn played for someone whose phone is gone: remember it, so their next turns don't hold the table up.
+  // They keep the seat however long they're gone, and pick up where the table is when they're back.
   function awayCheck(s, now, online) {
     const g = s.g;
     if (g.phase !== "play" || g.actor < 0) return;
     const x = g.seats[g.actor];
     if (!x || x.bot || online.has(x.pid)) return;
     g.away = g.away || {};
-    const since = g.away[x.pid] || (g.away[x.pid] = now - OFFLINE_MS);
-    if (!g.pub || now - since < AWAY_PUB_MS) return;
-    // somebody new takes the seat (with the cards); the others are told who left and who sat down
-    g.seats[g.actor] = { ...newBot(s), color: x.color };
-    g.left = [...(g.left || []), x.pid];
-    g.why = { ...(g.why || {}), [x.pid]: "away" };
-    delete g.away[x.pid];
+    if (!g.away[x.pid]) g.away[x.pid] = now;
   }
+  // end of a hand: real people whose phone is gone and who haven't been waited for since they went
+  const waitList = (g, online) => !online || g.phase !== "play" || g.step !== "end" ? []
+    : seatsIn(g).filter((i) => { const x = g.seats[i]; return x && !x.bot && !online.has(x.pid) && !(g.waited && g.waited[x.pid]); });
 
   // a friends' room where every seat has a person: start by itself in a moment (the host can still press Fillo)
   const FULL_START_MS = 2_000;
@@ -351,10 +356,20 @@ export function makeTable(spec) {
     let w = g.due || Infinity;
     if (g.due && g.actor >= 0) {
       const x = g.seats[g.actor];
-      if (x && !x.bot && !online.has(x.pid)) w = Math.min(g.due, Math.max(g.stepAt, Date.now() - 1) + OFFLINE_MS);
+      if (x && !x.bot && !online.has(x.pid)) w = Math.min(g.due, Math.max(g.stepAt, goneAt(s, x.pid)) + offMs(g, x));
     }
+    if (g.due && waitList(g, online).length) w = Math.max(w, g.stepAt + END_AWAY_MS);
     w = Math.min(w, q);
     return w === Infinity ? 0 : w;
+  }
+  const offMs = (g, x) => (g.away && g.away[x.pid] ? AWAY_FAST_MS : OFFLINE_MS);
+  // since when this person's phone has been gone. Counted from a fixed moment: counting from "now" pushed their
+  // autopilot back on every look, so a gone player's turn used to take the whole 15-20 s instead of 6 s.
+  function goneAt(s, pid) {
+    const g = s.g;
+    g.gone = g.gone || {};
+    if (!g.gone[pid]) { g.gone[pid] = Date.now(); s.dirty = true; }
+    return g.gone[pid];
   }
 
   // when the table should move next on its own (for the phones' nudge): a seat whose phone is gone plays after OFFLINE_MS
@@ -363,7 +378,8 @@ export function makeTable(spec) {
     if (!g.due) return q === Infinity ? 0 : q;
     const x = g.actor >= 0 && g.seats[g.actor];
     let d = g.due;
-    if (online && x && !x.bot && !online.has(x.pid)) d = Math.min(g.due, Math.max(g.stepAt, now) + OFFLINE_MS);
+    if (online && x && !x.bot && !online.has(x.pid)) d = Math.min(g.due, Math.max(g.stepAt, (g.gone && g.gone[x.pid]) || now) + offMs(g, x));
+    if (waitList(g, online).length) d = Math.max(d, g.stepAt + END_AWAY_MS);
     return Math.min(d, q);
   }
   const realAuto = spec.auto, realFallbacks = spec.fallbacks;
@@ -401,6 +417,9 @@ export function makeTable(spec) {
       now = now || Date.now();
       if (g.phase !== "lobby") {
         if (g.quit && g.quit[pid]) { delete g.quit[pid]; g.seq += 1; }      // came back after DIL: the seat is yours again
+        if (g.away) delete g.away[pid];                                      // back from the dark: your turns are yours again
+        if (g.waited) delete g.waited[pid];
+        if (g.gone) delete g.gone[pid];
         return false;
       }
       const had = seatOf(g, pid) >= 0;
@@ -515,6 +534,8 @@ export function makeTable(spec) {
       const g = s.g;
       try {
         if (g.away) for (const pid of Object.keys(g.away)) if (online.has(pid)) delete g.away[pid];
+        if (g.waited) for (const pid of Object.keys(g.waited)) if (online.has(pid)) delete g.waited[pid];
+        ONLINE = online;
         if (quitCheck(s, now, online)) changed = true;
         if (nobody(s, online) && g.emptySince && now - g.emptySince >= ABANDON_MS) {
           g.phase = "closed"; g.due = 0; g.vote = null; g.seq += 1;
@@ -525,6 +546,9 @@ export function makeTable(spec) {
           if (!w || w > now || nobody(s, online)) break;
           if (w === quitDue(g)) { if (!quitCheck(s, now, online)) break; changed = true; continue; }
           awayCheck(s, now, online);
+          if (g.phase === "play" && g.step === "end") {          // waited for them once: next time the hand goes on at once
+            for (const i of seatsIn(g)) { const x = g.seats[i]; if (x && !x.bot && !online.has(x.pid)) (g.waited = g.waited || {})[x.pid] = true; }
+          }
           autoMove(s, now, opts && opts.cheap);
           changed = true;
           if (opts && opts.cheap) break;          // a retried step does one thing and lets go
@@ -533,7 +557,7 @@ export function makeTable(spec) {
         fault(s, "tick crashed", e);
         rescue(s, now, "tick crashed");
         changed = true;
-      }
+      } finally { ONLINE = null; }
       return changed;
     },
 
@@ -570,6 +594,8 @@ export function makeTable(spec) {
       if (g.vote) t.vote = { kind: g.vote.kind, until: g.vote.until, mine: g.vote.votes[pid] || null, n: hs.length,
         tally: Object.values(g.vote.votes).reduce((o, x) => ((o[x] = (o[x] || 0) + 1), o), {}) };
       t.pre = !!(g.pre && g.pre[pid]);
+      const wl = waitList(g, online);
+      if (wl.length && now < g.stepAt + END_AWAY_MS && now >= g.due - 400) { t.waitFor = wl; t.waitUntil = g.stepAt + END_AWAY_MS; }
       if (g.left && g.left.includes(pid)) { t.out = true; if (g.why && g.why[pid]) t.why = g.why[pid]; }   // didn't stay for the new match, or was gone too long
       Object.assign(t, {
         step: g.step, actor: g.actor,

@@ -975,10 +975,12 @@ async function pump(){
     throw e;
   } finally { if (ON.tok === tok) ON.busy = false; }
 }
+let READY = false, readyQ = null;
 function onTable(t, S){
   const first = !lastT;
   lastT = t; ON.skew = S.now - Date.now();
   if (first) { ON.seq = 0; H = null; $('#bNew').hidden = true; audio(); showRotHint(); }
+  if (!READY) return;          // the page is still drawing its cards (a link or a return opens the table at once): pump when ready
   pump();
 }
 
@@ -989,7 +991,7 @@ const NET = NETWORK({
   seatsFor: () => [0, 1, 2, 3],
   teamsFor: cfg => cfg.teams ? [[0, 2], [1, 3]] : null,
   voteOptions: (kind, t) => [{ v: 'raise', label: `Deri në ${((t.snap && t.snap.target) || 21) + 10}` }, { v: 'golden', label: 'Gol i artë' }],
-  onLocal: (cfg, seats) => { lastT = null; startLocal(cfg, seats); },
+  onLocal: (cfg, seats) => { lastT = null; if (!READY) { readyQ = () => startLocal(cfg, seats); return; } startLocal(cfg, seats); },
   onTable,
   applied: () => ON.seq,
   recover: recoverOnline,
@@ -1007,6 +1009,8 @@ async function start(){
   mkCards(); fillDeck(); resetCards();
   renderPlates();
   $('#loading').hidden = true;
+  READY = true;
+  if (readyQ) { const go = readyQ; readyQ = null; go(); } else if (lastT) pump();
 }
 start();
 })();

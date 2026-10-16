@@ -928,10 +928,12 @@ async function pump(){
     throw e;
   } finally { if (ON.tok === tok) ON.busy = false; }
 }
+let READY = false, readyQ = null;
 function onTable(t, S2){
   const first = !lastT;
   lastT = t; ON.skew = S2.now - Date.now();
   if (first) { ON.seq = 0; H = null; $('#bNew').hidden = true; audio(); showRotHint(); }
+  if (!READY) return;          // the page is still drawing its cards (a link or a return opens the table at once): pump when ready
   pump();
 }
 
@@ -940,7 +942,7 @@ const NET = NETWORK({
   game: 'spathi', title: 'Spathi', sub: '1 kundër 1 · merr letrat nga tavolina', art: [17, 30, 43, 44, 51],
   cfg: () => ({ target: +ST.target }),
   seatsFor: () => [0, 1],
-  onLocal: (cfg, seats) => { lastT = null; startLocal(cfg, seats); },
+  onLocal: (cfg, seats) => { lastT = null; if (!READY) { readyQ = () => startLocal(cfg, seats); return; } startLocal(cfg, seats); },
   onTable,
   applied: () => ON.seq,
   recover: recoverOnline,
@@ -959,6 +961,8 @@ async function start(){
   mkCards(); fillDeck();
   stopTable();
   $('#loading').hidden = true;
+  READY = true;
+  if (readyQ) { const go = readyQ; readyQ = null; go(); } else if (lastT) pump();
 }
 start();
 })();

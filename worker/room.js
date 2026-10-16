@@ -267,10 +267,16 @@ export class Room extends DurableObject {
     return r.n <= MSG_MAX;
   }
 
+  // who is at the table right now: connected, and their screen is on. A phone whose screen went off says so
+  // ("away") before it goes quiet, often while its connection still looks open: it counts as gone, so the table
+  // plays its turns after 6 s instead of waiting the whole turn for a phone in a pocket.
   online() {
     const set = new Set();
     for (const w of this.ctx.getWebSockets()) {
-      if (w.readyState === 1) set.add(this.ctx.getTags(w)[0]);
+      if (w.readyState !== 1) continue;
+      let a = null; try { a = w.deserializeAttachment(); } catch {}
+      if (a && a.dark) continue;
+      set.add(this.ctx.getTags(w)[0]);
     }
     return set;
   }
@@ -316,6 +322,15 @@ export class Room extends DurableObject {
     let changed = false;
     switch (msg.t) {
       case "ping": try { ws.send('{"t":"pong"}'); } catch {} return;
+      case "away": {                                  // the screen went off (v: true) or came back on (v: false)
+        const dark = !!msg.v;
+        let a = null; try { a = ws.deserializeAttachment(); } catch {}
+        if (!!(a && a.dark) === dark) return;
+        try { ws.serializeAttachment({ ...(a || {}), dark }); } catch {}
+        this.broadcast();                             // the others' phones: who is away, when the next move is due
+        await this.schedule();
+        return;
+      }
       case "rename": {
         const n = cleanName(msg.name);
         if (n && n !== me.name) { me.name = n; changed = true; }

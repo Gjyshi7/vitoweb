@@ -58,8 +58,8 @@ for (const name of games) {
     console.log(`  ${done && !leaks ? "✓" : "✗"} ${name} ${JSON.stringify(cfg)}: ${hands} hands, ${steps} moves${ties ? `, ${ties} tie vote(s)` : ""}, ${Date.now() - t0} ms`);
   }
 }
-// gone too long: a phone that stays away loses its seat, one that is back in time keeps it
-for (const [pub, gone, out] of [[true, 150_000, true], [true, 30_000, false], [false, 120_000, false], [false, 600_000, false]]) {
+// a phone that goes dark (screen locked) never loses its seat, at a quick-match table or a friends' room (test/away.mjs has the rest)
+for (const [pub, gone, out] of [[true, 150_000, false], [true, 30_000, false], [false, 120_000, false], [false, 600_000, false]]) {
   const mod = (await import("../worker/games/murlan.js")).default;
   let now = 2_000_000; const realNow = Date.now; Date.now = () => now;
   const s = { players: [{ pid: "a", name: "Ana" }, { pid: "b", name: "Beni" }], g: mod.init({ cfg: { teams: true }, public: pub }) };

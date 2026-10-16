@@ -473,7 +473,7 @@ function openGame(id){
   $('#cabName').textContent = g.name.toUpperCase(); $('#cabLoad').hidden = false;
   cab.querySelector('iframe')?.remove();
   const f = document.createElement('iframe');
-  f.src = g.file; f.title = g.name; f.allow = 'fullscreen; autoplay'; f.allowFullscreen = true;
+  f.src = g.file; f.title = g.name; f.allow = 'fullscreen; autoplay; screen-wake-lock'; f.allowFullscreen = true;
   f.style.opacity = '0';
   f.onload = () => { f.style.opacity = '1'; $('#cabLoad').hidden = true; try { f.contentWindow.focus(); } catch(e) {} };
   cab.appendChild(f); cab.hidden = false; document.body.style.overflow = 'hidden'; lockZoom(true);
@@ -526,12 +526,15 @@ const IG_HANDLE = 'vitoweb.al';      // e.g. 'vitoweb.al' (without @). Empty = n
   VWA.onChange(draw); VWA.ready.then(draw);
   btn.onclick = () => VWA.open();
   const NAMES = { murlan: 'Murlan', spathi: 'Spathi', derri: 'Derri në dorë', domino: 'Domino' };
-  let backT = 0;
+  let backT = 0, firstLook = true;
   const checkBack = () => {
   let t = null; try { t = JSON.parse(localStorage.getItem('vw.table') || 'null'); } catch (e) {}
-  // only a game you were at a moment ago (the game page keeps "at" fresh while you're at the table;
-  // after 90 s away the server ends a game nobody is at, and your seat is gone anyway)
-  const KEEP_MS = 90_000;
+  // only a game you were at in the last 10 minutes (the game page keeps "at" fresh while you're at the table;
+  // the server ends a game nobody is at after 10 minutes)
+  const KEEP_MS = 10 * 60_000;
+  // The site opened again while a game of yours is still going (the phone reloaded the page after the screen
+  // was locked, or the page was closed without DIL): straight back to the table, like an app.
+  const auto = firstLook && t && !t.left; firstLook = false;
   const drop = () => { try { localStorage.removeItem('vw.table'); } catch (e) {} };
   // pressed DIL: 6 s to go back to a quick-match table, longer to a friends' room
   const keep = t && t.left ? (t.quick ? 6_000 : KEEP_MS) : KEEP_MS, since = t ? (t.left || t.at) : 0;
@@ -540,6 +543,7 @@ const IG_HANDLE = 'vitoweb.al';      // e.g. 'vitoweb.al' (without @). Empty = n
       if (!j.ok || j.game !== t.game || j.phase === 'closed') { drop(); return; }
       const left = keep - (Date.now() - since);
       if (left <= 0) { drop(); return; }
+      if (auto && document.getElementById('cab').hidden) { window.__openGame(t.game); return; }
       const b = document.getElementById('backTable');
       b.innerHTML = `<span>Ke një lojë ${NAMES[t.game]} të hapur${t.quick ? '' : ' me shokët'}</span><b>KTHEHU</b>`;
       b.hidden = false; b.onclick = () => { b.hidden = true; try { localStorage.setItem('vw.table', JSON.stringify({ ...t, go: true })); } catch (e) {} window.__openGame(t.game); };

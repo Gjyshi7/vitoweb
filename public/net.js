@@ -359,6 +359,7 @@ function NETWORK(G){
     sock.onclose = e => {
       clearTimeout(slow); clearInterval(N.pingT);
       if (N.ws !== sock || !N.want || e.code === 4000 || e.code === 4001) return;
+      if (N.table && !N.dropAt && document.visibilityState === 'visible' && !(Date.now() - (N.noted || 0) < 10000)) N.dropAt = Date.now();
       if (e.code === 4004) return leave('Kjo dhomë nuk ekziston më.');
       if (e.code === 4003 || e.code === 4005) {
         if (N.quick && N.tries < 3) { N.tries++; return quick(); }        // that table just filled: find another
@@ -370,27 +371,59 @@ function NETWORK(G){
       setTimeout(connect, Math.min(5000, 600 * 2 ** N.retry++));
     };
   }
-  // a table on this phone doesn't wait for you either: gone a minute and the others carried on without you
-  const AWAY_MSG = 'Ishe larg më shumë se një minutë, ndaj vendin tënd e zuri një lojtar tjetër.';
-  let hiddenAt = 0;
+  // Screen locked, a text opened, the phone asleep: you never lose your place. A table on this phone just waits
+  // for you; at an online table the others play on and the table plays your turns until you're back.
+  // (Only an old table that gave seats away says this; kept for a phone that was away during an update.)
+  const AWAY_MSG = 'Ishe larg shumë gjatë, ndaj vendin tënd e zuri një lojtar tjetër.';
+  // Back from the dark: the old connection may look open but be dead (the phone slept). Ask the table at once;
+  // no answer in 2.5 s and the connection is replaced, instead of waiting for it to time out.
+  let probeT = 0;
+  function wake(){
+    if (!N.room) return;
+    N.retry = 0;
+    if (!N.ws || N.ws.readyState > 1) return connect();
+    if (N.ws.readyState !== 1) return;
+    const sock = N.ws, asked = Date.now();
+    send({ t: 'ping' });
+    clearTimeout(probeT);
+    probeT = setTimeout(() => { if (N.ws === sock && sock.readyState === 1 && N.heard < asked) { try { sock.close(); } catch(e) {} } }, 2500);
+  }
+  const BACK_NOTE = 'U ktheve. Loja vazhdoi ndërkohë dhe tavolina luajti për ty.';
+  let hidAt = 0;
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
-    if (N.table && !N.room && hiddenAt && Date.now() - hiddenAt > 60_000) { hiddenAt = 0; return leave(AWAY_MSG); }
-    hiddenAt = 0;
-    if (N.room) { N.retry = 0; connect(); }
+    // tell the table the screen went off / came back: it plays your turns meanwhile instead of waiting for you
+    if (document.visibilityState === 'hidden') { hidAt = Date.now(); if (N.room) send({ t: 'away', v: true }); return; }
+    if (N.room) send({ t: 'away', v: false });
+    keepAwake(N.table);
+    const away = hidAt ? Date.now() - hidAt : 0; hidAt = 0;
+    if (away > 8000 && N.room && N.table && N.S && N.S.tbl && N.S.tbl.phase === 'play' && N.S.tbl.me >= 0) { N.dropAt = 0; N.noted = Date.now(); setTimeout(() => tableNote(BACK_NOTE), 900); }
+    wake();
   });
+  addEventListener('pageshow', e => { if (e.persisted) wake(); });
   // a phone that slept without telling the page (no visibility event): the clock jumps
   let lastTick = Date.now();
   setInterval(() => {
     const n = Date.now();
-    if (n - lastTick > 60_000 && N.table && !N.room && document.visibilityState === 'visible') leave(AWAY_MSG);
+    if (n - lastTick > 15_000) { if (N.room && N.table && !N.dropAt) N.dropAt = lastTick; wake(); }
     lastTick = n;
   }, 5000);
-  addEventListener('online', () => { if (N.room) { N.retry = 0; connect(); } });
+  addEventListener('online', wake);
+  // While you're at a table the screen stays on (like a game app): a phone that dims and locks by itself after
+  // 30 s would drop out of the game while you wait for the others. Off again as soon as you leave the table.
+  let wakeLock = null;
+  async function keepAwake(on){
+    try {
+      if (on && !wakeLock && navigator.wakeLock && document.visibilityState === 'visible') {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } else if (!on && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+    } catch(e) { wakeLock = null; }
+  }
 
-  // the table you're at: kept fresh while you're there, so the main page and this page only offer to take
-  // you back within KEEP_MS of when you were last at it (the server ends a game nobody is at after 90 s)
-  const KEEP_MS = 90_000;
+  // the table you're at: kept fresh while you're there, so the main page and this page take you back to it
+  // within KEEP_MS of when you were last at it (the page was closed or the phone reloaded it). The server
+  // keeps a game nobody is at for 10 minutes.
+  const KEEP_MS = 10 * 60_000;
   const touchTable = () => { const t = store.get('table', null); if (t && N.room && t.code === N.room) store.set('table', { ...t, at: Date.now() }); };
   setInterval(touchTable, 10_000);
   addEventListener('pagehide', touchTable);
@@ -435,6 +468,7 @@ function NETWORK(G){
     history.replaceState(null, '', location.pathname);
     clearTimeout(voteT); clearTimeout(awayT); clearTimeout(goT); document.querySelectorAll('.plate.vw-away').forEach(el => el.classList.remove('vw-away')); if (window.ENDP) ENDP.reset();
     if (wasTable || G.onLeave) G.onLeave();
+    keepAwake(false);
     show('home'); err(msg || '');
   }
   const isHost = () => !!N.S && N.S.me === N.S.hostPid;
@@ -460,7 +494,7 @@ function NETWORK(G){
     $('#mQuick').disabled = false;
   }
   function local(seats){
-    show('none'); N.table = true;
+    show('none'); N.table = true; keepAwake(true);
     if (window.VWP) VWP.played(G.game);
     const others = seats || PLAYERS.seats(G.seatsFor(cfgNow()).length - 1).map(s => ({ name: s.name, fem: s.fem, color: s.color }));
     G.onLocal(cfgNow(), [{ name: 'Ti', fem: false, color: '#b02a63' }, ...others]);
@@ -577,7 +611,11 @@ function NETWORK(G){
     }
     if (t.phase === 'closed') return leave(t.closedWhy === 'error' ? 'Tavolina pati një problem dhe u mbyll. Na falni, provo përsëri.' : 'Loja mbaroi.');
     if (t.out) return leave(t.why === 'away' ? AWAY_MSG : t.why === 'left' ? 'Kaluan më shumë se 6 sekonda, ndaj vendin tënd e zuri një lojtar tjetër.' : '');
-    if (!N.table) { N.table = true; show('none'); if (window.VWP) VWP.played(G.game); }
+    if (!N.table) { N.table = true; show('none'); if (window.VWP) VWP.played(G.game); keepAwake(true); }
+    if (N.dropAt) {                                    // the connection was gone a while (bad network, phone asleep)
+      const away = Date.now() - N.dropAt; N.dropAt = 0;
+      if (away > 8000 && t.phase === 'play' && t.me >= 0) setTimeout(() => tableNote(BACK_NOTE), 600);
+    }
     seatNews(t);
     G.onTable(t, S);
     voteUI();
@@ -665,7 +703,15 @@ box-shadow:inset 0 0 0 1px rgba(255,179,166,.4);pointer-events:none;z-index:2}`;
       if (voteKey !== k) { voteKey = k; voteSeen = Date.now(); }
       else if (Date.now() - voteSeen > 3500) end.hidden = false;
     }
-    if (!t || !window.ENDP || !end || end.hidden) { if (t && (t.vote || t.step === 'end' || t.step === 'choice')) voteT = setTimeout(voteUI, 400); return; }
+    if (!t || !window.ENDP || !end || end.hidden) {
+      // result closed already: say who the table is waiting for at the top of the table
+      if (t && t.waitFor && t.waitFor.length && t.step === 'end') {
+        const left = Math.max(0, Math.ceil((t.waitUntil - Date.now() - skew()) / 1000));
+        if (left) tableNote(`Po presim ${t.waitFor.map(i => t.seats[i] && t.seats[i].name).filter(Boolean).join(', ')} · ${left}s`);
+      }
+      if (t && (t.vote || t.step === 'end' || t.step === 'choice')) voteT = setTimeout(voteUI, 400);
+      return;
+    }
     const v = t.vote;
     if (v) {
       const left = Math.max(0, Math.ceil((v.until - Date.now() - skew()) / 1000));
@@ -683,14 +729,25 @@ box-shadow:inset 0 0 0 1px rgba(255,179,166,.4);pointer-events:none;z-index:2}`;
       voteT = setTimeout(voteUI, 500);
       return;
     }
+    // between hands, someone's phone is gone: the table waits a little for them (once each time they go)
+    const waitNote = () => {
+      if (!t.waitFor || !t.waitFor.length || t.step !== 'end') return undefined;
+      const left = Math.max(0, Math.ceil((t.waitUntil - Date.now() - skew()) / 1000));
+      if (!left) return undefined;
+      const names = t.waitFor.map(i => t.seats[i] && t.seats[i].name).filter(Boolean).join(', ');
+      voteT = setTimeout(voteUI, 500);
+      return `Po presim ${names} · ${left}s`;
+    };
     if (t.phase === 'play' && G.rematch !== false) {
       // between hands: carry on, and say early that you want another match after this one
       ENDP.set([
         { label: t.pre ? 'Rematch ✓' : 'Rematch', on: t.pre, click: () => send({ t: 'vote', kind: 'again', v: t.pre ? 'no' : 'yes' }) },
         { label: 'Vazhdo', primary: true, click: () => { end.hidden = true; ENDP.reset(); } },
-      ]);
+      ], waitNote());
       return;
     }
+    const wn = waitNote();
+    if (wn) { tableNote(wn); return; }
     ENDP.reset();
   }
   // the room's seats with you first, then the others in table order

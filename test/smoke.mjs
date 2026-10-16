@@ -198,11 +198,11 @@ async function mafia() {
   host.send({ t: "reveal" });
   ok(await ps[0].until((S) => S.phase === "revealed" && S.allRoles, "revealed"), "reveal shows everyone the table");
 
-  // Message flood: extra messages are dropped, the socket stays open.
-  for (let i = 1; i <= 45; i++) ps[3].send({ t: "rename", name: "Flood" + i });
+  // Message flood: extra messages are dropped (the phone is told once), the socket stays open.
+  for (let i = 1; i <= 85; i++) ps[3].send({ t: "rename", name: "Flood" + i });
   await sleep(500);
   const me3 = ps[3].S.players.find((x) => x.pid === ps[3].S.me);
-  ok(ps[3].closed === null && me3.name === "Flood40", `flood capped at 40 messages / 10 s (last applied: ${me3.name})`);
+  ok(ps[3].closed === null && me3.name === "Flood80", `flood capped at 80 messages / 10 s (last applied: ${me3.name})`);
 
   [host, ...ps, again, dup, thief].forEach((p) => p.close());
 }
