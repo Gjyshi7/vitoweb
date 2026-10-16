@@ -16,10 +16,12 @@ function NETWORK(G){
   const $ = s => document.querySelector(s);
   const $$ = s => [...document.querySelectorAll(s)];
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  // the language chosen in Settings (i18n.js): Albanian unless English was picked
+  const T = (sq, en) => (window.VWL ? VWL.t(sq, en) : sq);
   const ERR = {
-    paused: 'Dhomat e reja janë ndalur për pak.', busy: 'Serveri është plot. Provo pas pak.', slow_down: 'Shumë kërkesa. Prit pak.',
-    only_count: 'Me kaq veta nuk mund të luani vetëm ju. Ftoni edhe një shok ose zgjidhni «Luaj me të tjerë».',
-    bad_game: 'Gabim.', not_your_turn: '', bad_move: '', bad_gift: '', must_lead: '', host_cant_leave: 'Hosti nuk del dot nga dhoma.',
+    paused: T('Dhomat e reja janë ndalur për pak.', 'New rooms are paused for a moment.'), busy: T('Serveri është plot. Provo pas pak.', 'The server is full. Try again in a moment.'), slow_down: T('Shumë kërkesa. Prit pak.', 'Too many requests. Wait a moment.'),
+    only_count: T('Me kaq veta nuk mund të luani vetëm ju. Ftoni edhe një shok ose zgjidhni «Luaj me të tjerë».', 'You can\'t play just yourselves with this many people. Invite one more friend or choose “Play with others”.'),
+    bad_game: T('Gabim.', 'Error.'), not_your_turn: '', bad_move: '', bad_gift: '', must_lead: '', host_cant_leave: T('Hosti nuk del dot nga dhoma.', 'The host can\'t leave the room.'),
   };
   const store = {
     get(k, d){ try { const v = localStorage.getItem('vw.' + k); return v === null ? d : JSON.parse(v); } catch(e) { return d; } },
@@ -146,10 +148,12 @@ function NETWORK(G){
 #menu .rbtns{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:10px;width:min(560px,100%)}
 #menu .rbtns[hidden]{display:none}
 
-/* rules */
+/* rules (a copy of the game's own rules panel, which is drawn for the 1280 px table: here it fits any screen) */
+#menu .rules{width:auto;max-width:100%;min-width:0;overflow-wrap:anywhere}
+#menu .rules *{max-width:100%;box-sizing:border-box}
 #menu .rules h2{font-size:30px;margin:10px 0 8px}
 #menu .rules p{color:#b8c2d4;font-size:16px;line-height:1.4;margin:0 0 12px}
-#menu .rules .ladder{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 12px}
+#menu .rules .ladder{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:8px;margin:0 0 12px}
 #menu .rules .ladder div{padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.05);font-size:14px;color:#b8c2d4;line-height:1.3}
 #menu .rules .ladder b{display:block;font-size:16px;color:#eef2f8}
 #menu .rules ul{padding-left:20px;font-size:15px;line-height:1.45;color:#d9dfea;margin:0 0 6px}
@@ -190,50 +194,50 @@ function NETWORK(G){
   menu.id = 'menu';
   const modeTiles = G.modes && G.modes.length > 1 ? `<div class="modes" id="mMode">${G.modes.map((m, i) => `<button type="button" data-i="${i}">${esc(m.label)}${m.sub ? `<small>${esc(m.sub)}</small>` : ''}</button>`).join('')}</div>` : '';
   menu.innerHTML = `<div class="wrap">
-    <div class="bar"><button class="back" id="mBack" type="button" aria-label="Kthehu te lojërat"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="bar"><button class="back" id="mBack" type="button" aria-label="${T('Kthehu te lojërat', 'Back to the games')}"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
       <div class="brand"><img id="mLogo" alt="">VITOWEB</div>
       <button class="me anon" id="mMe" type="button"><svg class="gi" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.4-4.6 7.1l7.4 5.8c4.3-4 6.9-9.9 6.9-17.4z"/><path fill="#FBBC05" d="M10.6 28.5c-.5-1.4-.8-2.9-.8-4.5s.3-3.1.8-4.5l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.8c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.8l-7.9 6.2C6.6 42.6 14.6 48 24 48z"/></svg><span class="av" id="mMeAv">?</span><span id="mMeName">Emri yt</span></button></div>
     <section id="mHome" class="home">
       <div class="hero"><canvas id="mArt" width="900" height="600" aria-hidden="true"></canvas>
         <div class="htxt"><h1>${esc(G.title)}</h1>${G.sub ? `<p class="sub">${esc(G.sub)}</p>` : ''}<div class="live" id="mLive" hidden><i></i><span></span></div></div></div>
       <div class="act">
-        <button class="b ret" id="mReturn" type="button" hidden><span>KTHEHU NË TAVOLINË</span><small id="mReturnT"></small></button>
+        <button class="b ret" id="mReturn" type="button" hidden><span>${T('KTHEHU NË TAVOLINË', 'BACK TO THE TABLE')}</span><small id="mReturnT"></small></button>
         ${modeTiles}
-        <button class="b main" id="mQuick" type="button"><span>LUAJ</span><small>me lojtarë online</small></button>
-        <button class="b chev" id="mFriends" type="button" aria-expanded="false">Me shokët</button>
+        <button class="b main" id="mQuick" type="button"><span>${T('LUAJ', 'PLAY')}</span><small>${T('me lojtarë online', 'with players online')}</small></button>
+        <button class="b chev" id="mFriends" type="button" aria-expanded="false">${T('Me shokët', 'With friends')}</button>
         <div class="fr" id="mFr" hidden>
-          <button class="b" id="mCreate" type="button">Krijo dhomë</button>
-          <div class="join"><input id="mCode" maxlength="4" placeholder="KODI" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="go" aria-label="Kodi i dhomës"><button class="b" id="mJoin" type="button">Hyr</button></div>
+          <button class="b" id="mCreate" type="button">${T('Krijo dhomë', 'Create a room')}</button>
+          <div class="join"><input id="mCode" maxlength="4" placeholder="${T('KODI', 'CODE')}" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="go" aria-label="${T('Kodi i dhomës', 'Room code')}"><button class="b" id="mJoin" type="button">${T('Hyr', 'Join')}</button></div>
         </div>
         <p class="err" id="mErr"></p>
-        <button class="link" id="mRules" type="button">Rregullat</button>
+        <button class="link" id="mRules" type="button">${T('Rregullat', 'Rules')}</button>
       </div>
       <div class="nsh" id="mNameSh" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="mNameT">
-        <h3 id="mNameT">Si të quajnë?</h3><p>Ky emër shfaqet te tavolina.</p>
-        <input id="mName" maxlength="16" autocomplete="nickname" enterkeyhint="go" spellcheck="false" aria-label="Emri yt">
-        <button class="b main" id="mNameOk" type="button"><span style="font-size:24px">VAZHDO</span></button>
-        <div id="mNameG" hidden><div class="or">ose</div><button class="b" id="mNameGo" type="button" style="margin-top:12px">Hyr me Google</button></div>
+        <h3 id="mNameT">${T('Si të quajnë?', 'What\'s your name?')}</h3><p>${T('Ky emër shfaqet te tavolina.', 'This name is shown at the table.')}</p>
+        <input id="mName" maxlength="16" autocomplete="nickname" enterkeyhint="go" spellcheck="false" aria-label="${T('Emri yt', 'Your name')}">
+        <button class="b main" id="mNameOk" type="button"><span style="font-size:24px">${T('VAZHDO', 'CONTINUE')}</span></button>
+        <div id="mNameG" hidden><div class="or">${T('ose', 'or')}</div><button class="b" id="mNameGo" type="button" style="margin-top:12px">${T('Hyr me Google', 'Sign in with Google')}</button></div>
       </div></div>
     </section>
     <section id="mRulesSec" hidden>
       <div class="rules" id="mRulesBody"></div>
-      <button class="b" id="mRulesClose" type="button">Mbyll</button>
+      <button class="b" id="mRulesClose" type="button">${T('Mbyll', 'Close')}</button>
     </section>
     <section id="mRoom" class="room" hidden>
-      <div class="rhead"><h2 id="mRoomT">Dhoma</h2><p id="mLead"></p></div>
+      <div class="rhead"><h2 id="mRoomT">${T('Dhoma', 'Room')}</h2><p id="mLead"></p></div>
       <div class="tbl" id="mSeats"></div>
       <div class="rside">
-        <div class="code" id="mCodeBox"><span>KODI</span><b id="mCodeTxt"></b></div>
-        <div class="only" id="mOnly" hidden><div class="seg"><button type="button" data-v="0">Luaj me të tjerë</button><button type="button" data-v="1">Vetëm ne</button></div></div>
-        <div class="rbtns" id="mRoomBtns"><button class="b" id="mShare" type="button">Dërgo linkun</button><button class="b" id="mInvite" type="button" hidden>Fto shokët</button><button class="b main" id="mStart" type="button"><span style="font-size:24px">FILLO</span></button></div>
+        <div class="code" id="mCodeBox"><span>${T('KODI', 'CODE')}</span><b id="mCodeTxt"></b></div>
+        <div class="only" id="mOnly" hidden><div class="seg"><button type="button" data-v="0">${T('Luaj me të tjerë', 'Play with others')}</button><button type="button" data-v="1">${T('Vetëm ne', 'Just us')}</button></div></div>
+        <div class="rbtns" id="mRoomBtns"><button class="b" id="mShare" type="button">${T('Dërgo linkun', 'Send the link')}</button><button class="b" id="mInvite" type="button" hidden>${T('Fto shokët', 'Invite friends')}</button><button class="b main" id="mStart" type="button"><span style="font-size:24px">${T('FILLO', 'START')}</span></button></div>
         <p class="err" id="mErr2"></p>
         <div class="adslot" data-ad="lobby"></div>
-        <button class="link" id="mLeave" type="button">Dil</button>
+        <button class="link" id="mLeave" type="button">${T('Dil', 'Leave')}</button>
       </div>
     </section>
   </div>`;
   document.body.appendChild(menu);
-  const badge = document.createElement('div'); badge.id = 'netBadge'; badge.hidden = true; badge.textContent = 'PO LIDHET…';
+  const badge = document.createElement('div'); badge.id = 'netBadge'; badge.hidden = true; badge.textContent = T('PO LIDHET…', 'CONNECTING…');
   document.body.appendChild(badge);
   if (typeof ADS !== 'undefined') ADS.fill(menu);
 
@@ -273,9 +277,9 @@ function NETWORK(G){
   function renderMe(){
     const u = window.VWA && VWA.me, n = (u && u.uname) || savedName();
     $('#mMe').classList.toggle('anon', !n);
-    $('#mMeName').textContent = n || (window.VWA && VWA.enabled ? 'Hyr' : 'Emri yt');
+    $('#mMeName').textContent = n || (window.VWA && VWA.enabled ? T('Hyr', 'Sign in') : T('Emri yt', 'Your name'));
     $('#mMe').classList.toggle('gout', !!(window.VWA && VWA.enabled && !u));
-    if (window.VWA && VWA.enabled && !u) $('#mMeName').textContent = 'Hyr me Google';
+    if (window.VWA && VWA.enabled && !u) $('#mMeName').textContent = T('Hyr me Google', 'Sign in with Google');
     $('#mMeAv').innerHTML = u && u.pic ? `<img src="${esc(u.pic)}" alt="" referrerpolicy="no-referrer">` : esc((n || '?')[0].toUpperCase());
   }
   if (window.VWA) {
@@ -352,29 +356,29 @@ function NETWORK(G){
       let m; try { m = JSON.parse(e.data); } catch(_) { return; }
       if (m.t === 'state') onState(m);
       else if (m.t === 'error') { if (G.onError) G.onError(m.e, m.why); if (ERR[m.e]) err(ERR[m.e], true); }
-      else if (m.t === 'kicked') leave('Hosti të nxori nga dhoma.');
-      else if (m.t === 'closed') leave('Dhoma u mbyll.');
+      else if (m.t === 'kicked') leave(T('Hosti të nxori nga dhoma.', 'The host removed you from the room.'));
+      else if (m.t === 'closed') leave(T('Dhoma u mbyll.', 'The room was closed.'));
       else if (m.t === 'refused' || m.t === 'replaced') { const code = m.t === 'replaced' ? 4002 : m.code; const h = sock.onclose; sock.onclose = null; try { sock.close(); } catch(_) {} h({ code }); }
     };
     sock.onclose = e => {
       clearTimeout(slow); clearInterval(N.pingT);
       if (N.ws !== sock || !N.want || e.code === 4000 || e.code === 4001) return;
       if (N.table && !N.dropAt && document.visibilityState === 'visible' && !(Date.now() - (N.noted || 0) < 10000)) N.dropAt = Date.now();
-      if (e.code === 4004) return leave('Kjo dhomë nuk ekziston më.');
+      if (e.code === 4004) return leave(T('Kjo dhomë nuk ekziston më.', 'This room doesn\'t exist any more.'));
       if (e.code === 4003 || e.code === 4005) {
         if (N.quick && N.tries < 3) { N.tries++; return quick(); }        // that table just filled: find another
-        return leave(e.code === 4003 ? 'Dhoma është plot.' : 'Loja në këtë dhomë ka nisur.');
+        return leave(e.code === 4003 ? T('Dhoma është plot.', 'The room is full.') : T('Loja në këtë dhomë ka nisur.', 'The game in this room has already started.'));
       }
-      if (e.code === 4400 || e.code === 4401) return leave('Shkruaj emrin dhe provo përsëri.');
-      if (e.code === 4002) { badge.textContent = 'HAPUR NË NJË DRITARE TJETËR'; badge.hidden = false; return; }
-      badge.textContent = 'PO LIDHET…'; badge.hidden = !N.table && menu.hidden;
+      if (e.code === 4400 || e.code === 4401) return leave(T('Shkruaj emrin dhe provo përsëri.', 'Enter your name and try again.'));
+      if (e.code === 4002) { badge.textContent = T('HAPUR NË NJË DRITARE TJETËR', 'OPEN IN ANOTHER WINDOW'); badge.hidden = false; return; }
+      badge.textContent = T('PO LIDHET…', 'CONNECTING…'); badge.hidden = !N.table && menu.hidden;
       setTimeout(connect, Math.min(5000, 600 * 2 ** N.retry++));
     };
   }
   // Screen locked, a text opened, the phone asleep: you never lose your place. A table on this phone just waits
   // for you; at an online table the others play on and the table plays your turns until you're back.
   // (Only an old table that gave seats away says this; kept for a phone that was away during an update.)
-  const AWAY_MSG = 'Ishe larg shumë gjatë, ndaj vendin tënd e zuri një lojtar tjetër.';
+  const AWAY_MSG = T('Ishe larg shumë gjatë, ndaj vendin tënd e zuri një lojtar tjetër.', 'You were away too long, so another player took your seat.');
   // Back from the dark: the old connection may look open but be dead (the phone slept). Ask the table at once;
   // no answer in 2.5 s and the connection is replaced, instead of waiting for it to time out.
   let probeT = 0;
@@ -388,7 +392,7 @@ function NETWORK(G){
     clearTimeout(probeT);
     probeT = setTimeout(() => { if (N.ws === sock && sock.readyState === 1 && N.heard < asked) { try { sock.close(); } catch(e) {} } }, 2500);
   }
-  const BACK_NOTE = 'U ktheve. Loja vazhdoi ndërkohë dhe tavolina luajti për ty.';
+  const BACK_NOTE = T('U ktheve. Loja vazhdoi ndërkohë dhe tavolina luajti për ty.', 'You\'re back. The game went on and the table played for you meanwhile.');
   let hidAt = 0;
   document.addEventListener('visibilitychange', () => {
     // tell the table the screen went off / came back: it plays your turns meanwhile instead of waiting for you
@@ -435,7 +439,7 @@ function NETWORK(G){
     const u = new URL(location.href); u.search = quickMatch ? '' : '?r=' + code; history.replaceState(null, '', u);
     $('#mCodeTxt').textContent = code;
     $('#mCodeBox').hidden = !!quickMatch;
-    $('#mSeats').innerHTML = ''; $('#mLead').textContent = ''; $('#mRoomT').innerHTML = quickMatch ? '<span class="dots">Po kërkohen lojtarë</span>' : 'Dhoma me shokë';
+    $('#mSeats').innerHTML = ''; $('#mLead').textContent = ''; $('#mRoomT').innerHTML = quickMatch ? `<span class="dots">${T('Po kërkohen lojtarë', 'Finding players')}</span>` : T('Dhoma me shokë', 'Room with friends');
     $('#mRoomBtns').hidden = true; err('', true);
     show('room');
     connect();
@@ -451,7 +455,7 @@ function NETWORK(G){
       const left = (t.quick ? BACK_QUICK_MS : BACK_FRIENDS_MS) - (Date.now() - t.left);
       if (left <= 0 || N.room) { b.hidden = true; clearInterval(retT); if (left <= 0) { const cur = store.get('table', null); if (cur && cur.code === t.code) store.set('table', null); } return; }
       b.hidden = false;
-      $('#mReturnT').textContent = t.quick ? `vendi yt të pret edhe ${Math.ceil(left / 1000)} s` : 'vendi yt të pret';
+      $('#mReturnT').textContent = t.quick ? T(`vendi yt të pret edhe ${Math.ceil(left / 1000)} s`, `your seat waits ${Math.ceil(left / 1000)} more s`) : T('vendi yt të pret', 'your seat is waiting');
     };
     b.onclick = () => { clearInterval(retT); b.hidden = true; enter(t.code, t.quick); };
     tick(); retT = setInterval(tick, 250);
@@ -497,7 +501,7 @@ function NETWORK(G){
     show('none'); N.table = true; keepAwake(true);
     if (window.VWP) VWP.played(G.game);
     const others = seats || PLAYERS.seats(G.seatsFor(cfgNow()).length - 1).map(s => ({ name: s.name, fem: s.fem, color: s.color }));
-    G.onLocal(cfgNow(), [{ name: 'Ti', fem: false, color: '#b02a63' }, ...others]);
+    G.onLocal(cfgNow(), [{ name: T('Ti', 'You'), fem: false, color: '#b02a63' }, ...others]);
   }
   $('#mQuick').onclick = () => { N.tries = 0; quick(); };
   $('#mCreate').onclick = async () => {
@@ -508,16 +512,16 @@ function NETWORK(G){
       if (!j.code) throw (ERR[j.error] || 0);
       store.set('host.' + j.code, j.hostToken);
       enter(j.code, false);
-    } catch(e) { err(typeof e === 'string' ? e : 'Dhoma nuk u krijua. Kontrollo internetin.'); }
+    } catch(e) { err(typeof e === 'string' ? e : T('Dhoma nuk u krijua. Kontrollo internetin.', 'The room wasn\'t created. Check your internet.')); }
     $('#mCreate').disabled = false;
   };
   async function join(){
     if (!needName(join)) return;
     const code = $('#mCode').value.trim().toUpperCase();
-    if (!/^[A-Z]{4}$/.test(code)) { err('Kodi ka 4 shkronja.'); return; }
+    if (!/^[A-Z]{4}$/.test(code)) { err(T('Kodi ka 4 shkronja.', 'The code has 4 letters.')); return; }
     try {
       const j = await (await fetch('/api/room/' + code)).json();
-      if (!j.ok) { err('Kjo dhomë nuk ekziston.'); return; }
+      if (!j.ok) { err(T('Kjo dhomë nuk ekziston.', 'This room doesn\'t exist.')); return; }
       if (j.game && j.game !== G.game) { location.href = j.game + '?r=' + code; return; }
     } catch(e) { err("S'ka lidhje."); return; }
     enter(code, false);
@@ -545,8 +549,8 @@ function NETWORK(G){
   $$('#mOnly button').forEach(b => b.onclick = () => { if (isHost()) send({ t: 'only', v: b.dataset.v === '1' }); });
   $('#mShare').onclick = async () => {
     const url = `${location.origin}${location.pathname}?r=${N.room}`;
-    try { if (navigator.share) { await navigator.share({ title: G.title, text: `${G.title} · dhoma ${N.room}`, url }); return; } } catch(e) { return; }
-    try { await navigator.clipboard.writeText(url); err('Linku u kopjua', true); } catch(e) { err(url, true); }
+    try { if (navigator.share) { await navigator.share({ title: G.title, text: `${G.title} · ${T('dhoma', 'room')} ${N.room}`, url }); return; } } catch(e) { return; }
+    try { await navigator.clipboard.writeText(url); err(T('Linku u kopjua', 'Link copied'), true); } catch(e) { err(url, true); }
   };
   $('#mSeats').addEventListener('click', e => {
     const b = e.target.closest('button.s.empty'); if (!b) return;
@@ -564,19 +568,19 @@ function NETWORK(G){
     $('#mSeats').innerHTML = list.map((_, j) => {
       const i = list[(k + j) % n], x = t.seats[i], [left, top] = spots[j];
       const pos = `style="left:${left}%;top:${top}%"`;
-      const tag = teams && j === 2 ? '<small>PARTNERI</small>' : '';
+      const tag = teams && j === 2 ? `<small>${T('PARTNERI', 'PARTNER')}</small>` : '';
       if (!x) return t.pub ? `<div class="s empty wait" ${pos}><span class="av"></span><b>…</b></div>`
-        : `<button type="button" class="s empty" data-seat="${i}" ${pos}><span class="av"></span><b>Ulu këtu</b></button>`;
+        : `<button type="button" class="s empty" data-seat="${i}" ${pos}><span class="av"></span><b>${T('Ulu këtu', 'Sit here')}</b></button>`;
       return `<div class="s${i === t.me ? ' mine' : ''}" ${pos}><span class="av" style="background:${x.color || '#3a4a66'}">${esc((x.name[0] || '?').toUpperCase())}</span><b>${esc(i === t.me ? x.name : x.name)}</b>${tag}</div>`;
     }).join('');
     const filled = list.filter(i => t.seats[i]).length;
     const signed = !!(window.VWA && VWA.me);
     if (t.pub) {
-      $('#mRoomT').innerHTML = '<span class="dots">Po kërkohen lojtarë</span>';
-      $('#mLead').textContent = `${filled} nga ${n} · loja nis sapo të mbushet tavolina`;
+      $('#mRoomT').innerHTML = `<span class="dots">${T('Po kërkohen lojtarë', 'Finding players')}</span>`;
+      $('#mLead').textContent = T(`${filled} nga ${n} · loja nis sapo të mbushet tavolina`, `${filled} of ${n} · the game starts as soon as the table is full`);
       $('#mRoomBtns').hidden = true;
     } else {
-      $('#mRoomT').textContent = 'Dhoma me shokë';
+      $('#mRoomT').textContent = T('Dhoma me shokë', 'Room with friends');
       $('#mRoomBtns').hidden = false;
       $('#mStart').hidden = !isHost();
       $('#mInvite').hidden = !signed;
@@ -585,10 +589,10 @@ function NETWORK(G){
       $('#mOnly').hidden = !can;
       $$('#mOnly button').forEach(b => { b.classList.toggle('on', (b.dataset.v === '1') === only); b.disabled = !isHost(); });
       const odd = only && G.game === 'domino' && people === 3;
-      $('#mLead').textContent = !isHost() ? 'Pret hostin të fillojë.'
-        : odd ? 'Domino luhet me 2 ose 4 veta. Ftoni edhe një shok ose zgjidhni «Luaj me të tjerë».'
-        : only ? (people >= 2 ? `Gati. Luani vetëm ju të ${people}. Shtyp Fillo.` : 'Dërgoju kodin ose linkun. Duhen të paktën 2 veta.')
-        : filled < n ? 'Dërgoju kodin ose linkun. Vendet që mbeten bosh i zënë lojtarë të tjerë kur shtyp Fillo.' : 'Gati. Shtyp Fillo.';
+      $('#mLead').textContent = !isHost() ? T('Pret hostin të fillojë.', 'Waiting for the host to start.')
+        : odd ? T('Domino luhet me 2 ose 4 veta. Ftoni edhe një shok ose zgjidhni «Luaj me të tjerë».', 'Domino is played by 2 or 4. Invite one more friend or choose “Play with others”.')
+        : only ? (people >= 2 ? T(`Gati. Luani vetëm ju të ${people}. Shtyp Fillo.`, `Ready. Just the ${people} of you. Press Start.`) : T('Dërgoju kodin ose linkun. Duhen të paktën 2 veta.', 'Send them the code or the link. You need at least 2 people.'))
+        : filled < n ? T('Dërgoju kodin ose linkun. Vendet që mbeten bosh i zënë lojtarë të tjerë kur shtyp Fillo.', 'Send them the code or the link. Empty seats are taken by other players when you press Start.') : T('Gati. Shtyp Fillo.', 'Ready. Press Start.');
     }
   }
   function onState(S){
@@ -609,8 +613,8 @@ function NETWORK(G){
       local(names.slice(1));
       return;
     }
-    if (t.phase === 'closed') return leave(t.closedWhy === 'error' ? 'Tavolina pati një problem dhe u mbyll. Na falni, provo përsëri.' : 'Loja mbaroi.');
-    if (t.out) return leave(t.why === 'away' ? AWAY_MSG : t.why === 'left' ? 'Kaluan më shumë se 6 sekonda, ndaj vendin tënd e zuri një lojtar tjetër.' : '');
+    if (t.phase === 'closed') return leave(t.closedWhy === 'error' ? T('Tavolina pati një problem dhe u mbyll. Na falni, provo përsëri.', 'The table had a problem and closed. Sorry, please try again.') : T('Loja mbaroi.', 'The game is over.'));
+    if (t.out) return leave(t.why === 'away' ? AWAY_MSG : t.why === 'left' ? T('Kaluan më shumë se 6 sekonda, ndaj vendin tënd e zuri një lojtar tjetër.', 'More than 6 seconds went by, so another player took your seat.') : '');
     if (!N.table) { N.table = true; show('none'); if (window.VWP) VWP.played(G.game); keepAwake(true); }
     if (N.dropAt) {                                    // the connection was gone a while (bad network, phone asleep)
       const away = Date.now() - N.dropAt; N.dropAt = 0;
@@ -647,7 +651,7 @@ function NETWORK(G){
   (() => {
     const st = document.createElement('style');
     st.textContent = `.plate.vw-away{opacity:.62;filter:saturate(.4)}
-.plate.vw-away::after{content:'NUK ËSHTË KËTU';position:absolute;left:50%;top:100%;transform:translate(-50%,6px);padding:3px 10px;border-radius:8px;
+.plate.vw-away::after{content:'${T('NUK ËSHTË KËTU', 'AWAY')}';position:absolute;left:50%;top:100%;transform:translate(-50%,6px);padding:3px 10px;border-radius:8px;
 background:rgba(10,16,30,.94);color:#ffb3a6;font:700 13px/1.3 inherit;font-family:inherit;letter-spacing:.08em;white-space:nowrap;
 box-shadow:inset 0 0 0 1px rgba(255,179,166,.4);pointer-events:none;z-index:2}`;
     document.head.appendChild(st);
@@ -675,7 +679,7 @@ box-shadow:inset 0 0 0 1px rgba(255,179,166,.4);pointer-events:none;z-index:2}`;
     const was = N.seen; N.seen = now;
     if (!was || t.phase !== 'play' && t.phase !== 'over') return;
     const msgs = [];
-    now.forEach((n, k) => { const o = was[k]; if (o && n && o.name !== n.name) msgs.push(`${o.name} doli nga loja · ${n.name} u ul në vend të ${o.fem ? 'saj' : 'tij'}`); });
+    now.forEach((n, k) => { const o = was[k]; if (o && n && o.name !== n.name) msgs.push(T(`${o.name} doli nga loja · ${n.name} u ul në vend të ${o.fem ? 'saj' : 'tij'}`, `${o.name} left the game · ${n.name} sat down in ${o.fem ? 'her' : 'his'} place`)); });
     if (msgs.length) tableNote(msgs.join('\n'));
   }
   let noteT = 0;
@@ -707,7 +711,7 @@ box-shadow:inset 0 0 0 1px rgba(255,179,166,.4);pointer-events:none;z-index:2}`;
       // result closed already: say who the table is waiting for at the top of the table
       if (t && t.waitFor && t.waitFor.length && t.step === 'end') {
         const left = Math.max(0, Math.ceil((t.waitUntil - Date.now() - skew()) / 1000));
-        if (left) tableNote(`Po presim ${t.waitFor.map(i => t.seats[i] && t.seats[i].name).filter(Boolean).join(', ')} · ${left}s`);
+        if (left) tableNote(`${T('Po presim', 'Waiting for')} ${t.waitFor.map(i => t.seats[i] && t.seats[i].name).filter(Boolean).join(', ')} · ${left}s`);
       }
       if (t && (t.vote || t.step === 'end' || t.step === 'choice')) voteT = setTimeout(voteUI, 400);
       return;
@@ -718,9 +722,9 @@ box-shadow:inset 0 0 0 1px rgba(255,179,166,.4);pointer-events:none;z-index:2}`;
       if (v.kind === 'again') {
         const ready = v.tally.yes || 0;
         ENDP.set([
-          { label: v.mine === 'yes' ? 'Gati' : 'Luaj sërish', primary: true, on: v.mine === 'yes', click: () => send({ t: 'vote', kind: 'again', v: 'yes' }) },
-          { label: 'Dil', click: () => { send({ t: 'vote', kind: 'again', v: 'no' }); leave(); } },
-        ], `${ready}/${v.n} gati · ${left}s`);
+          { label: v.mine === 'yes' ? T('Gati', 'Ready') : T('Luaj sërish', 'Play again'), primary: true, on: v.mine === 'yes', click: () => send({ t: 'vote', kind: 'again', v: 'yes' }) },
+          { label: T('Dil', 'Leave'), click: () => { send({ t: 'vote', kind: 'again', v: 'no' }); leave(); } },
+        ], `${ready}/${v.n} ${T('gati', 'ready')} · ${left}s`);
       } else {
         const opts = (G.voteOptions && G.voteOptions(v.kind, t)) || [];
         ENDP.set(opts.map((o, i) => ({ label: o.label + (v.tally[o.v] ? ` · ${v.tally[o.v]}` : ''), primary: i === 0, on: v.mine === o.v,
@@ -736,13 +740,13 @@ box-shadow:inset 0 0 0 1px rgba(255,179,166,.4);pointer-events:none;z-index:2}`;
       if (!left) return undefined;
       const names = t.waitFor.map(i => t.seats[i] && t.seats[i].name).filter(Boolean).join(', ');
       voteT = setTimeout(voteUI, 500);
-      return `Po presim ${names} · ${left}s`;
+      return `${T('Po presim', 'Waiting for')} ${names} · ${left}s`;
     };
     if (t.phase === 'play' && G.rematch !== false) {
       // between hands: carry on, and say early that you want another match after this one
       ENDP.set([
         { label: t.pre ? 'Rematch ✓' : 'Rematch', on: t.pre, click: () => send({ t: 'vote', kind: 'again', v: t.pre ? 'no' : 'yes' }) },
-        { label: 'Vazhdo', primary: true, click: () => { end.hidden = true; ENDP.reset(); } },
+        { label: T('Vazhdo', 'Continue'), primary: true, click: () => { end.hidden = true; ENDP.reset(); } },
       ], waitNote());
       return;
     }

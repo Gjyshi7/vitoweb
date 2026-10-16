@@ -7,7 +7,23 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<script src="i18n.js"></script>
 <title>Murlan · VITOWEB</title>
+<meta name="description" content="Murlan online: ti dhe tre lojtarë, ose me shokët me kod dhome. Falas, pa shkarkim, në telefon dhe kompjuter.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="VITOWEB">
+<meta property="og:title" content="Murlan · VITOWEB">
+<meta property="og:description" content="Murlan online: ti dhe tre lojtarë, ose me shokët me kod dhome. Falas, pa shkarkim, në telefon dhe kompjuter.">
+<meta property="og:url" content="https://vitoweb.al/murlan">
+<meta property="og:image" content="https://vitoweb.al/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png">
+<link rel="icon" type="image/png" sizes="144x144" href="/favicon-144.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
@@ -197,8 +213,32 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
       <li><b>Pikët:</b> 3, 2, 1, 0 për dorë. Loja shkon deri në 21. Nëse dy e kalojnë njëkohësisht, caku bëhet 31, 41, pastaj 51.</li>
       <li><b>2 kundër 2:</b> partneri ulet përballë. Ekipi merr pikët e të dy lojtarëve. Fiton ekipi që arrin i pari 21.</li>
     </ul>
-    <button class="pbtn ghost" id="bRulesClose">Mbyll</button>
+    <button class="pbtn ghost" id="bRulesClose" data-en="Close">Mbyll</button>
   </div></div>
+  <template id="rulesEn">
+    <h2>Rules</h2>
+    <p>From weakest to strongest. You can only beat what is on top with the same kind, unless stated otherwise.</p>
+    <div class="ladder">
+      <div><b>Single, pair, three of a kind</b>Beaten by the same kind, higher.</div>
+      <div><b>Straight</b>5 or more in a row. Beaten only by the straight one step higher with the same number of cards: 3-4-5-6-7 only by 4-5-6-7-8.</div>
+      <div><b>Bomb</b>4 cards of the same rank. Beats everything except a higher bomb and a flush.</div>
+      <div><b>Flush</b>A straight in one suit. Beats bombs too. Beaten only by a higher flush.</div>
+    </div>
+    <ul>
+      <li><b>Card order:</b> 3, 4 … 10, J, Q, K, A, 2, black joker, colored joker.</li>
+      <li><b>In a straight</b> the ace can be high (10-J-Q-K-A) or low (A-2-3-4-5). The 2 counts as 2. Jokers can't be used.</li>
+      <li><b>The straight 7-8-9-10-J-Q</b> is beaten only by 8-9-10-J-Q-K, a bomb or a flush. Not by 9-10-J-Q-K-A, not by a 5-card straight.</li>
+      <li><b>Flushes</b> are compared by their top card. The royal flush (10 to A in one suit) is the highest 5-card flush.</li>
+      <li>A player who passed may play again in the same round. When everyone passes, the last player to play leads.</li>
+      <li><b>The first hand</b> opens with the 3♠. After that, the last player gives the winner their highest card and gets back a card from 3 to 10. Whoever holds both jokers skips the exchange.</li>
+      <li><b>Points:</b> 3, 2, 1, 0 per hand. The game goes to 21. If two sides pass it at once, the target becomes 31, 41, then 51.</li>
+      <li><b>2 vs 2:</b> your partner sits opposite. The team scores both players' points. The first team to 21 wins.</li>
+    </ul>
+  </template>
+  <script>/* English chosen in Settings: the same rules in English (before anything copies the panel) */
+  (() => { if (!window.VWL || !VWL.en) return; const p = document.querySelector('#ovRules .panel'), close = document.getElementById('bRulesClose');
+    [...p.children].forEach(c => { if (c !== close) c.remove(); }); p.insertBefore(document.getElementById('rulesEn').content.cloneNode(true), close); })();
+  </script>
 
   <div class="ov" id="ovSet" hidden><div class="panel">
     <h2>Cilësimet</h2>
@@ -986,8 +1026,8 @@ function onTable(t, S){
 
 /* ---------- menu, rooms, connection (net.js) ---------- */
 const NET = NETWORK({
-  game: 'murlan', title: 'Murlan', sub: '4 lojtarë · ekipi që arrin i pari 21', art: [29, 33, 37, 41, 45],
-  modes: [{ label: '2 kundër 2', sub: 'partneri përballë', cfg: { teams: true } }, { label: 'Secili për vete', sub: '4 lojtarë', cfg: { teams: false } }],
+  game: 'murlan', title: 'Murlan', sub: (window.VWL ? VWL.t('4 lojtarë · ekipi që arrin i pari 21', '4 players · first team to 21') : '4 lojtarë · ekipi që arrin i pari 21'), art: [29, 33, 37, 41, 45],
+  modes: [{ label: (window.VWL ? VWL.t('2 kundër 2', '2 vs 2') : '2 kundër 2'), sub: (window.VWL ? VWL.t('partneri përballë', 'partner opposite') : 'partneri përballë'), cfg: { teams: true } }, { label: (window.VWL ? VWL.t('Secili për vete', 'Every player for themselves') : 'Secili për vete'), sub: (window.VWL ? VWL.t('4 lojtarë', '4 players') : '4 lojtarë'), cfg: { teams: false } }],
   seatsFor: () => [0, 1, 2, 3],
   teamsFor: cfg => cfg.teams ? [[0, 2], [1, 3]] : null,
   voteOptions: (kind, t) => [{ v: 'raise', label: `Deri në ${((t.snap && t.snap.target) || 21) + 10}` }, { v: 'golden', label: 'Gol i artë' }],

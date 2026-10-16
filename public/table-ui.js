@@ -8,6 +8,7 @@
 (() => {
   const $ = s => document.querySelector(s);
   const top = $('.top .r'), stage = $('#stage');
+  const T = (sq, en) => (window.VWL ? VWL.t(sq, en) : sq);       // the language chosen in Settings
   if (!top || !stage) return;
 
   const css = document.createElement('style');
@@ -57,8 +58,8 @@ html,body,#stage{touch-action:pan-x pan-y;overscroll-behavior:none}
   const home = $('#bHome');
   if (home) {
     home.classList.add('dil');
-    home.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M14 8l4 4-4 4"/><path d="M18 12H9"/></svg>DIL';
-    home.setAttribute('aria-label', 'Dil nga tavolina'); home.title = 'Dil nga tavolina';
+    home.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M14 8l4 4-4 4"/><path d="M18 12H9"/></svg>' + T('DIL', 'LEAVE');
+    home.setAttribute('aria-label', T('Dil nga tavolina', 'Leave the table')); home.title = T('Dil nga tavolina', 'Leave the table');
   }
 
   const ICON = {
@@ -76,7 +77,7 @@ html,body,#stage{touch-action:pan-x pan-y;overscroll-behavior:none}
   if (bSort) {
     bSort.classList.add('tlbl');
     if (!bSort.closest('.top')) { bSort.classList.remove('btn'); bSort.classList.add('ib'); bSort.innerHTML = ''; }
-    bSort.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h9M4 12h6M4 18h3M17 5v14M14 16l3 3 3-3"/></svg><span>RENDIT</span>';
+    bSort.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h9M4 12h6M4 18h3M17 5v14M14 16l3 3 3-3"/></svg><span>' + T('RENDIT', 'SORT') + '</span>';
     top.prepend(bSort);
   }
   ['#bRules', '#bDeck', '#bSound', '#bSet'].forEach(id => { const b = top.querySelector(id); if (b) b.classList.add('hideTop'); });
@@ -88,7 +89,7 @@ html,body,#stage{touch-action:pan-x pan-y;overscroll-behavior:none}
   // iPhone has no full screen for web pages. The same "like an app" there: add the site to the home screen and
   // open it from that icon (no Safari bars, no zoom). The full-screen button explains how; opened from the icon, it hides.
   const bFull = $('#bFull');
-  const iOS = /iP(hone|od|ad)/.test(navigator.platform || '') || (/Mac/.test(navigator.platform || '') && navigator.maxTouchPoints > 1);
+  const iOS = /iP(hone|od|ad)/.test(navigator.platform || '') || /iPhone|iPad|iPod/.test(navigator.userAgent || '') || (/Mac/.test(navigator.platform || '') && navigator.maxTouchPoints > 1);
   const fsAPI = document.fullscreenEnabled || document.webkitFullscreenEnabled;
   const standalone = (() => { try { return !!(window.top.navigator.standalone || window.top.matchMedia('(display-mode: standalone)').matches); } catch (e) { return !!navigator.standalone; } })();
   if (bFull && iOS && !fsAPI) {
@@ -97,15 +98,15 @@ html,body,#stage{touch-action:pan-x pan-y;overscroll-behavior:none}
       bFull.hidden = false;
       const sheet = document.createElement('div');
       sheet.className = 'ov'; sheet.id = 'ovApp'; sheet.hidden = true;
-      sheet.innerHTML = `<div class="panel" role="dialog" aria-modal="true" aria-label="Luaj si aplikacion">
-        <h2>Luaj si aplikacion</h2>
-        <p>Në iPhone, Safari nuk e hap faqen në ekran të plotë. Shtoje VITOWEB në ekranin bazë dhe hape nga ikona: hapet si aplikacion, në ekran të plotë dhe pa zmadhim.</p>
+      sheet.innerHTML = `<div class="panel" role="dialog" aria-modal="true" aria-label="${T('Luaj si aplikacion', 'Play it like an app')}">
+        <h2>${T('Luaj si aplikacion', 'Play it like an app')}</h2>
+        <p>${T('Në iPhone, Safari nuk e hap faqen në ekran të plotë. Shtoje VITOWEB në ekranin bazë dhe hape nga ikona: hapet si aplikacion, në ekran të plotë dhe pa zmadhim.', 'On iPhone, Safari can\'t open the page full screen. Add VITOWEB to your home screen and open it from the icon: it opens like an app, full screen and without zooming.')}</p>
         <ol class="appSteps">
-          <li>Në Safari shtyp <b>Shpërndaj</b> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 11v9h14v-9"/></svg></li>
-          <li>Zgjidh <b>Add to Home Screen</b> (Shto në ekranin bazë)</li>
-          <li>Hape <b>VITOWEB</b> nga ikona në ekran</li>
+          <li>${T('Në Safari shtyp <b>Shpërndaj</b>', 'In Safari, tap <b>Share</b>')} <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 11v9h14v-9"/></svg></li>
+          <li>${T('Zgjidh <b>Add to Home Screen</b> (Shto në ekranin bazë)', 'Choose <b>Add to Home Screen</b>')}</li>
+          <li>${T('Hape <b>VITOWEB</b> nga ikona në ekran', 'Open <b>VITOWEB</b> from the icon on your screen')}</li>
         </ol>
-        <button class="pbtn" id="bAppOk" type="button">Në rregull</button>
+        <button class="pbtn" id="bAppOk" type="button">${T('Në rregull', 'OK')}</button>
       </div>`;
       const st = document.createElement('style');
       st.textContent = `.appSteps{margin:6px 0 16px;padding-left:24px;display:flex;flex-direction:column;gap:10px;font-size:20px;text-align:left;color:var(--ink)}
@@ -113,7 +114,7 @@ html,body,#stage{touch-action:pan-x pan-y;overscroll-behavior:none}
       document.head.appendChild(st);
       const firstOv = stage.querySelector('.ov');
       firstOv ? stage.insertBefore(sheet, firstOv) : stage.appendChild(sheet);
-      bFull.setAttribute('aria-label', 'Luaj si aplikacion'); bFull.title = 'Luaj si aplikacion';
+      bFull.setAttribute('aria-label', T('Luaj si aplikacion', 'Play it like an app')); bFull.title = T('Luaj si aplikacion', 'Play it like an app');
       bFull.onclick = () => { sheet.hidden = false; };
       sheet.querySelector('#bAppOk').onclick = () => { sheet.hidden = true; };
       sheet.addEventListener('click', e => { if (e.target === sheet) sheet.hidden = true; });
@@ -123,24 +124,24 @@ html,body,#stage{touch-action:pan-x pan-y;overscroll-behavior:none}
 
   const bMenu = document.createElement('button');
   bMenu.className = 'ib tlbl'; bMenu.id = 'bMenu'; bMenu.type = 'button';
-  bMenu.setAttribute('aria-label', 'Pauzë'); bMenu.innerHTML = ICON.pause + '<span>PAUZË</span>';
+  bMenu.setAttribute('aria-label', T('Pauzë', 'Pause')); bMenu.innerHTML = ICON.pause + '<span>' + T('PAUZË', 'PAUSE') + '</span>';
   top.appendChild(bMenu);
 
   // pause menu, under the game's own panels (rules, settings) so they open on top of it
   const ov = document.createElement('div');
   ov.className = 'ov'; ov.id = 'ovMenu'; ov.hidden = true;
-  const deckLabel = ($('#bDeck') && $('#bDeck').getAttribute('aria-label')) || 'Shiko letrat';
+  const deckLabel = T(($('#bDeck') && $('#bDeck').getAttribute('aria-label')) || 'Shiko letrat', $('#bDeck') && /gur/i.test($('#bDeck').getAttribute('aria-label') || '') ? 'See the tiles' : 'See the cards');
   const rows = [
-    ['rules', 'Rregullat', '#bRules'],
+    ['rules', T('Rregullat', 'Rules'), '#bRules'],
     ['deck', deckLabel, '#bDeck'],
-    ['sound', 'Zëri', '#bSound'],
-    ['full', document.getElementById('ovApp') ? 'Luaj si aplikacion' : 'Ekran i plotë', '#bFull'],
-    ['set', 'Cilësimet', '#bSet'],
-    ['exit', 'Dil nga tavolina', '#bHome'],
+    ['sound', T('Zëri', 'Sound'), '#bSound'],
+    ['full', document.getElementById('ovApp') ? T('Luaj si aplikacion', 'Play it like an app') : T('Ekran i plotë', 'Full screen'), '#bFull'],
+    ['set', T('Cilësimet', 'Settings'), '#bSet'],
+    ['exit', T('Dil nga tavolina', 'Leave the table'), '#bHome'],
   ].filter(r => { const b = $(r[2]); return b && !b.hidden; });
-  ov.innerHTML = `<div class="panel" role="dialog" aria-modal="true" aria-label="Pauzë">
-    <h2>Pauzë</h2>
-    <button class="pbtn" id="mResume" type="button">Vazhdo</button>
+  ov.innerHTML = `<div class="panel" role="dialog" aria-modal="true" aria-label="${T('Pauzë', 'Pause')}">
+    <h2>${T('Pauzë', 'Pause')}</h2>
+    <button class="pbtn" id="mResume" type="button">${T('Vazhdo', 'Resume')}</button>
     <div class="grid">${rows.map(r => `<button class="mb${r[0] === 'exit' ? ' danger' : ''}" type="button" data-k="${r[2]}">${ICON[r[0]]}<span>${r[1]}</span></button>`).join('')}</div>
   </div>`;
   const firstOv = stage.querySelector('.ov');
@@ -148,7 +149,7 @@ html,body,#stage{touch-action:pan-x pan-y;overscroll-behavior:none}
 
   const soundLabel = () => {
     const b = ov.querySelector('[data-k="#bSound"] span'), s = $('#bSound');
-    if (b && s) b.textContent = s.classList.contains('off') ? 'Zëri: fikur' : 'Zëri: ndezur';
+    if (b && s) b.textContent = s.classList.contains('off') ? T('Zëri: fikur', 'Sound: off') : T('Zëri: ndezur', 'Sound: on');
   };
   const open = () => { soundLabel(); ov.hidden = false; $('#mResume').focus(); };
   const close = () => { ov.hidden = true; };

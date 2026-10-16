@@ -1,19 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://vitoweb.al/</loc></url>
-  <url><loc>https://vitoweb.al/murlan</loc></url>
-  <url><loc>https://vitoweb.al/spathi</loc></url>
-  <url><loc>https://vitoweb.al/derri</loc></url>
-  <url><loc>https://vitoweb.al/domino</loc></url>
-  <url><loc>https://vitoweb.al/imposter</loc></url>
-  <url><loc>https://vitoweb.al/mafia</loc></url>
-  <url><loc>https://vitoweb.al/privacy</loc></url>
-  <url><loc>https://vitoweb.al/terms</loc></url>
-  <url><loc>https://vitoweb.al/rregullat/</loc></url>
-  <url><loc>https://vitoweb.al/rregullat/murlan</loc></url>
-  <url><loc>https://vitoweb.al/rregullat/spathi</loc></url>
-  <url><loc>https://vitoweb.al/rregullat/derri</loc></url>
-  <url><loc>https://vitoweb.al/rregullat/domino</loc></url>
-  <url><loc>https://vitoweb.al/rregullat/imposter</loc></url>
-  <url><loc>https://vitoweb.al/rregullat/mafia</loc></url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url><loc>https://vitoweb.al/</loc><lastmod>2026-10-17</lastmod></url>
+  <url><loc>https://vitoweb.al/murlan</loc><lastmod>2026-10-17</lastmod></url>
+  <url><loc>https://vitoweb.al/spathi</loc><lastmod>2026-10-17</lastmod></url>
+  <url><loc>https://vitoweb.al/derri</loc><lastmod>2026-10-17</lastmod></url>
+  <url><loc>https://vitoweb.al/domino</loc><lastmod>2026-10-17</lastmod></url>
+  <url><loc>https://vitoweb.al/imposter</loc><lastmod>2026-10-17</lastmod></url>
+  <url><loc>https://vitoweb.al/mafia</loc><lastmod>2026-10-17</lastmod></url>
+  <url><loc>https://vitoweb.al/privacy</loc><lastmod>2026-10-17</lastmod></url>
+  <url><loc>https://vitoweb.al/terms</loc><lastmod>2026-10-17</lastmod></url>
+  <url><loc>https://vitoweb.al/rregullat/</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/"/></url>
+  <url><loc>https://vitoweb.al/rules/</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/"/></url>
+  <url><loc>https://vitoweb.al/rregullat/murlan</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/murlan"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/murlan"/></url>
+  <url><loc>https://vitoweb.al/rules/murlan</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/murlan"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/murlan"/></url>
+  <url><loc>https://vitoweb.al/rregullat/spathi</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/spathi"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/spathi"/></url>
+  <url><loc>https://vitoweb.al/rules/spathi</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/spathi"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/spathi"/></url>
+  <url><loc>https://vitoweb.al/rregullat/derri</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/derri"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/derri"/></url>
+  <url><loc>https://vitoweb.al/rules/derri</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/derri"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/derri"/></url>
+  <url><loc>https://vitoweb.al/rregullat/domino</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/domino"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/domino"/></url>
+  <url><loc>https://vitoweb.al/rules/domino</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/domino"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/domino"/></url>
+  <url><loc>https://vitoweb.al/rregullat/imposter</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/imposter"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/imposter"/></url>
+  <url><loc>https://vitoweb.al/rules/imposter</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/imposter"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/imposter"/></url>
+  <url><loc>https://vitoweb.al/rregullat/mafia</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/mafia"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/mafia"/></url>
+  <url><loc>https://vitoweb.al/rules/mafia</loc><lastmod>2026-10-17</lastmod><xhtml:link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/mafia"/><xhtml:link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/mafia"/></url>
 </urlset>

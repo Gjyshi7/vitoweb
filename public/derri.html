@@ -7,7 +7,23 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<script src="i18n.js"></script>
 <title>Derri në dorë · VITOWEB</title>
+<meta name="description" content="Derri në dorë online: mos mbet me derrin. Me lojtarë të tjerë ose me shokët me kod dhome. Falas, pa shkarkim.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="VITOWEB">
+<meta property="og:title" content="Derri në dorë · VITOWEB">
+<meta property="og:description" content="Derri në dorë online: mos mbet me derrin. Me lojtarë të tjerë ose me shokët me kod dhome. Falas, pa shkarkim.">
+<meta property="og:url" content="https://vitoweb.al/derri">
+<meta property="og:image" content="https://vitoweb.al/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png">
+<link rel="icon" type="image/png" sizes="144x144" href="/favicon-144.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
@@ -225,9 +241,25 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
       <li>Kush mbaron letrat <b>del</b> dhe shpëton. Kur dikush del, merr nga i radhës që ka ende letra.</li>
       <li>Në fund mbetet vetëm një lojtar me derrin në dorë. Ai <b>humbet</b> dorën.</li>
     </ul>
-    <p>Prek një letër në mes për ta marrë. PRIT të jep edhe 3 sekonda për të rregulluar letrat para se tjetri të zgjedhë nga ti, një herë në radhë.</p>
-    <button class="pbtn ghost" id="bRulesClose">Mbyll</button>
+    <p>Prek një letër për ta ngritur, prek sërish për ta marrë. PRIT të jep edhe 3 sekonda për të rregulluar letrat para se tjetri të zgjedhë nga ti, një herë në radhë.</p>
+    <button class="pbtn ghost" id="bRulesClose" data-en="Close">Mbyll</button>
   </div></div>
+  <template id="rulesEn">
+    <h2>Rules</h2>
+    <ul>
+      <li><b>49 cards.</b> Three kings are removed and only the <b>K♠, the pig</b>, is left. It can't make a pair with anything.</li>
+      <li>One player gets 13 cards, the others 12. Everyone immediately throws away their <b>pairs</b>: two cards of the same number or face.</li>
+      <li>On your turn, <b>take one card without looking</b> from the player on your left. The player on your right takes from you.</li>
+      <li>If the card you took makes a pair, both are thrown. Otherwise it stays in your hand.</li>
+      <li>Whoever runs out of cards is <b>out</b> and safe. After that, cards are taken from the next player who still has some.</li>
+      <li>In the end only one player is left holding the pig. They <b>lose</b> the hand.</li>
+    </ul>
+    <p>Tap a card to lift it, tap it again to take it. PRIT (Wait) gives you 3 more seconds to rearrange your cards before the other player picks from you, once per turn.</p>
+  </template>
+  <script>/* English chosen in Settings: the same rules in English (before anything copies the panel) */
+  (() => { if (!window.VWL || !VWL.en) return; const p = document.querySelector('#ovRules .panel'), close = document.getElementById('bRulesClose');
+    [...p.children].forEach(c => { if (c !== close) c.remove(); }); p.insertBefore(document.getElementById('rulesEn').content.cloneNode(true), close); })();
+  </script>
 
   <div class="ov" id="ovSet" hidden><div class="panel">
     <h2>Cilësimet</h2>
@@ -1120,7 +1152,7 @@ function onTable(t, S2){
 
 /* ---------- menu, rooms, connection (net.js) ---------- */
 const NET = NETWORK({
-  game: 'derri', rematch: false, title: 'Derri në dorë', sub: '4 lojtarë · mos mbet me derrin', art: [9, 10, 40, 35, 20],
+  game: 'derri', rematch: false, title: 'Derri në dorë', sub: (window.VWL ? VWL.t('4 lojtarë · mos mbet me derrin', '4 players · don\'t get stuck with the pig') : '4 lojtarë · mos mbet me derrin'), art: [9, 10, 40, 35, 20],
   seatsFor: () => [0, 1, 2, 3],
   onLocal: (cfg, seats) => { lastT = null; if (!READY) { readyQ = () => startLocal(cfg, seats); return; } startLocal(cfg, seats); },
   onTable,

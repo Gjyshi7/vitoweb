@@ -7,7 +7,23 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<script src="i18n.js"></script>
 <title>Spathi · VITOWEB</title>
+<meta name="description" content="Spathi online me lojtarë të tjerë ose me shokët me kod dhome. Falas, pa shkarkim, në telefon dhe kompjuter.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="VITOWEB">
+<meta property="og:title" content="Spathi · VITOWEB">
+<meta property="og:description" content="Spathi online me lojtarë të tjerë ose me shokët me kod dhome. Falas, pa shkarkim, në telefon dhe kompjuter.">
+<meta property="og:url" content="https://vitoweb.al/spathi">
+<meta property="og:image" content="https://vitoweb.al/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png">
+<link rel="icon" type="image/png" sizes="144x144" href="/favicon-144.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
@@ -193,8 +209,24 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
       <li><b>Fiton</b> kush arrin i pari 21 pikë, ose 11 në lojën e shkurtër. Nëse të dy e kalojnë në të njëjtën dorë, fiton kush ka më shumë; në barazim luhet edhe një dorë.</li>
     </ul>
     
-    <button class="pbtn ghost" id="bRulesClose">Mbyll</button>
+    <button class="pbtn ghost" id="bRulesClose" data-en="Close">Mbyll</button>
   </div></div>
+  <template id="rulesEn">
+    <h2>Rules</h2>
+    <ul>
+      <li><b>52 cards, no jokers, 2 players.</b> Each gets 4 cards and 4 are laid face up on the table. When the hands are empty, 4 more are dealt until the deck runs out.</li>
+      <li><b>Values:</b> A = 1, 2 to 10 as numbered. J, Q and K capture only the same card and don't add up.</li>
+      <li><b>Capturing:</b> play a card and take the table cards of the same value, or cards that add up to its value (up to 10). You can take several groups at once: a 10 takes 4+6 and 3+7.</li>
+      <li>If your card can capture, it must. If there are two ways, you choose. If it captures nothing, it stays on the table.</li>
+      <li>The cards left on the table at the end go to whoever captured last.</li>
+      <li><b>Points per hand, 5 in all:</b> 2 for most cards (27 or more; at 26 each, 1 point each), 1 for 7 or more clubs, 1 for the 2♣, 1 for the 10♦.</li>
+      <li><b>The first to 21 wins</b>, or 11 in the short game. If both pass it in the same hand, the higher score wins; on a tie, one more hand is played.</li>
+    </ul>
+  </template>
+  <script>/* English chosen in Settings: the same rules in English (before anything copies the panel) */
+  (() => { if (!window.VWL || !VWL.en) return; const p = document.querySelector('#ovRules .panel'), close = document.getElementById('bRulesClose');
+    [...p.children].forEach(c => { if (c !== close) c.remove(); }); p.insertBefore(document.getElementById('rulesEn').content.cloneNode(true), close); })();
+  </script>
 
   <div class="ov" id="ovSet" hidden><div class="panel">
     <h2>Cilësimet</h2>
@@ -939,7 +971,7 @@ function onTable(t, S2){
 
 /* ---------- menu, rooms, connection (net.js) ---------- */
 const NET = NETWORK({
-  game: 'spathi', title: 'Spathi', sub: '1 kundër 1 · merr letrat nga tavolina', art: [17, 30, 43, 44, 51],
+  game: 'spathi', title: 'Spathi', sub: (window.VWL ? VWL.t('1 kundër 1 · merr letrat nga tavolina', '1 vs 1 · capture the cards on the table') : '1 kundër 1 · merr letrat nga tavolina'), art: [17, 30, 43, 44, 51],
   cfg: () => ({ target: +ST.target }),
   seatsFor: () => [0, 1],
   onLocal: (cfg, seats) => { lastT = null; if (!READY) { readyQ = () => startLocal(cfg, seats); return; } startLocal(cfg, seats); },

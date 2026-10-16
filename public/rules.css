@@ -19,6 +19,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   padding-block:12px;padding-left:max(16px,calc((100% - 760px)/2),env(safe-area-inset-left,0px));padding-right:max(16px,calc((100% - 760px)/2),env(safe-area-inset-right,0px));
   background:rgba(10,16,32,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
 .top .mark{display:flex;align-items:center;gap:9px;color:var(--ink);text-decoration:none;font:900 22px/1 var(--f-sign);letter-spacing:.08em}
+.top .lang{margin-left:auto;color:var(--sub);text-decoration:none;font-weight:700;font-size:15px;padding:7px 10px}
+.top .lang:hover{color:var(--ink)}
+.top .lang + .play{margin-left:0}
 .top .play{margin-left:auto;color:var(--sub);text-decoration:none;font-weight:700;font-size:15px;padding:7px 12px;border-radius:999px;background:var(--shelf2)}
 .top .play:hover{color:var(--ink)}
 
