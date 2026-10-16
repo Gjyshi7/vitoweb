@@ -119,6 +119,12 @@ main{min-width:0;padding:22px 28px 60px}
 .sechead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;margin-bottom:14px}
 .sechead h3{margin:0;font:800 28px var(--f-sign);letter-spacing:.03em;text-transform:uppercase}
 .sechead span{color:var(--sub);font-size:15px}
+.about{margin-top:40px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px 28px;align-items:start}
+.about p{margin:0;color:var(--sub);font-size:16.5px;line-height:1.55;max-width:60ch}
+.about .rl{display:flex;flex-wrap:wrap;gap:8px}
+.about .rl a{padding:8px 14px;border-radius:12px;background:var(--shelf);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);text-decoration:none;font-weight:700;font-size:15px}
+.about .rl a:hover{box-shadow:inset 0 0 0 1.5px var(--pink)}
+@media (max-width:760px){.about{grid-template-columns:minmax(0,1fr)}}
 .filters{display:none;gap:6px;overflow-x:auto;margin:0 -16px 14px;padding:0 16px;scrollbar-width:none}
 .filters::-webkit-scrollbar{display:none}
 .filters button{flex:none;height:36px;padding:0 14px;border:0;border-radius:999px;background:var(--shelf);box-shadow:inset 0 0 0 1px var(--line);color:var(--sub);font-weight:600;cursor:pointer}
@@ -290,6 +296,16 @@ main{min-width:0;padding:22px 28px 60px}
         <div class="grid" id="grid"></div>
       </div>
       <div class="adslot" data-ad="hub-bottom"></div>
+      <div class="sec about">
+        <div>
+          <div class="sechead"><h3>Lojëra shqiptare, pa shkarkim</h3></div>
+          <p>Murlan, Spathi, Derri në dorë dhe Domino luhen online, me lojtarë të tjerë ose me shokët me kod dhome. Imposter dhe Mafia luhen bashkë në një vend, secili me telefonin në dorë. Falas, në telefon dhe në kompjuter.</p>
+        </div>
+        <div>
+          <div class="sechead"><h3>Rregullat</h3></div>
+          <nav class="rl" aria-label="Rregullat e lojërave"><a href="/rregullat/murlan">Murlan</a><a href="/rregullat/spathi">Spathi</a><a href="/rregullat/derri">Derri në dorë</a><a href="/rregullat/domino">Domino</a><a href="/rregullat/imposter">Imposter</a><a href="/rregullat/mafia">Mafia</a></nav>
+        </div>
+      </div>
     </section>
 
     <footer class="sitefoot"><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="mailto:info@vitoweb.al">Contact</a><a id="footCmp" href="#" hidden>Cookie settings</a><a id="footIg" href="#" target="_blank" rel="noopener" hidden>Instagram</a></footer>

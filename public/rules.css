@@ -1,0 +1,88 @@
+/* Rules pages (/rregullat/...): the room around the card table, like the hub. One dark look on purpose.
+   Layout: sticky top bar, a short hero with the play button, then the article (max ~68ch), all games at the foot. */
+:root{
+  color-scheme:dark;
+  --bg:#0a1020; --shelf:#101a2c; --shelf2:#16223a;
+  --ink:#eef1f6; --text:#c9d1de; --sub:#93a0b4; --line:rgba(255,255,255,.08);
+  --pink:#ef5a86; --pink-dk:#b02a63; --gold:#f3c76a; --felt:#1f4a63; --felt-e:#0d2232;
+  --card:#fbfaf6; --card-ink:#151b26; --card-red:#c8243b;
+  --f-sign:"Big Shoulders Display","Barlow Condensed","Arial Narrow",sans-serif;
+  --f-ui:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.6 var(--f-ui);-webkit-font-smoothing:antialiased}
+a{color:var(--gold)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:rgba(10,16,32,.94)}
+
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;gap:12px;
+  padding-block:12px;padding-left:max(16px,calc((100% - 760px)/2),env(safe-area-inset-left,0px));padding-right:max(16px,calc((100% - 760px)/2),env(safe-area-inset-right,0px));
+  background:rgba(10,16,32,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top .mark{display:flex;align-items:center;gap:9px;color:var(--ink);text-decoration:none;font:900 22px/1 var(--f-sign);letter-spacing:.08em}
+.top .play{margin-left:auto;color:var(--sub);text-decoration:none;font-weight:700;font-size:15px;padding:7px 12px;border-radius:999px;background:var(--shelf2)}
+.top .play:hover{color:var(--ink)}
+
+main{max-width:760px;margin:0 auto;padding-block:26px 30px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.hero{position:relative;border-radius:22px;padding:26px 22px 24px;overflow:hidden;
+  background:radial-gradient(120% 140% at 85% 10%,var(--felt) 0%,var(--felt-e) 60%,#08131d 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.eyebrow{margin:0 0 6px;font-weight:700;font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
+h1{margin:0;font:900 clamp(44px,9vw,72px)/.95 var(--f-sign);letter-spacing:.005em;text-transform:uppercase;text-wrap:balance}
+.lead{margin:12px 0 0;color:var(--text);max-width:60ch;font-size:19px}
+.facts{margin:14px 0 0;color:var(--sub);font-weight:600;font-size:15px;letter-spacing:.04em}
+.cta{display:inline-flex;align-items:center;gap:10px;margin-top:18px;height:52px;padding:0 24px;border-radius:16px;text-decoration:none;
+  color:#fff;font:800 22px/1 var(--f-sign);letter-spacing:.12em;text-transform:uppercase;
+  background:linear-gradient(#f06a92,var(--pink) 45%,var(--pink-dk));box-shadow:0 8px 22px rgba(176,42,99,.35)}
+.cta svg{width:18px;height:18px;fill:currentColor}
+.end{margin-top:30px}
+
+article{max-width:68ch}
+article h2{margin:34px 0 10px;font:900 30px/1.05 var(--f-sign);letter-spacing:.02em;text-transform:uppercase;color:#fff;text-wrap:balance}
+article p{margin:10px 0;color:var(--text)}
+article ul{margin:10px 0;padding-left:22px;display:flex;flex-direction:column;gap:7px}
+article li{color:var(--text)}
+article li::marker{color:var(--pink)}
+article b{color:var(--ink)}
+.note{color:var(--sub)!important;font-size:16px}
+
+.tbl{overflow-x:auto;margin:14px 0;border-radius:14px;background:var(--shelf);box-shadow:inset 0 0 0 1px var(--line)}
+table{width:100%;border-collapse:collapse;font-size:16.5px}
+th,td{text-align:left;padding:10px 14px;vertical-align:top;border-top:1px solid var(--line)}
+thead th{border-top:0;color:var(--sub);font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase}
+td:first-child{color:var(--ink);font-weight:700;white-space:nowrap}
+td{color:var(--text)}
+
+.cards{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 4px}
+.cards .c{display:grid;place-items:center;width:38px;height:54px;border-radius:7px;background:var(--card);color:var(--card-ink);
+  font:800 17px/1 var(--f-ui);box-shadow:0 2px 0 rgba(0,0,0,.35),0 4px 10px rgba(0,0,0,.25)}
+.cards .c.red{color:var(--card-red)}
+.cards .c.jk{background:linear-gradient(160deg,#fff,#e9e5da);font-size:20px}
+.cards .op{display:grid;place-items:center;width:20px;height:54px;color:var(--sub);font-weight:800;font-size:20px}
+
+.tiles{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+.tiles .t{display:flex;width:76px;height:38px;border-radius:8px;background:var(--card);box-shadow:0 2px 0 rgba(0,0,0,.35),0 4px 10px rgba(0,0,0,.25)}
+.tiles i{position:relative;flex:1}
+.tiles i+i{border-left:2px solid rgba(21,27,38,.25)}
+.tiles i::before{content:"";position:absolute;inset:0;margin:auto;width:7px;height:7px;border-radius:50%;background:var(--card-ink);
+  box-shadow:var(--pips,none)}
+.tiles i[data-n="0"]::before{display:none}
+.tiles i[data-n="1"]{--pips:none}
+.tiles i[data-n="3"]{--pips:-11px -11px 0 var(--card-ink),11px 11px 0 var(--card-ink)}
+.tiles i[data-n="6"]::before{width:6px;height:6px;background:transparent;box-shadow:-9px -11px 0 var(--card-ink),9px -11px 0 var(--card-ink),-9px 0 0 var(--card-ink),9px 0 0 var(--card-ink),-9px 11px 0 var(--card-ink),9px 11px 0 var(--card-ink)}
+
+.games{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:6px}
+.game{display:flex;flex-direction:column;gap:2px;padding:16px;border-radius:16px;background:var(--shelf);box-shadow:inset 0 0 0 1px var(--line);text-decoration:none}
+.game b{font:900 26px/1 var(--f-sign);letter-spacing:.03em;text-transform:uppercase;color:var(--ink)}
+.game small{color:var(--sub);font-size:15px}
+.game:hover{box-shadow:inset 0 0 0 1.5px var(--pink)}
+
+.adslot.on{margin:22px auto}
+
+.foot{max-width:760px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  border-top:1px solid var(--line);display:flex;flex-direction:column;gap:14px}
+.foot nav{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:baseline}
+.foot .others span{color:var(--sub);font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.foot .others a{color:var(--ink);text-decoration:none;font-weight:700}
+.foot .others a[aria-current]{color:var(--pink)}
+.foot .legal a{color:var(--sub);text-decoration:none;font-size:14px}
+.foot a:hover{color:var(--ink)}
+@media (max-width:520px){html,body{font-size:17px}.lead{font-size:17.5px}article h2{font-size:27px}td:first-child{white-space:normal}}
