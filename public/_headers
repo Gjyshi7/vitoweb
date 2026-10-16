@@ -1,9 +1,7 @@
 # Applied by Cloudflare to every page and file in /public.
 # (The Worker's own responses under /api and /ws set their own headers.)
-# X-Robots-Tag keeps the test site out of Google: delete that line at public launch and fix robots.txt.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
   X-Frame-Options: SAMEORIGIN
-  X-Robots-Tag: noindex

@@ -1,3 +1,4 @@
-# Testing phase: keep the site out of search engines. Replace with "Allow: /" at public launch.
 User-agent: *
-Disallow: /
+Allow: /
+
+Sitemap: https://vitoweb.al/sitemap.xml

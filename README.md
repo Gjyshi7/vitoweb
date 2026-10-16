@@ -1,4 +1,4 @@
-# VitoWeb Loja
+# VITOWEB games (vitoweb.al)
 
 The hub with 6 games (Murlan, Spathi, Derri në dorë, Domino, Imposter, Mafia) plus the room servers that let every phone play from its own screen (Murlan, Mafia and Imposter), all on Cloudflare.
 
@@ -41,7 +41,7 @@ Cloudflare's drag-and-drop upload only hosts plain files. It cannot create the r
 4. Check the servers (put your address in place of the example):
 
    ```
-   BASE=https://loja.vitoweb.al npm test
+   BASE=https://vitoweb.al npm test
    ```
 
    It should end with `68 passed, 0 failed`. It creates 3 test rooms, which delete themselves.
@@ -100,15 +100,16 @@ Change in `wrangler.toml`, then `npx wrangler deploy`:
 - Each phone has a secret guest id (HttpOnly cookie, with a local key as backup). Other phones only ever see a public seat id, so nobody can log in as someone else.
 - Limits: 600 requests/min per IP (loose because many phones on mobile data share one IP), 10 new rooms/min and 40 joins/min per phone, 40 messages per 10 s per phone, 30 players per room.
 - Other websites can't create rooms or open sockets here (origin check).
-- While testing, the site is hidden from Google (`X-Robots-Tag: noindex` in `public/_headers`, and `public/robots.txt`).
+- The site is open to search engines: `public/robots.txt` allows everything and lists `public/sitemap.xml`. The dashboard (`/admin`) and the 404 page carry `noindex`.
 
-## 6. Before the public launch (from the plan, not done yet)
+## 6. Address, legal pages, ads, sign-in
 
-- Remove the noindex line in `public/_headers` and allow crawling in `public/robots.txt`.
-- Switch to the Workers Paid plan ($5/month) on launch day and set budget alerts.
-- Turnstile (bot check) on room creation, Google login with accounts in D1, AdSense with privacy and terms pages, a bot stress test.
-- Your own domain (for example `loja.vitoweb.al`; Cloudflare advises against running a business on `workers.dev`): Workers & Pages → vitoweb-loja → Domains → Add domain.
-- Ads: see `public/ads.js`. AdSense needs your own domain, a privacy page and Google's consent message for EU/UK/CH visitors. Turn on H5 Games Ads in AdSense for the break between hands.
+- **Address.** The site is `vitoweb.al`. `www.vitoweb.al` and the old `loja.vitoweb.al` open the same files and the first line of every page sends the visitor on to `vitoweb.al` (same path). All three are in `wrangler.toml` under `[[routes]]`. A custom domain can only be added where no other DNS record exists for that name.
+- **The agency** lives at `studio.vitoweb.al` (its own Cloudflare Pages project). Its old page addresses on `vitoweb.al` forward there page for page (`public/_redirects`).
+- **Privacy Policy and Terms** (English): `public/privacy.html`, `public/terms.html`, at `/privacy` and `/terms`. They describe exactly what the site stores; if you add anything that stores or sends data (a new cookie, analytics, another ad network), update the policy the same day.
+- **Ads**: `public/ads.js`. Three values from AdSense switch them on (publisher id, ad-unit id, ENABLED); the publisher id also goes in `public/ads.txt` and in the `google-adsense-account` meta tag of `public/index.html`. `?ads=preview` shows the slots without Google, `?ads=test` shows Google's test ads. For EU/UK/CH visitors publish Google's consent message (AdSense → Privacy & messaging). The full-screen break between hands needs a separate yes from Google (H5 Games Ads).
+- **Google sign-in**: in Google Cloud → APIs & Services → Credentials → the OAuth client (Web application) → Authorized JavaScript origins: `https://vitoweb.al`. Put its client id in `GOOGLE_CLIENT_ID` in `wrangler.toml` and deploy. Until then sign-in stays hidden.
+- **Capacity**: see section 8 for what the Free plan holds and when the Paid plan ($5/month) starts to make sense.
 
 ## 7. Self-healing ("the bug hunter") and the incident log
 
@@ -161,7 +162,7 @@ On Workers Paid ($5/month) nothing stops at a daily limit: 1 million requests an
 
 ## 9. The dashboard
 
-`https://loja.vitoweb.al/admin`, opened with the owner's key (only its SHA-256 is in `wrangler.toml` as `ADMIN_HASH`; to change the key, put the SHA-256 of a new one there and deploy). It shows who is on the site now and where, today's use of the Free limits, games today (on the phone / on the server), what the site fixed by itself (the incident log) and the last 14 days.
+`https://vitoweb.al/admin`, opened with the owner's key (only its SHA-256 is in `wrangler.toml` as `ADMIN_HASH`; to change the key, put the SHA-256 of a new one there and deploy). It shows who is on the site now and where, today's use of the Free limits, games today (on the phone / on the server), what the site fixed by itself (the incident log) and the last 14 days.
 Tables report what they cost when they close; the Guard's own counts are saved at most once a minute, so on a very quiet site they read a little low (marked ≈). Cloudflare's own numbers: Workers & Pages → vitoweb-loja → Metrics.
 
 ## If something goes wrong

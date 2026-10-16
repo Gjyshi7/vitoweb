@@ -3,3 +3,35 @@
 /privatesia.html  /privacy  301
 /kushtet  /terms  301
 /kushtet.html  /terms  301
+
+# The agency moved to studio.vitoweb.al: its old pages and files forward there, page for page.
+/restaurants.html  https://studio.vitoweb.al/restaurants.html  301
+/restaurants  https://studio.vitoweb.al/restaurants  301
+/beauty.html  https://studio.vitoweb.al/beauty.html  301
+/beauty  https://studio.vitoweb.al/beauty  301
+/hospitality.html  https://studio.vitoweb.al/hospitality.html  301
+/hospitality  https://studio.vitoweb.al/hospitality  301
+/fitness.html  https://studio.vitoweb.al/fitness.html  301
+/fitness  https://studio.vitoweb.al/fitness  301
+/systems.html  https://studio.vitoweb.al/systems.html  301
+/systems  https://studio.vitoweb.al/systems  301
+/system-01.html  https://studio.vitoweb.al/system-01.html  301
+/system-01  https://studio.vitoweb.al/system-01  301
+/system-02.html  https://studio.vitoweb.al/system-02.html  301
+/system-02  https://studio.vitoweb.al/system-02  301
+/project-01.html  https://studio.vitoweb.al/project-01.html  301
+/project-01  https://studio.vitoweb.al/project-01  301
+/project-02.html  https://studio.vitoweb.al/project-02.html  301
+/project-02  https://studio.vitoweb.al/project-02  301
+/project-03.html  https://studio.vitoweb.al/project-03.html  301
+/project-03  https://studio.vitoweb.al/project-03  301
+/project-04.html  https://studio.vitoweb.al/project-04.html  301
+/project-04  https://studio.vitoweb.al/project-04  301
+/project-05.html  https://studio.vitoweb.al/project-05.html  301
+/project-05  https://studio.vitoweb.al/project-05  301
+/project-06.html  https://studio.vitoweb.al/project-06.html  301
+/project-06  https://studio.vitoweb.al/project-06  301
+/project-07.html  https://studio.vitoweb.al/project-07.html  301
+/project-07  https://studio.vitoweb.al/project-07  301
+/privacy.html  https://studio.vitoweb.al/privacy.html  301
+/llms.txt  https://studio.vitoweb.al/llms.txt  301

@@ -1,14 +1,26 @@
-# VitoWeb Loja: the site in ./public plus the room servers in ./worker.
+# VITOWEB games at vitoweb.al: the site in ./public plus the room servers in ./worker.
+# (The Worker and database keep their first name, "vitoweb-loja"; renaming them would mean a new Worker
+#  and new storage. Players never see it.)
 # Deploy:  npm install            (once)
 #          npx wrangler login     (once, opens the browser)
 #          npx wrangler deploy
 name = "vitoweb-loja"
 main = "worker/index.js"
 compatibility_date = "2026-10-01"
-# One address only: loja.vitoweb.al. The old workers.dev address is switched off.
+# One address: vitoweb.al. www.vitoweb.al and the old loja.vitoweb.al open the same site and the pages send
+# visitors on to vitoweb.al (see the first line of every page). The workers.dev address is switched off.
 workers_dev = false
 preview_urls = false
-# Cloudflare makes the DNS record and the certificate by itself (vitoweb.al is on this account).
+# Cloudflare makes the DNS records and the certificates by itself (vitoweb.al is on this account).
+# A custom domain can only be added where no other DNS record exists for that name.
+[[routes]]
+pattern = "vitoweb.al"
+custom_domain = true
+
+[[routes]]
+pattern = "www.vitoweb.al"
+custom_domain = true
+
 [[routes]]
 pattern = "loja.vitoweb.al"
 custom_domain = true
@@ -69,7 +81,7 @@ MAX_NEW_ROOMS_PER_DAY = "2000"
 ROOM_TTL_MINUTES = "360"
 # "Hyr me Google": the OAuth client id from Google Cloud (it is public, not a secret). Empty = sign-in hidden.
 GOOGLE_CLIENT_ID = ""
-# The dashboard (loja.vitoweb.al/admin) opens with a key only the owner has. Only its SHA-256 is here, not the key.
+# The dashboard (vitoweb.al/admin) opens with a key only the owner has. Only its SHA-256 is here, not the key.
 ADMIN_HASH = "7cbeaf348a6f9f6c7d744f30366877ccb3d8277f26e3c804a93383a0b6927659"
 
 # Logs in the dashboard (Workers & Pages -> vitoweb-loja -> Logs). Useful while testing.
