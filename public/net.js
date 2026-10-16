@@ -576,7 +576,7 @@ function NETWORK(G){
       return;
     }
     if (t.phase === 'closed') return leave(t.closedWhy === 'error' ? 'Tavolina pati një problem dhe u mbyll. Na falni, provo përsëri.' : 'Loja mbaroi.');
-    if (t.out) return leave(t.why === 'away' ? AWAY_MSG : '');
+    if (t.out) return leave(t.why === 'away' ? AWAY_MSG : t.why === 'left' ? 'Kaluan më shumë se 6 sekonda, ndaj vendin tënd e zuri një lojtar tjetër.' : '');
     if (!N.table) { N.table = true; show('none'); if (window.VWP) VWP.played(G.game); }
     seatNews(t);
     G.onTable(t, S);

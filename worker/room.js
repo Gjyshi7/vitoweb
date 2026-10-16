@@ -22,7 +22,7 @@ import domino from "./games/domino.js";
 export const GAMES = { mafia, imposter, murlan, spathi, derri, domino };
 const MAX_PLAYERS = 30;
 const MSG_WINDOW_MS = 10_000;   // per-socket message budget
-const MSG_MAX = 40;
+const MSG_MAX = 80;            // a busy phone (the table clock, rearranging cards, PRIT) stays well under this
 const HOST_GRACE_MS = 60_000;   // someone else may take over as host after the host has been gone this long
 const BACKUP_MS = 15_000;       // the server's own backup alarm while the phones drive the clock
 
@@ -298,7 +298,11 @@ export class Room extends DurableObject {
     const s = this.s;
     if (!s) { try { ws.send('{"t":"closed"}'); ws.close(4004, "room closed"); } catch {} return; }
     if (typeof raw !== "string" || raw.length > 4096) return;
-    if (!this.allow(ws)) return;
+    if (!this.allow(ws)) {                            // over the budget: say so once (the phone asks again), never drop a move silently
+      const r = this.rate.get(ws);
+      if (r && !r.told) { r.told = true; try { ws.send('{"t":"error","e":"slow_down"}'); } catch {} }
+      return;
+    }
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
     if (!msg || typeof msg.t !== "string") return;

@@ -500,6 +500,7 @@ export function makeTable(spec) {
           if (g.phase !== "play" || seat < 0 || g.actor !== seat || g.step === "end") return { error: "not_your_turn" };
           if (settling(g, now)) return { error: "wait" };
           if (msg.step && msg.step !== g.step) return { error: "not_your_turn" };
+          if (msg.turn && msg.turn !== g.stepAt) return { error: "not_your_turn" };   // a copy sent again for a turn already played
           const r = apply(s, now, seat, g.step, msg);
           return r.error ? { error: r.error, why: r.why } : { changed: true };
         }

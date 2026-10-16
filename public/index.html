@@ -235,6 +235,9 @@ main{min-width:0;padding:22px 28px 60px}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="VITOWEB">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 </head>
 <body>
 
@@ -456,6 +459,14 @@ $('#railNav').onclick = e => { const b = e.target.closest('button'); if (b) show
 
 /* ---------- game cabinet ---------- */
 const cab = $('#cab');
+// While a table is open the page acts like an app: no pinch zoom, and any zoom from browsing the hub is undone
+// (iPhone ignores "no zoom" for pinching, so its gestures are stopped here too; the table page does the same inside).
+const vpMeta = document.querySelector('meta[name="viewport"]'), vpFree = vpMeta && vpMeta.content;
+const noPinch = e => { if (e.type !== 'touchmove' || (e.touches && e.touches.length > 1)) e.preventDefault(); };
+function lockZoom(on){
+  if (vpMeta) vpMeta.content = on ? vpFree + ',maximum-scale=1,user-scalable=no' : vpFree;
+  ['gesturestart', 'gesturechange', 'touchmove'].forEach(t => on ? document.addEventListener(t, noPinch, { passive: false }) : document.removeEventListener(t, noPinch, { passive: false }));
+}
 function openGame(id){
   const g = GAMES.find(x => x.id === id); if (!g || g.soon) return;
   store.set('vw-recent', [id, ...recent().filter(x => x !== id)].slice(0, 5));
@@ -465,13 +476,13 @@ function openGame(id){
   f.src = g.file; f.title = g.name; f.allow = 'fullscreen; autoplay'; f.allowFullscreen = true;
   f.style.opacity = '0';
   f.onload = () => { f.style.opacity = '1'; $('#cabLoad').hidden = true; try { f.contentWindow.focus(); } catch(e) {} };
-  cab.appendChild(f); cab.hidden = false; document.body.style.overflow = 'hidden';
+  cab.appendChild(f); cab.hidden = false; document.body.style.overflow = 'hidden'; lockZoom(true);
   if (window.VWP) VWP.pause(true);           // the game page reports for itself now
   try { history.pushState({ game: id }, ''); } catch(e) {}
 }
 function closeGame(fromPop){
   if (cab.hidden) return;
-  cab.querySelector('iframe')?.remove(); cab.hidden = true; document.body.style.overflow = '';
+  cab.querySelector('iframe')?.remove(); cab.hidden = true; document.body.style.overflow = ''; lockZoom(false);
   if (window.VWP) VWP.pause(false);
   renderGrid();
   if (window.__checkBack) window.__checkBack();      // left a table just now: offer the way back (for 90 s)

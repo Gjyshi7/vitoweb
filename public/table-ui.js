@@ -12,6 +12,7 @@
 
   const css = document.createElement('style');
   css.textContent = `
+html,body,#stage{touch-action:pan-x pan-y;overscroll-behavior:none}
 .top{height:58px!important;z-index:450}
 .top .l{min-width:0!important;gap:14px!important}
 .top .r{min-width:0!important;gap:10px!important}
@@ -79,7 +80,45 @@
     top.prepend(bSort);
   }
   ['#bRules', '#bDeck', '#bSound', '#bSet'].forEach(id => { const b = top.querySelector(id); if (b) b.classList.add('hideTop'); });
+  // ---- like an app on every phone ----
+  // No pinch zoom or double-tap zoom on the table. iPhone ignores the page's "no zoom" setting, so its gestures
+  // are stopped here; double-tap zoom is off through touch-action (taps and double taps still work).
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+  document.addEventListener('touchmove', e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  // iPhone has no full screen for web pages. The same "like an app" there: add the site to the home screen and
+  // open it from that icon (no Safari bars, no zoom). The full-screen button explains how; opened from the icon, it hides.
   const bFull = $('#bFull');
+  const iOS = /iP(hone|od|ad)/.test(navigator.platform || '') || (/Mac/.test(navigator.platform || '') && navigator.maxTouchPoints > 1);
+  const fsAPI = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+  const standalone = (() => { try { return !!(window.top.navigator.standalone || window.top.matchMedia('(display-mode: standalone)').matches); } catch (e) { return !!navigator.standalone; } })();
+  if (bFull && iOS && !fsAPI) {
+    if (standalone) bFull.hidden = true;
+    else {
+      bFull.hidden = false;
+      const sheet = document.createElement('div');
+      sheet.className = 'ov'; sheet.id = 'ovApp'; sheet.hidden = true;
+      sheet.innerHTML = `<div class="panel" role="dialog" aria-modal="true" aria-label="Luaj si aplikacion">
+        <h2>Luaj si aplikacion</h2>
+        <p>Në iPhone, Safari nuk e hap faqen në ekran të plotë. Shtoje VITOWEB në ekranin bazë dhe hape nga ikona: hapet si aplikacion, në ekran të plotë dhe pa zmadhim.</p>
+        <ol class="appSteps">
+          <li>Në Safari shtyp <b>Shpërndaj</b> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 11v9h14v-9"/></svg></li>
+          <li>Zgjidh <b>Add to Home Screen</b> (Shto në ekranin bazë)</li>
+          <li>Hape <b>VITOWEB</b> nga ikona në ekran</li>
+        </ol>
+        <button class="pbtn" id="bAppOk" type="button">Në rregull</button>
+      </div>`;
+      const st = document.createElement('style');
+      st.textContent = `.appSteps{margin:6px 0 16px;padding-left:24px;display:flex;flex-direction:column;gap:10px;font-size:20px;text-align:left;color:var(--ink)}
+.appSteps svg{width:24px;height:24px;vertical-align:-5px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}`;
+      document.head.appendChild(st);
+      const firstOv = stage.querySelector('.ov');
+      firstOv ? stage.insertBefore(sheet, firstOv) : stage.appendChild(sheet);
+      bFull.setAttribute('aria-label', 'Luaj si aplikacion'); bFull.title = 'Luaj si aplikacion';
+      bFull.onclick = () => { sheet.hidden = false; };
+      sheet.querySelector('#bAppOk').onclick = () => { sheet.hidden = true; };
+      sheet.addEventListener('click', e => { if (e.target === sheet) sheet.hidden = true; });
+    }
+  }
   if (bFull && !bFull.hidden) top.appendChild(bFull);
 
   const bMenu = document.createElement('button');
@@ -95,7 +134,7 @@
     ['rules', 'Rregullat', '#bRules'],
     ['deck', deckLabel, '#bDeck'],
     ['sound', 'Zëri', '#bSound'],
-    ['full', 'Ekran i plotë', '#bFull'],
+    ['full', document.getElementById('ovApp') ? 'Luaj si aplikacion' : 'Ekran i plotë', '#bFull'],
     ['set', 'Cilësimet', '#bSet'],
     ['exit', 'Dil nga tavolina', '#bHome'],
   ].filter(r => { const b = $(r[2]); return b && !b.hidden; });

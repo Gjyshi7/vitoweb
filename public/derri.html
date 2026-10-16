@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <script>/* one address: www. and the old loja. go to vitoweb.al */if(/^(www|loja)\./.test(location.hostname))location.replace('https://vitoweb.al'+location.pathname+location.search+location.hash)</script>
 <link rel="canonical" href="https://vitoweb.al/derri">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Derri në dorë · VITOWEB</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -676,15 +678,19 @@ HAND.attach({
 $('#bSort').onclick = () => { audio(); if (LK.on && !LK.held) return; handOrder = []; relayoutHand(); orderSoon(); snap(.2, 2400, .05); };
 let orderT = 0;
 function orderSoon(){ if (!NET.online || !H) return; clearTimeout(orderT); orderT = setTimeout(() => { if (H && H.hands[0].length) NET.send({ t: 'order', ids: myOrder() }); }, 120); }
-async function humanPick(src, my){
-  hov = -1; pickSrc = src; layoutSeat(src);
+// key (online): this turn. The same turn asked again keeps the card you lifted; the pick only counts if it's
+// still that turn when you take it (an update in between, like a PRIT or someone reconnecting, never drops it).
+async function humanPick(src, my, key){
+  if (!key || ON.pickKey !== key) hov = -1;
+  ON.pickKey = key || null;
+  pickSrc = src; layoutSeat(src);
   const tag = $('#pickTag'); tag.innerHTML = ''; tag.appendChild(document.createTextNode(NAMES[src])); tag.hidden = false;
   status('Radha jote');
   snap(.2, 2000, .08);
   mode = 'pick'; refresh();
   const idx = await new Promise(r => humanResolve = r);
   tag.hidden = true;
-  if (my !== gen) return -1;
+  if (key ? !(NET.online && lastT && turnKey(lastT) === key) : my !== gen) return -1;
   hov = H.hands[src][idx]; layoutSeat(src); await sleep(D(260));
   return idx;
 }
@@ -1000,13 +1006,51 @@ function askOrWait(t){
     if (t.holdUsed) LK.used = true;
     refresh();
   } else if (LK.on || LK.key) unlockMine();
-  if (a === 0 && t.hold && t.hold.until > Date.now() + ON.skew) status(`${NAMES[src]} po i rendit letrat`);
-  const key = t.seq + ':' + t.step;
+  // one key per turn (not per update): a PRIT, a GATI or someone reconnecting must not restart your pick
+  const key = turnKey(t);
   if (a === 0) {
-    if (ON.asked === key && mode === 'pick') return;
+    // already choosing, or your pick is on its way to the server: nothing to ask again
+    if (ON.asked === key && (mode === 'pick' || ON.sent === key)) { holdStatus(t, src); return; }
     ON.asked = key;
-    humanPick(src, gen).then(idx => { if (NET.online && idx >= 0) NET.send({ t: 'act', step: 'pick', idx: Math.min(idx, H.hands[src].length - 1) }); });
-  } else { if (mode === 'pick') { stopInput(); pickSrc = -1; layoutAll(); } refresh(); status(''); }
+    humanPick(src, gen, key).then(idx => {
+      if (!NET.online || idx < 0) return;
+      const i = Math.min(idx, H.hands[src].length - 1);
+      ON.lastPick = { idx: i, key, tries: 0 };
+      sendPick(i, key, 0);
+    });
+    holdStatus(t, src);
+  } else { clearTimeout(ON.holdT); if (mode === 'pick') { stopInput(); pickSrc = -1; layoutAll(); } refresh(); status(''); }
+}
+const turnKey = t => t.turnStart + ':' + t.actor + ':' + t.step;
+// while they rearrange (PRIT) the line says so; when it ends (GATI, or the 3 s run out) it's your turn again
+function holdStatus(t, src){
+  clearTimeout(ON.holdT);
+  const left = t.hold ? t.hold.until - (Date.now() + ON.skew) : 0;
+  if (left > 0) { status(`${NAMES[src]} po i rendit letrat`); ON.holdT = setTimeout(() => { if (mode === 'pick') status('Radha jote'); }, left + 60); }
+  else if (mode === 'pick') status('Radha jote');
+}
+// Your pick goes to the server. If the table hasn't moved 2.5 s later (the message got lost on a bad line),
+// the same pick goes again; the server takes only one, a second one for a turn that moved on is turned down.
+function sendPick(i, key, n){
+  ON.sent = key;
+  NET.send({ t: 'act', step: 'pick', idx: i, turn: +key.split(':')[0] });
+  clearTimeout(ON.sendT);
+  ON.sendT = setTimeout(() => {
+    if (!NET.online || ON.sent !== key || !lastT || turnKey(lastT) !== key) return;
+    if (n < 2) sendPick(i, key, n + 1);
+    else { ON.sent = ''; ON.asked = ''; pump(); }          // still nothing: choose again
+  }, 2500);
+}
+// the server said "wait" (their hand was still settling after GATI): send the same pick again in a moment.
+// Any other answer: ask again.
+function pickError(e){
+  const L = ON.lastPick;
+  if (e === 'wait' && L && lastT && turnKey(lastT) === L.key && ++L.tries <= 10) {
+    setTimeout(() => { if (NET.online && lastT && turnKey(lastT) === L.key) sendPick(L.idx, L.key, 2); }, 400);
+    return;
+  }
+  ON.sent = ''; clearTimeout(ON.sendT);
+  ON.asked = ''; pump();
 }
 // the page's bug hunter (net.js) calls this when this phone stopped following the table: draw it again from the server
 function recoverOnline(){
@@ -1081,7 +1125,7 @@ const NET = NETWORK({
   applied: () => ON.seq,
   recover: recoverOnline,
   onLeave: () => { lastT = null; stopTable(); },
-  onError: () => { ON.asked = ''; pump(); },
+  onError: e => pickError(e),
 });
 window.__derri = { get mode(){ return mode; }, get H(){ return H; }, get lk(){ return LK; }, get on(){ return ON; }, get t(){ return lastT; }, get src(){ return pickSrc; }, get dealt(){ return dealt; }, shown: p => handOf(p).length, pick(i){ choose(i); } };   // for tests
 
