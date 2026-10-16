@@ -104,7 +104,7 @@ Change in `wrangler.toml`, then `npx wrangler deploy`:
 
 ## 6. Address, legal pages, ads, sign-in
 
-- **Address.** The site is `vitoweb.al`. `www.vitoweb.al` and the old `loja.vitoweb.al` open the same files and the first line of every page sends the visitor on to `vitoweb.al` (same path). All three are in `wrangler.toml` under `[[routes]]`: vitoweb.al and www are routes, so their DNS records must stay (proxied); loja is a custom domain.
+- **Address.** The site is `vitoweb.al`. `www.vitoweb.al` and the old `loja.vitoweb.al` open the same files and the first line of every page sends the visitor on to `vitoweb.al` (same path). All three are custom domains in `wrangler.toml` under `[[routes]]`; Cloudflare makes their DNS records itself on deploy.
 - **The old agency site** that used to be on vitoweb.al is gone. Its old page addresses open the home page (`public/_redirects`).
 - **Privacy Policy and Terms** (English): `public/privacy.html`, `public/terms.html`, at `/privacy` and `/terms`. They describe exactly what the site stores; if you add anything that stores or sends data (a new cookie, analytics, another ad network), update the policy the same day.
 - **Ads**: `public/ads.js`. Three values from AdSense switch them on (publisher id, ad-unit id, ENABLED); the publisher id also goes in `public/ads.txt` and in the `google-adsense-account` meta tag of `public/index.html`. `?ads=preview` shows the slots without Google, `?ads=test` shows Google's test ads. For EU/UK/CH visitors publish Google's consent message (AdSense → Privacy & messaging). The full-screen break between hands needs a separate yes from Google (H5 Games Ads).
