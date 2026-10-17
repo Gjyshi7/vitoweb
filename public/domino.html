@@ -457,7 +457,7 @@ function renderChain(){
   const lay = fitChain(), sc = lay.L / TH;
   lay.out.forEach((r, i) => {
     const e = els[r.id].el;
-    e.classList.remove('mine','sel','dim','hint');
+    e.classList.remove('mine','sel','dim','hint','gone');   // 'gone': it was hidden under a player's stack until played
     e.classList.toggle('last', r.id === lastId);
     put(r.id, AREA.cx + r.x, offY + r.y, r.rot, sc, 50 + i, true);
   });
