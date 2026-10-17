@@ -360,6 +360,16 @@ function put(id, x, y, rot = 0, sc = 1, z = 1, up = false){
   c.el.style.transform = `translate3d(${x - CW / 2}px,${y - CH / 2}px,0) rotate(${rot}deg) scale(${sc})`;
   c.el.style.zIndex = z;
 }
+// Cards that change place in this page's copy of the table jump there at once, without the slide: the others'
+// cards wait hidden under their stack, so the jump is never seen, and a card that is about to be played starts
+// its flight from the right player's hand.
+function instant(ids, fn){
+  const es = ids.map(id => els[id].el);
+  es.forEach(e => e.style.transition = 'none');
+  fn();
+  if (es.length) es[0].offsetWidth;
+  es.forEach(e => e.style.transition = '');
+}
 const handOf = p => dealt ? dealt[p] : H ? H.hands[p] : [];
 const byRank = (a, b) => M.rankOf(a) - M.rankOf(b) || a - b;
 
@@ -494,9 +504,12 @@ function renderPile(){
   cap.classList.toggle('flush', !!top && top.m.t === 6);
 }
 async function clearPile(){
+  // the trick leaves the table: it gathers and fades out. No face-down pile stays behind (it looked like a deck
+  // the cards come from, and nothing in Murlan is ever drawn)
   pile.forEach(g => g.ids.forEach(id => {
     const e = els[id].el; e.classList.remove('old','last');
-    put(id, DISCARD[0] + (Math.random() * 8 - 4), DISCARD[1] - discardN * .35, Math.random() * 16 - 8, .62, 5 + discardN++, false);
+    put(id, PILE[0] + (Math.random() * 8 - 4), PILE[1], Math.random() * 16 - 8, .62, 5 + discardN++, true);
+    e.classList.add('gone');
   }));
   pile = []; $('#cap').textContent = ''; $('#cap').classList.remove('flush');
   snap(.18, 3800, .14);
@@ -629,8 +642,7 @@ const seatXY = p => p ? SEATPOS[p] : [640, 600, 0];
 // the table for a moment with who gives it to whom, then goes into the other hand.
 async function passCard(id, from, to, show, my, what){
   const a = seatXY(from);
-  els[id].el.classList.remove('gone','mine','sel','dim');
-  put(id, a[0], a[1], 0, .7, 440, true);
+  instant([id], () => { els[id].el.classList.remove('gone','mine','sel','dim'); put(id, a[0], a[1], 0, .7, 440, true); });
   status(`Shkëmbimi · <em>${NAMES[from]}</em> → <em>${NAMES[to]}</em>${what ? ' · ' + what : ''}`);
   await sleep(40);
   put(id, 640, 330, 0, 1.25, 440, true);
@@ -672,6 +684,8 @@ async function animatePlay(p, ids, ev){
     if (ev && ev.cleared) { await sleep(D(350)); await clearPile(); await sleep(D(350)); }
     return;
   }
+  // someone else's cards leave from their own hand (where they waited, hidden under the stack), then fly to the table
+  if (p) { const [x, y, r] = SEATPOS[p]; instant(ids, () => ids.forEach((id, i) => { els[id].el.classList.remove('gone','mine','sel','dim'); put(id, x, y, r, .5, 250 + i, false); })); }
   pile.push({p, ids, m: ev.m, rot: Math.random() * 8 - 4});
   renderPile(); layoutSeat(p);
   if (ev.m.t === 6) { thump(); setTimeout(chime, 120); bubble(p, ev.m.r === 14 && ev.m.s === 10 ? 'Royal flush' : 'Flush', true); await sleep(D(500)); }
@@ -834,6 +848,7 @@ function seatNames(t){
   const sig = NAMES.join('|'); if (ON.names !== sig) { const was = ON.names; ON.names = sig; if (was) try { renderPlates(); } catch (e) {} }
 }
 function ensureIn(p, ids){
+  const moved = [], seats = new Set();
   for (const id of ids) {
     if (H.hands[p].includes(id)) continue;
     const q = [1, 2, 3].find(x => x !== p && H.hands[x].includes(id));
@@ -841,7 +856,10 @@ function ensureIn(p, ids){
     if (q === undefined || y === undefined) continue;
     H.hands[q][H.hands[q].indexOf(id)] = y;
     H.hands[p][H.hands[p].indexOf(y)] = id;
+    moved.push(id, y); seats.add(p); seats.add(q);
   }
+  // the real card now waits in p's hand, the stand-in in q's: put both there before anything moves
+  if (moved.length && !dealt) instant(moved, () => seats.forEach(layoutSeat));
 }
 const exMap = ex => ex ? { first: lpos(ex.first), last: lpos(ex.last), jokers: !!ex.jokers, up: ex.up ?? undefined, down: ex.down ?? undefined } : null;
 function freshHand(o){
@@ -873,7 +891,7 @@ function resync(t){
   H.trick = trick.map(x => ({ p: x.p, ids: x.ids, m: x.m }));
   mt.hand = H;
   const inHands = new Set(hands.flat());
-  for (let id = 0; id < 54; id++) if (!inHands.has(id) && !onTable.includes(id)) put(id, DISCARD[0] + (Math.random() * 8 - 4), DISCARD[1] - discardN * .35, Math.random() * 16 - 8, .62, 5 + discardN++, false);
+  for (let id = 0; id < 54; id++) if (!inHands.has(id) && !onTable.includes(id)) { put(id, PILE[0], PILE[1], 0, .62, 1, false); els[id].el.classList.add('gone'); }   // played earlier: off the table
   pile = trick; renderPile();
   if (s.result && s.left) { const lp = lpos(s.result.order[s.result.order.length - 1]); ensureIn(lp, s.left); reveal = lp; }
   for (let p = 0; p < 4; p++) layoutSeat(p);

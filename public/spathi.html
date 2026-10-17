@@ -816,12 +816,25 @@ function seatNames(t){
 // stand-ins: the other player's hand and the stock are cards nobody has seen yet. When one turns out to
 // be a real card, it trades places with whatever stand-in sits where the real one is now.
 const standIn = list => list.find(x => !ON.known.has(x));
+// Pieces that change place in this page's copy of the table jump there at once, without the slide: the others'
+// pieces wait hidden (or face down), so the jump is never seen, and a piece that is about to be played starts
+// its flight from the right player's hand.
+function instant(ids, fn){
+  const es = ids.map(id => els[id].el);
+  es.forEach(e => e.style.transition = 'none');
+  fn();
+  if (es.length) es[0].offsetWidth;
+  es.forEach(e => e.style.transition = '');
+}
 function claim(id, target){
   if (target.includes(id)) return;
   const src = [H.stock, H.hands[1]].find(l => l.includes(id));
   const y = standIn(target);
   if (!src || y === undefined) return;
   src[src.indexOf(id)] = y; target[target.indexOf(y)] = id;
+  // the real card now sits in the opponent's hand and the stand-in in the talloni: both jump there unseen (face
+  // down in both places), so the card they play leaves from their hand, never from the talloni
+  instant([id, y], () => render());
 }
 function emptyHand(known){
   ON.known = new Set(known);

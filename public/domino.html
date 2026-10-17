@@ -740,6 +740,8 @@ async function botTurn(p, my){
 async function animPass(p){ bubble(p, 'Pas'); knock(); renderPlate(p); await sleep(D(p === 0 ? 300 : 620)); }
 async function animPlay(p, id){
   lastId = id;
+  // someone else's tile leaves from their own hand (it waited hidden under their stack), then goes to the line
+  if (p && SEATPOS[p]) { const [x, y, r] = SEATPOS[p]; instant([id], () => { els[id].el.classList.remove('gone','mine','sel','dim','hint'); put(id, x, y, r, .4, 250, false); }); }
   renderChain(); layoutSeat(p);
   clack(E.isDbl(id));
   if (H.hands[p].length === 1) { bubble(p, '1 gur', true); await sleep(D(520)); }
@@ -898,12 +900,26 @@ function seatNames(t){
   const sig = NAMES.join('|'); if (ON.names !== sig) { const was = ON.names; ON.names = sig; if (was) try { renderPlates(); } catch (e) {} }
 }
 const standIn = list => list.find(x => !ON.known.has(x));
+// Pieces that change place in this page's copy of the table jump there at once, without the slide: the others'
+// pieces wait hidden (or face down), so the jump is never seen, and a piece that is about to be played starts
+// its flight from the right player's hand.
+function instant(ids, fn){
+  const es = ids.map(id => els[id].el);
+  es.forEach(e => e.style.transition = 'none');
+  fn();
+  if (es.length) es[0].offsetWidth;
+  es.forEach(e => e.style.transition = '');
+}
 function claim(id, list){
   if (list.includes(id)) return;
   const src = [H.bone, ...H.hands].find(l => l !== list && l.includes(id));
   const y = standIn(list);
   if (!src || y === undefined) return;
   src[src.indexOf(id)] = y; list[list.indexOf(y)] = id;
+  // the real tile now waits where it belongs (and the stand-in where the real one was): put both there first, so a
+  // tile someone plays leaves from their hand, never from the tiles out of play
+  if (dealt) return;
+  instant([id, y], () => { for (const l of [src, list]) { if (l === H.bone) layoutBone(); else { const q = H.hands.indexOf(l); if (q >= 0) layoutSeat(q); } } });
 }
 function matchFrom(t){
   const c = t.cfg;
