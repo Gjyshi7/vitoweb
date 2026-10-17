@@ -25,12 +25,17 @@ const MSG_WINDOW_MS = 10_000;   // per-socket message budget
 const MSG_MAX = 80;            // a busy phone (the table clock, rearranging cards, PRIT) stays well under this
 const HOST_GRACE_MS = 60_000;   // someone else may take over as host after the host has been gone this long
 const BACKUP_MS = 15_000;       // the server's own backup alarm while the phones drive the clock
+// hold-to-talk (public/voice.js): one frame is 160 ms of sound, about 2 KB
+const VOICE_MAX_BYTES = 6_000;
+const VOICE_WINDOW_MS = 10_000;
+const VOICE_MAX = 120;          // frames per socket per window: 10 s of talking is ~63
 
 export class Room extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.s = null;
     this.rate = new Map();
+    this.vrate = new Map();
     // Keep-alive pings are answered by Cloudflare without waking the room (no cost, no CPU).
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('{"t":"ping"}', '{"t":"pong"}'));
     ctx.blockConcurrencyWhile(async () => {
@@ -249,6 +254,7 @@ export class Room extends DurableObject {
     // One live connection per player: a second tab or a reconnect replaces the old one.
     for (const w of this.ctx.getWebSockets(p.pid)) { try { w.send('{"t":"replaced"}'); w.close(4002, "replaced"); } catch {} }
     this.ctx.acceptWebSocket(server, [p.pid]);
+    if (url.searchParams.get("vc") === "1") { try { server.serializeAttachment({ voice: true }); } catch {} }   // this page plays voices
     if (game.onJoin) {
       try { game.onJoin(s, p.pid, Date.now()); }
       catch (e) { this.fault("join crashed", e); if (game.recover) try { game.recover(s, Date.now(), "join crashed"); } catch {} }
@@ -303,7 +309,8 @@ export class Room extends DurableObject {
     this.use("wsmsg", "in", 1);
     const s = this.s;
     if (!s) { try { ws.send('{"t":"closed"}'); ws.close(4004, "room closed"); } catch {} return; }
-    if (typeof raw !== "string" || raw.length > 4096) return;
+    if (typeof raw !== "string") return this.voice(ws, raw);
+    if (raw.length > 4096) return;
     if (!this.allow(ws)) {                            // over the budget: say so once (the phone asks again), never drop a move silently
       const r = this.rate.get(ws);
       if (r && !r.told) { r.told = true; try { ws.send('{"t":"error","e":"slow_down"}'); } catch {} }
@@ -407,9 +414,36 @@ export class Room extends DurableObject {
     await this.schedule();
   }
 
+  // Hold-to-talk: a frame of sound from the player whose turn it is, at a friends' table that is playing.
+  // Passed straight on to the other phones there that can play it. Never stored, never part of the table's
+  // state, never a broadcast or a save: it can't change or slow the game. Anything else is dropped quietly.
+  voice(ws, raw) {
+    const s = this.s, g = s && s.g, game = s && GAMES[s.game];
+    if (!g || !game || !game.canJoin || g.pub || g.phase !== "play" || !Array.isArray(g.seats)) return;
+    if (!(raw instanceof ArrayBuffer) || raw.byteLength < 5 || raw.byteLength > VOICE_MAX_BYTES) return;
+    const buf = new Uint8Array(raw);
+    if (buf[0] !== 0x56 || buf[1] !== 1) return;
+    const pid = this.ctx.getTags(ws)[0];
+    const seat = g.seats.findIndex((x) => x && !x.bot && x.pid === pid);
+    if (seat < 0 || seat !== g.actor) return;                // only on your own turn
+    const now = Date.now();
+    let r = this.vrate.get(ws);
+    if (!r || now - r.t > VOICE_WINDOW_MS) { r = { t: now, n: 0 }; this.vrate.set(ws, r); }
+    if (++r.n > VOICE_MAX) return;
+    const out = buf.slice();
+    out[2] = seat;                                           // who is talking (the phone can't claim another seat)
+    for (const w of this.ctx.getWebSockets()) {
+      if (w === ws || w.readyState !== 1) continue;
+      let a = null; try { a = w.deserializeAttachment(); } catch {}
+      if (!a || !a.voice) continue;
+      try { w.send(out); } catch {}
+    }
+  }
+
   async webSocketClose(ws) {
     try { ws.close(1000, "bye"); } catch {}
     this.rate.delete(ws);
+    this.vrate.delete(ws);
     const s = this.s;
     if (!s) return;
     const pid = this.ctx.getTags(ws)[0];

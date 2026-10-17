@@ -343,18 +343,26 @@ function NETWORK(G){
 
   /* ---------- connection ---------- */
   const send = o => { if (N.ws && N.ws.readyState === 1) { N.ws.send(JSON.stringify(o)); return true; } return false; };
+  // hold-to-talk at friends' tables (voice.js). Binary frames only; the game's own messages never change.
+  const plateEl = (seat, t) => { const n = t.seatList.some(i => i > 1) ? 4 : 2; return document.getElementById('pl' + (G.plateOf ? G.plateOf(seat, t) : (seat - t.me + n) % n)); };
+  const V = window.VWVoice ? (() => { try { return VWVoice.create({ T, plateEl,
+    send: buf => { const w = N.ws; if (!w || w.readyState !== 1 || w.bufferedAmount > 65536) return false; w.send(buf); return true; } }); } catch (e) { return null; } })() : null;
+  const voiceState = t => { if (V) try { V.state(t); } catch (e) {} };
   function connect(){
     if (!N.room) return;
     N.want = true;
     if (N.ws && N.ws.readyState < 2) return;
     const q = new URLSearchParams({ name: savedName() || 'Lojtar', k: KEY, v: '2' });   // v2: this page drives the table's clock
+    if (V) q.set('vc', '1');                                                              // vc: this page plays the friends' voices
     const host = store.get('host.' + N.room, ''); if (host) q.set('host', host);
     const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/${N.room}?${q}`);
     N.ws = sock;
+    sock.binaryType = 'arraybuffer';
     const slow = setTimeout(() => { if (N.ws === sock && sock.readyState !== 1) badge.hidden = !N.table; }, 1500);
     sock.onopen = () => { clearTimeout(slow); N.retry = 0; N.heard = Date.now(); badge.hidden = true; clearInterval(N.pingT); N.pingT = setInterval(() => send({ t: 'ping' }), 20000); };
     sock.onmessage = e => {
       N.heard = Date.now();
+      if (typeof e.data !== 'string') { if (V && N.ws === sock) try { V.frame(e.data); } catch (_) {} return; }
       let m; try { m = JSON.parse(e.data); } catch(_) { return; }
       if (m.t === 'state') onState(m);
       else if (m.t === 'error') { if (G.onError) G.onError(m.e, m.why); if (ERR[m.e]) err(ERR[m.e], true); }
@@ -469,6 +477,7 @@ function NETWORK(G){
     if (N.ws && N.room) { if (inGame || !isHost() || N.quick) send({ t: 'leave' }); }
     N.want = false; if (N.ws) try { N.ws.close(); } catch(e) {}
     N.ws = null; N.S = null; N.room = null; N.table = false; N.quick = false; badge.hidden = true; N.seen = null;
+    voiceState(null);
     store.set('table', was);
     if (was) setTimeout(() => offerReturn(was), 0);
     history.replaceState(null, '', location.pathname);
@@ -603,6 +612,7 @@ function NETWORK(G){
     S._at = Date.now();
     N.S = S;
     const t = S.tbl; if (!t) return;
+    voiceState(t.phase === 'play' && !t.out ? t : null);
     if (t.phase === 'lobby') {
       if (N.table) { N.table = false; if (G.onLeave) G.onLeave(); }
       show('room'); renderRoom(t); return;

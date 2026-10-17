@@ -16,6 +16,7 @@ The hub with 6 games (Murlan, Spathi, Derri në dorë, Domino, Imposter, Mafia) 
 **Quick match.** A new table gets a plan from the Guard: how many real people are likely to sit down soon (someone on that game's start screen, someone on the main page who often plays it). Those seats stay open for 4-10 s; the other seats fill with players one at a time. Anyone who arrives later still gets in: in the lobby they take a seat a bot took meanwhile; a match that has only just been dealt (fewer than 2 moves) can still give them a bot's seat. Once cards are being played, nobody new sits down.
 | `test/sim.mjs` | Plays whole matches of the 4 table games on the server rules with a fake clock and checks no phone ever gets someone else's cards. `node test/sim.mjs` |
 | `public/players.js` | Names and pace of the other players at the card tables (shared by every game and the server). |
+| `public/voice.js` | Hold-to-talk at friends' tables, all four table games: only the player whose turn it is can talk. The server (`voice()` in `worker/room.js`) passes the sound straight to the other phones; nothing is stored. Test: `BASE=… node test/voice.mjs` |
 | `public/table-ui.js` | Top bar (RENDIT, PAUZË), pause menu and the big play buttons, shared by the 4 table games. |
 | `public/ads.js` | Ad slots, off until AdSense approves the site. Open any page with `?ads=preview` to see where they go. |
 | `wrangler.toml` | Cloudflare settings: rooms (Durable Objects), rate limits, kill switch. |
