@@ -9,6 +9,7 @@
 
    const NET = NETWORK({ game, title, modes, cfg(), seatsFor(cfg), onLocal(cfg, seats), onTable(tbl, S), onLeave(), onRules() })
      modes:      [{ label, cfg }]   the first is the default (e.g. 2 kundër 2)
+     plateOf?:   (seat, tbl) -> the number of that seat's plate (#plN), when it isn't seat minus yours mod 4
      onLocal:    start the table on this phone. seats: [{name, fem, color}] by table seat, you at 0
      onTable:    every state from the server while a match is on (tbl = the table part)
      onLeave:    the player left the room: reset the table */
@@ -140,6 +141,7 @@ function NETWORK(G){
 #menu .tbl .s.empty b{color:var(--sub);font-weight:600}
 #menu .tbl .s.wait .av:after{content:"";width:16px;height:16px;border-radius:50%;border:2px solid var(--sub);border-top-color:transparent;animation:mspin .8s linear infinite}
 #menu .tbl button.s{cursor:pointer}
+#menu .tbl.many .s{width:92px}#menu .tbl.many .s b{max-width:92px;font-size:14px}#menu .tbl.many .s .av{width:44px;height:44px;font-size:18px}
 @keyframes mspin{to{transform:rotate(360deg)}}
 @keyframes mpop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
 #menu .rside{display:flex;flex-direction:column;gap:10px;align-items:stretch;width:min(560px,100%)}
@@ -559,12 +561,14 @@ function NETWORK(G){
 
   /* ---------- states from the room ---------- */
   // the lobby as a table seen from above: you at the bottom, the others where they will sit
-  const SPOT = { 4: [[50, 80], [9, 47], [50, 14], [91, 47]], 2: [[50, 80], [50, 14]] };
+  const SPOT = { 4: [[50, 80], [9, 47], [50, 14], [91, 47]], 2: [[50, 80], [50, 14]],
+    5: [[50, 80], [9, 55], [28, 14], [72, 14], [91, 55]], 6: [[50, 80], [9, 62], [22, 22], [50, 15], [78, 22], [91, 62]] };
   function renderRoom(t){
     const list = t.seatList, n = list.length, k = Math.max(0, list.indexOf(t.me));
     // "Vetëm ne" with fewer than four: everyone plays for themselves, no partners
     const teams = G.teamsFor && G.teamsFor(t.cfg) && !(t.only && list.filter(i => t.seats[i]).length < 4);
     const spots = SPOT[n] || SPOT[4];
+    $('#mSeats').classList.toggle('many', n > 4);
     $('#mSeats').innerHTML = list.map((_, j) => {
       const i = list[(k + j) % n], x = t.seats[i], [left, top] = spots[j];
       const pos = `style="left:${left}%;top:${top}%"`;
@@ -665,7 +669,7 @@ box-shadow:inset 0 0 0 1px rgba(255,179,166,.4);pointer-events:none;z-index:2}`;
     let next = 0;
     t.seatList.forEach(i => {
       const x = t.seats[i]; if (!x || i === t.me || !x.off) return;
-      const el = document.getElementById('pl' + ((i - t.me + n) % n)); if (!el) return;
+      const el = document.getElementById('pl' + (G.plateOf ? G.plateOf(i, t) : (i - t.me + n) % n)); if (!el) return;
       const wait = x.off + AWAY_SHOW_MS - srv;
       if (wait <= 0) el.classList.add('vw-away');
       else next = next ? Math.min(next, wait) : wait;

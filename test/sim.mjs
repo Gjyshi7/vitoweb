@@ -3,7 +3,7 @@
 // Checks: matches finish, the log only ever shows a phone its own cards, snapshots agree with the log.
 //   node test/sim.mjs
 const games = ["murlan", "spathi", "derri", "domino"];
-const CFGS = { murlan: [{ teams: true }, { teams: false }], spathi: [{ target: 21 }], derri: [{}], domino: [{ teams: true }, { teams: false, stock: true, target: 50 }, { teams: false, stock: false, target: 50 }] };
+const CFGS = { murlan: [{ teams: true }, { teams: false }], spathi: [{ target: 21 }], derri: [{}, { n: 5 }, { n: 6 }], domino: [{ teams: true }, { teams: false, stock: true, target: 50 }, { teams: false, stock: false, target: 50 }] };
 let fails = 0;
 const ok = (c, m) => { if (!c) { fails++; console.log("  ✗ " + m); } };
 

@@ -1,5 +1,5 @@
 // GENERATED from public/derri-engine.js by scripts/build.mjs. Do not edit: change public/derri-engine.js and run `npm run build`.
-/* ===== Derri në dorë engine (pure, no DOM) =====
+/* ===== Derri në dorë engine (pure, no DOM), 2 to 6 players =====
    Same card ids as Murlan: 0..51 -> rank = 3 + (id>>2) (3..15, 11 J, 12 Q, 13 K, 14 A, 15 = 2), suit = id&3 (0 ♠,1 ♥,2 ♦,3 ♣).
    K♠ = 40 is the pig ("derri"). K♥ 41, K♦ 42, K♣ 43 are removed: 49 cards.
    Turn rule: the player in turn draws one hidden card from the next player still holding cards (seat p+1, p+2, …).
@@ -11,20 +11,24 @@ const E = (() => {
   const natural = id => { const r = rankOf(id); return r === 14 ? 1 : r === 15 ? 2 : r; };
   const label = id => ({ 11: 'J', 12: 'Q', 13: 'K', 14: 'A', 15: '2' })[rankOf(id)] || String(rankOf(id));
   function shuffle(a, rand) { rand = rand || Math.random; for (let i = a.length - 1; i > 0; i--) { const j = (rand() * (i + 1)) | 0; const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
-  /* seats: the seats in play when fewer than 4 play (e.g. [0,2] or [0,1,2]); all 49 cards are split among them */
-  function newMatch(rand, seats) {
+  /* size: seats around the table (4, 5 or 6). seats: the seats in play when not all of them play (e.g. [0,2]
+     or [0,1,2]); all 49 cards are split among them. Turns go round the table and skip empty seats. */
+  const range = n => Array.from({ length: n }, (_, i) => i);
+  function newMatch(rand, seats, size) {
     const r = rand || Math.random;
-    const S = Array.isArray(seats) && seats.length >= 2 ? seats.slice().sort() : [0, 1, 2, 3];
-    return { rand: r, seats: S, losses: [0, 0, 0, 0], round: 0, dealer: S[(r() * S.length) | 0], hand: null };
+    const N = Math.max(4, size | 0, Array.isArray(seats) && seats.length ? Math.max(...seats) + 1 : 0);
+    const S = Array.isArray(seats) && seats.length >= 2 ? seats.slice().sort((a, b) => a - b) : range(N);
+    return { rand: r, size: N, seats: S, losses: range(N).map(() => 0), round: 0, dealer: S[(r() * S.length) | 0], hand: null };
   }
-  const seatsOf = mt => mt.seats || [0, 1, 2, 3];
+  const sizeOf = mt => mt.size || 4;
+  const seatsOf = mt => mt.seats || range(sizeOf(mt));
   function deal(mt) {
     mt.round++;
     const S = seatsOf(mt);
     if (!S.includes(mt.dealer)) mt.dealer = S[0];
     if (mt.round > 1) mt.dealer = S[(S.indexOf(mt.dealer) + 1) % S.length];
     const deck = shuffle(Array.from({ length: 52 }, (_, i) => i).filter(i => !DROP.includes(i)), mt.rand);
-    const hands = [[], [], [], []];
+    const hands = range(sizeOf(mt)).map(() => []);
     const from = S.indexOf(mt.dealer) + 1;
     deck.forEach((id, i) => hands[S[(from + i) % S.length]].push(id));
     const H = { hands, order: [], cur: S[from % S.length], dealOrder: deck, over: false, loser: -1 };
@@ -37,7 +41,7 @@ const E = (() => {
     return out;
   }
   const live = (H, p) => H.hands[p].length > 0;
-  function nextLive(H, p) { for (let i = 1; i <= 3; i++) { const q = (p + i) % 4; if (live(H, q)) return q; } return -1; }
+  function nextLive(H, p) { const N = H.hands.length; for (let i = 1; i < N; i++) { const q = (p + i) % N; if (live(H, q)) return q; } return -1; }
   function checkOver(mt) {
     const H = mt.hand, alive = seatsOf(mt).filter(q => live(H, q));
     if (alive.length > 1) return;
@@ -46,7 +50,7 @@ const E = (() => {
   }
   function initialDiscard(mt) {
     const H = mt.hand, pairs = [];
-    for (let p = 0; p < 4; p++) {
+    for (let p = 0; p < H.hands.length; p++) {
       const pr = pairsIn(H.hands[p]), gone = new Set(pr.flat());
       H.hands[p] = shuffle(H.hands[p].filter(id => !gone.has(id)), mt.rand);
       pairs.push(pr);

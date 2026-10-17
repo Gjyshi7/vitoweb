@@ -1,9 +1,10 @@
-// Derri në dorë online: the rules side (4 players). Table, clock and quick match are in table.js.
+// Derri në dorë online: the rules side (4, 5 or 6 at the table; cfg.n). Table, clock and quick match are in table.js.
 // The picker takes a card blind: it sends a position, the server keeps the holder's real order.
 // Only the picker and the holder learn which card moved; a pair that gets thrown is public.
 import { E } from "../gen/derri-engine.js";
 import { makeTable } from "./table.js";
 
+const SIZES = [4, 5, 6];        // people around the table: the host or the quick-match player picks
 const withRand = (mt, fn) => { mt.rand = Math.random; try { return fn(); } finally { delete mt.rand; } };
 
 function snap(mt, me) {
@@ -16,11 +17,16 @@ function snap(mt, me) {
 
 const spec = {
   turnMs: 20_000,
-  seatList: () => [0, 1, 2, 3],
-  cleanCfg: () => ({}),
-  newMatch(cfg, seats) { const mt = E.newMatch(Math.random, seats || undefined); delete mt.rand; return mt; },
-  // friends' room, only the people there: all 49 cards split among 2, 3 or 4
-  onlyUs: (cfg, n) => (n === 4 ? { cfg, seats: [0, 1, 2, 3] } : n === 3 ? { cfg, seats: [0, 1, 2] } : n === 2 ? { cfg, seats: [0, 2] } : null),
+  maxSeats: 6,
+  seatList: (cfg) => Array.from({ length: SIZES.includes(cfg && cfg.n) ? cfg.n : 4 }, (_, i) => i),
+  cleanCfg: (cfg) => ({ n: SIZES.includes(Number(cfg && cfg.n)) ? Number(cfg.n) : 4 }),
+  newMatch(cfg, seats) { const mt = E.newMatch(Math.random, seats || undefined, cfg.n); delete mt.rand; return mt; },
+  // friends' room, only the people there: all 49 cards split among the 2 to n of them
+  onlyUs: (cfg, k) => {
+    if (k < 2 || k > cfg.n) return null;
+    if (k === cfg.n) return { cfg, seats: Array.from({ length: k }, (_, i) => i) };
+    return { cfg, seats: k === 2 && cfg.n === 4 ? [0, 2] : Array.from({ length: k }, (_, i) => i) };
+  },
 
   deal(mt, emit) {
     const H = withRand(mt, () => E.deal(mt));

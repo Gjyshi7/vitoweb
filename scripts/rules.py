@@ -9,7 +9,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "public")
 GAMES_EN = [
     ("murlan", "Murlan", "4 players · 54 cards · to 21"),
     ("spathi", "Spathi", "2 players · 52 cards · to 21"),
-    ("derri", "Derri në dorë", "4 players · 49 cards"),
+    ("derri", "Derri në dorë", "4–6 players · 49 cards"),
     ("domino", "Domino", "2 or 4 players · 28 tiles · to 100"),
     ("imposter", "Imposter", "3–12 people · party game"),
     ("mafia", "Mafia", "party game · roles on your phone"),
@@ -17,7 +17,7 @@ GAMES_EN = [
 GAMES = [
     ("murlan", "Murlan", "4 lojtarë · 54 letra · deri në 21"),
     ("spathi", "Spathi", "2 lojtarë · 52 letra · deri në 21"),
-    ("derri", "Derri në dorë", "4 lojtarë · 49 letra"),
+    ("derri", "Derri në dorë", "4–6 lojtarë · 49 letra"),
     ("domino", "Domino", "2 ose 4 lojtarë · 28 gurë · deri në 100"),
     ("imposter", "Imposter", "3–12 veta · lojë për grupin"),
     ("mafia", "Mafia", "lojë për grupin · rolet në telefon"),
@@ -241,13 +241,13 @@ pages["derri"] = dict(
     title="Rregullat e Derrit në dorë · Si luhet · VITOWEB",
     desc="Si luhet Derri në dorë: hidh çiftet, merr letra nga lojtari në të majtë dhe mos mbet me derrin, K♠. Luaj online falas në VITOWEB.",
     eyebrow="Rregullat", h1="Si luhet Derri në dorë",
-    lead="Derri në dorë luhet me katër veta. Bën çifte dhe i hedh, derisa të mbarosh letrat. Kush mbetet i fundit me K♠, derrin, në dorë, humbet.",
-    facts="4 lojtarë · 49 letra",
+    lead="Derri në dorë luhet me 4 deri 6 veta. Bën çifte dhe i hedh, derisa të mbarosh letrat. Kush mbetet i fundit me K♠, derrin, në dorë, humbet.",
+    facts="4–6 lojtarë · 49 letra",
     cta=("/derri", "Luaj Derri në dorë"),
     body=f"""
 <h2>Letrat</h2>
 {ul("Hiqen tre mbretërit e tjerë dhe mbeten 49 letra. K♠, derri, nuk bën çift me asnjë letër.",
-    "Një lojtar merr 13 letra, të tjerët nga 12.",
+    "Luhet me 4, 5 ose 6 veta. Letrat ndahen një nga një, kështu që disa lojtarë mund të kenë një letër më shumë (me 4 veta: një merr 13, të tjerët nga 12).",
     "Secili hedh menjëherë çiftet që ka: dy letra me të njëjtin numër ose figurë.")}
 {cards("7♥","7♣","Q♦","Q♠","K♠")}
 <p class="note">Dy çifte hidhen. K♠ mbetet gjithmonë në dorë.</p>
@@ -464,13 +464,13 @@ pages_en["derri"] = dict(
     title="Derri në dorë rules · How to play · VITOWEB",
     desc="How to play Derri në dorë (Pig in Hand): throw your pairs, take cards from the player on your left and don't get stuck with the pig, the K♠. Play online for free on VITOWEB.",
     eyebrow="Rules", h1="How to play Derri në dorë",
-    lead="Derri në dorë (“pig in hand”) is played by four. You make pairs and throw them away until you run out of cards. Whoever is left holding the K♠, the pig, loses.",
-    facts="4 players · 49 cards",
+    lead="Derri në dorë (“pig in hand”) is played by 4 to 6. You make pairs and throw them away until you run out of cards. Whoever is left holding the K♠, the pig, loses.",
+    facts="4–6 players · 49 cards",
     cta=("/derri", "Play Derri në dorë"),
     body=f"""
 <h2>The cards</h2>
 {ul("The other three kings are removed, leaving 49 cards. The K♠, the pig, pairs with nothing.",
-    "One player gets 13 cards, the others 12.",
+    "It is played by 4, 5 or 6. The cards are dealt one at a time, so some players may hold one card more (with 4: one gets 13, the others 12).",
     "Everyone immediately throws away the pairs they hold: two cards of the same number or face.")}
 {cards("7♥","7♣","Q♦","Q♠","K♠")}
 <p class="note">Two pairs are thrown. The K♠ always stays in the hand.</p>

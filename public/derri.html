@@ -213,14 +213,12 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     </div>
   </div>
 
-  <div class="plate" id="pl2" style="left:640px;top:56px;transform:translateX(-50%)"></div>
-  <div class="plate" id="pl1" style="left:46px;top:214px"></div>
-  <div class="plate" id="pl3" style="right:46px;top:214px"></div>
+  <!-- the others' plates and bubbles: placed by seatGeo() for 2 to 6 at the table -->
+  <div class="plate" id="pl1" hidden></div><div class="plate" id="pl2" hidden></div><div class="plate" id="pl3" hidden></div>
+  <div class="plate" id="pl4" hidden></div><div class="plate" id="pl5" hidden></div>
   <div class="plate" id="pl0" hidden></div>
   <div class="bubble" id="bb0" style="left:640px;top:505px"></div>
-  <div class="bubble" id="bb1" style="left:330px;top:250px"></div>
-  <div class="bubble" id="bb2" style="left:830px;top:92px"></div>
-  <div class="bubble" id="bb3" style="left:950px;top:250px"></div>
+  <div class="bubble" id="bb1"></div><div class="bubble" id="bb2"></div><div class="bubble" id="bb3"></div><div class="bubble" id="bb4"></div><div class="bubble" id="bb5"></div>
 
   <div id="cards"></div>
   <div id="cap"></div>
@@ -235,7 +233,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     <h2>Rregullat</h2>
     <ul>
       <li><b>49 letra.</b> Hiqen tre mbretër dhe mbetet vetëm <b>K♠, derri</b>. Ai nuk bën dot çift me asgjë.</li>
-      <li>Letrat ndahen njësoj: një lojtar merr 13, të tjerët 12. Secili hedh menjëherë <b>çiftet</b>: dy letra me të njëjtin numër ose figurë.</li>
+      <li>Luhet me 4, 5 ose 6 veta. Letrat ndahen një nga një: me 4 veta një merr 13, të tjerët 12. Secili hedh menjëherë <b>çiftet</b>: dy letra me të njëjtin numër ose figurë.</li>
       <li>Në radhën tënde <b>merr një letër pa e parë</b> nga lojtari në të majtë. Lojtari në të djathtë merr nga ti.</li>
       <li>Nëse letra që more bën çift, të dyja hidhen vetë. Përndryshe mbetet në dorë.</li>
       <li>Kush mbaron letrat <b>del</b> dhe shpëton. Kur dikush del, merr nga i radhës që ka ende letra.</li>
@@ -248,7 +246,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
     <h2>Rules</h2>
     <ul>
       <li><b>49 cards.</b> Three kings are removed and only the <b>K♠, the pig</b>, is left. It can't make a pair with anything.</li>
-      <li>One player gets 13 cards, the others 12. Everyone immediately throws away their <b>pairs</b>: two cards of the same number or face.</li>
+      <li>Played by 4, 5 or 6. The cards are dealt one at a time: with 4, one gets 13 and the others 12. Everyone immediately throws away their <b>pairs</b>: two cards of the same number or face.</li>
       <li>On your turn, <b>take one card without looking</b> from the player on your left. The player on your right takes from you.</li>
       <li>If the card you took makes a pair, both are thrown. Otherwise it stays in your hand.</li>
       <li>Whoever runs out of cards is <b>out</b> and safe. After that, cards are taken from the next player who still has some.</li>
@@ -469,14 +467,38 @@ function chime(){
 }
 
 /* ---------- seats & geometry (seat 0 is you, at the bottom) ---------- */
-const NAMES = ['Ti','','',''];
-const FEM = [false, false, false, false];
-const AVC = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62'];
-const SEAT = [null, null, null, null];
+const MAXS = 6;
+const NAMES = ['Ti','','','','',''];
+const FEM = [false, false, false, false, false, false];
+const AVC = ['#b02a63','#2c6e8f','#7a4fa8','#2f8a62','#a8662c','#3d5aa8'];
+const SEAT = [null, null, null, null, null, null];
+const lrange = n => Array.from({length: n}, (_, i) => i);
 let meOut = false;
 function setSeats(list){ list.forEach((s, i) => { if (!s) return; NAMES[i] = i ? s.name : 'Ti'; FEM[i] = !!s.fem; if (s.color) AVC[i] = s.color; SEAT[i] = { speed: .88 + Math.random() * .24 }; }); }
 const PILE = [640, 345], DECK = [640, 338];
-const NEAR = [[640, 470], [330, 400], [640, 250], [950, 400]];
+/* Where the others sit, by how many are at the table (you are always at the bottom, local seat 0).
+   Going round clockwise: the left side, the top from left to right, the right side. You take from local 1
+   (on your left); the last one (on your right) takes from you. */
+const SPOTS = { 2: ['T640'], 3: ['L', 'R'], 4: ['L', 'T640', 'R'], 5: ['L', 'T430', 'T850', 'R'], 6: ['L', 'T330', 'T640', 'T950', 'R'] };
+let M = 4, NEAR = [], SLOT = [];
+function seatGeo(m){
+  M = Math.max(2, Math.min(MAXS, m | 0));
+  const spots = SPOTS[M], tops = spots.filter(k => k[0] === 'T').length;
+  NEAR = [[640, 470]]; SLOT = [null];
+  for (let p = 1; p < MAXS; p++) {
+    const el = $('#pl' + p), bb = $('#bb' + p), k = spots[p - 1];
+    el.style.cssText = ''; bb.style.cssText = '';
+    if (!k) { el.hidden = true; continue; }
+    if (k === 'L') { el.style.cssText = 'left:46px;top:214px'; bb.style.cssText = 'left:330px;top:250px'; NEAR[p] = [330, 400]; SLOT[p] = 'L'; }
+    else if (k === 'R') { el.style.cssText = 'right:46px;top:214px'; bb.style.cssText = 'left:950px;top:250px'; NEAR[p] = [950, 400]; SLOT[p] = 'R'; }
+    else {
+      const x = +k.slice(1);
+      el.style.cssText = `left:${x}px;top:56px;transform:translateX(-50%)`;
+      bb.style.cssText = tops === 1 ? `left:${x + 190}px;top:92px` : `left:${x}px;top:252px`;
+      NEAR[p] = [x, 250]; SLOT[p] = x;
+    }
+  }
+}
 const els = [];
 let mt = null, H = null, gen = 0, dealt = null, pileN = 0;
 let mode = 'idle', pickSrc = -1, hov = -1, humanResolve = null;
@@ -505,10 +527,10 @@ const byNat = (a, b) => E.natural(a) - E.natural(b) || (a & 3) - (b & 3);
 const clean = e => e.classList.remove('pickable','hov','pair','pigshow','mine');
 
 function seatSlot(p, i, n){
-  const o = i - (n - 1) / 2;
-  if (p === 2) return {x: 640 + o * 13, y: 180, rot: 180, sc: .5};
-  if (p === 1) return {x: 140, y: 400 + o * 12, rot: 90, sc: .5};
-  return {x: 1140, y: 400 + o * 12, rot: -90, sc: .5};
+  const o = i - (n - 1) / 2, k = SLOT[p];
+  if (k === 'L') return {x: 140, y: 400 + o * 12, rot: 90, sc: .5};
+  if (k === 'R') return {x: 1140, y: 400 + o * 12, rot: -90, sc: .5};
+  return {x: (k || 640) + o * 13, y: 180, rot: 180, sc: .5};
 }
 const HAND_GEOM = (i, n) => { const step = n > 1 ? Math.min(80, (720 - CW) / (n - 1)) : 0, t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0; return {x: 640 + (i - (n - 1) / 2) * step, y: 632 + t * t * 10, rot: t * 4}; };
 function layoutSeat(p){
@@ -540,12 +562,13 @@ function layoutSeat(p){
   }
   renderPlate(p);
 }
-const layoutAll = () => { for (let p = 0; p < 4; p++) layoutSeat(p); };
+const layoutAll = () => { for (let p = 0; p < M; p++) layoutSeat(p); };
 
 function renderPlate(p){
   if (!p) return;
   const el = $('#pl' + p);
-  el.hidden = !NAMES[p];
+  el.hidden = p >= M || !NAMES[p];
+  if (el.hidden) return;
   const n = handOf(p).length, derr = mt ? mt.losses[p] : 0;
   const place = H && !dealt ? H.order.indexOf(p) : -1;
   const out = place >= 0 && !(H.over && p === H.loser);
@@ -556,7 +579,7 @@ function renderPlate(p){
   el.classList.toggle('out', out);
   if (TIMER.p === p) addTimer(el);
 }
-const renderPlates = () => { for (let p = 1; p < 4; p++) renderPlate(p); };
+const renderPlates = () => { for (let p = 1; p < MAXS; p++) renderPlate(p); };
 /* turn clock at a table on this phone: the same as online, and a turn that runs out plays itself */
 const TURN_MS = 20000;
 let clockT = 0, clockN = 0;
@@ -564,7 +587,7 @@ function clock(p, onOut){
   clearTimeout(clockT); setTimer(p, Date.now(), TURN_MS);
   if (onOut) { const n = ++clockN; clockT = setTimeout(() => { if (n === clockN && !NET.online) onOut(); }, TURN_MS); }
 }
-function setTurn(p, src){ for (let i = 1; i < 4; i++) { $('#pl' + i).classList.toggle('turn', i === p); $('#pl' + i).classList.toggle('src', i === src); } $('#myTurn').classList.toggle('on', p === 0); }
+function setTurn(p, src){ for (let i = 1; i < MAXS; i++) { $('#pl' + i).classList.toggle('turn', i === p); $('#pl' + i).classList.toggle('src', i === src); } $('#myTurn').classList.toggle('on', p === 0); }
 function status(txt){ $('#status').innerHTML = txt || ''; }
 function meta(){
   const m = $('#meta');
@@ -781,9 +804,9 @@ function resetCards(){
   pileN = 0; hov = -1; pickSrc = -1; handOrder = []; $('#cap').textContent = ''; $('#pickTag').hidden = true;
 }
 async function dealAnim(my){
-  dealt = [[], [], [], []]; renderPlates();
+  dealt = lrange(M).map(() => []); renderPlates();
   await sleep(300);
-  const ring = [1, 2, 3, 4].map(k => (mt.dealer + k) % 4).filter(p => H.hands[p].length);
+  const ring = lrange(M).map(k => (mt.dealer + 1 + k) % M).filter(p => H.hands[p].length);
   for (let i = 0; i < H.dealOrder.length; i++) {
     if (my !== gen) return;
     const p = ring[i % ring.length];
@@ -796,8 +819,8 @@ async function dealAnim(my){
 // everyone throws the pairs they were dealt, in deal order
 async function firstPairs(res, my){
   const keep = dealt;
-  for (let k = 0; k < 4; k++) {
-    const p = (mt.dealer + 1 + k) % 4, prs = res.pairs[p];
+  for (let k = 0; k < M; k++) {
+    const p = (mt.dealer + 1 + k) % M, prs = res.pairs[p];
     if (!prs.length) continue;
     const gone = new Set(prs.flat());
     keep[p] = keep[p].filter(id => !gone.has(id));
@@ -860,18 +883,18 @@ function showResult(online){
   $('#endTitle').textContent = L === 0 ? 'Mbete me derrin' : L > 0 ? `${NAMES[L]} mbeti me derrin` : `Dora ${mt.round}`;
   $('#endLead').textContent = `Dora ${mt.round}`;
   $('#resTable').innerHTML = '<tr><th>Lojtari</th><th>Kjo dorë</th><th class="n">Derr</th></tr>' +
-    H.order.map((p, i) => `<tr class="${p === 0 ? 'me' : ''}"><td></td><td>${p === L ? 'Derri' : 'Doli ' + (FEM[p] ? ['e para','e dyta','e treta'] : ['i pari','i dyti','i treti'])[i]}</td><td class="n">${mt.losses[p]}</td></tr>`).join('');
+    H.order.map((p, i) => `<tr class="${p === 0 ? 'me' : ''}"><td></td><td>${p === L ? 'Derri' : 'Doli ' + (FEM[p] ? ['e para','e dyta','e treta','e katërta','e pesta'] : ['i pari','i dyti','i treti','i katërti','i pesti'])[i]}</td><td class="n">${mt.losses[p]}</td></tr>`).join('');
   [...$('#resTable').querySelectorAll('tr')].slice(1).forEach((tr, i) => tr.firstChild.textContent = NAMES[H.order[i]]);
   if (online) { ENDP.reset(); $('#bNext').textContent = 'Vazhdo'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; }; }
   else {
     ENDP.reset(); $('#bNext').textContent = 'Dora tjetër'; $('#bNext').onclick = () => { $('#ovEnd').hidden = true; runRound(); }; }
   $('#ovEnd').hidden = false;
 }
-function newMatch(){ gen++; mt = E.newMatch(); renderPlates(); meta(); runRound(); }
-function startLocal(cfg, seats){ setSeats(seats); audio(); $('#ovEnd').hidden = true; $('#bNew').hidden = false; newMatch(); showRotHint(); }
+function newMatch(){ gen++; mt = E.newMatch(undefined, lrange(M), M); renderPlates(); meta(); runRound(); }
+function startLocal(cfg, seats){ seatGeo(seats.length); for (let p = 1; p < MAXS; p++) NAMES[p] = ''; setSeats(seats); audio(); $('#ovEnd').hidden = true; $('#bNew').hidden = false; newMatch(); showRotHint(); }
 function stopTable(){
   gen++; stopInput(); mt = null; H = null; dealt = null; resetCards(); setTurn(-1, -1); setTimer(-1); meta(); status('');
-  for (let p = 1; p < 4; p++) { NAMES[p] = ''; renderPlate(p); }
+  for (let p = 1; p < MAXS; p++) { NAMES[p] = ''; renderPlate(p); }
   ['#ovEnd','#ovMenu','#ovRules','#ovSet'].forEach(s => { const o = $(s); if (o) o.hidden = true; });
 }
 
@@ -912,13 +935,16 @@ $('#bRotOk').onclick = () => { $('#ovRot').hidden = true; try { localStorage.set
    The room server deals and checks every move (worker/games/derri.js). This page keeps its own copy of
    the round: your hand is real; the others' hands are stand-ins (face down) that turn into the real card
    when it becomes visible (a pair thrown, a card taken from you or by you). */
-const ON = { me: 0, seq: 0, busy: false, again: false, asked: '', skew: 0 };
-const lpos = s => (s - ON.me + 4) % 4;
-const rot = a => { const o = [0, 0, 0, 0]; a.forEach((v, s) => o[lpos(s)] = v); return o; };
+const ON = { me: 0, list: [0, 1, 2, 3], seq: 0, busy: false, again: false, asked: '', skew: 0 };
+// the server counts seats round the whole table; here a seat is its place among the seats in play, counted from you
+const lpos = s => { const i = ON.list.indexOf(s); return i < 0 ? -1 : (i - Math.max(0, ON.list.indexOf(ON.me)) + M) % M; };
+const rot = (a, d = 0) => { const o = lrange(M).map(() => (Array.isArray(d) ? [] : d)); a.forEach((v, s) => { const l = lpos(s); if (l >= 0) o[l] = v; }); return o; };
 let lastT = null;
 function seatNames(t){
   ON.me = t.me;
-  t.seats.forEach((x, s) => { const l = lpos(s); if (!x) { if (l) NAMES[l] = ''; return; } NAMES[l] = l ? x.name : 'Ti'; FEM[l] = !!x.fem; if (x.color) AVC[l] = x.color; });
+  const list = (t.seatList || [0, 1, 2, 3]).slice();
+  if (list.join() !== ON.list.join() || M !== list.length) { ON.list = list; seatGeo(list.length); for (let p = 1; p < MAXS; p++) NAMES[p] = ''; }
+  t.seats.forEach((x, s) => { const l = lpos(s); if (l < 0) return; if (!x) { if (l) NAMES[l] = ''; return; } NAMES[l] = l ? x.name : 'Ti'; FEM[l] = !!x.fem; if (x.color) AVC[l] = x.color; });
   // someone sat down in place of someone who left: show the new name now, not at the next move
   const sig = NAMES.join('|'); if (ON.names !== sig) { const was = ON.names; ON.names = sig; if (was) try { renderPlates(); } catch (e) {} }
 }
@@ -927,7 +953,7 @@ function seatNames(t){
 // between two other players without us seeing which): swap with one of them anyway, so the counts stay right.
 function claim(id, q, prefer){
   if (H.hands[q].includes(id)) return;
-  const from = [1, 2, 3].find(x => x !== q && H.hands[x].includes(id));
+  const from = lrange(M).slice(1).find(x => x !== q && H.hands[x].includes(id));
   let y = prefer != null && H.hands[q].includes(prefer) && !ON.known.has(prefer) ? prefer : H.hands[q].find(x => !ON.known.has(x));
   if (y === undefined) y = H.hands[q].find(x => x !== PIG);
   if (y === undefined) y = H.hands[q][0];
@@ -944,11 +970,11 @@ function claim(id, q, prefer){
 function fitCounts(nServer){
   if (!nServer || !H) return true;
   const n = rot(nServer), spare = [];
-  for (let q = 1; q < 4; q++) while (H.hands[q].length > n[q]) {
+  for (let q = 1; q < M; q++) while (H.hands[q].length > n[q]) {
     const h = H.hands[q], i = h.findIndex(x => !ON.known.has(x) && x !== PIG);
     spare.push(h.splice(i >= 0 ? i : h.length - 1, 1)[0]);
   }
-  for (let q = 1; q < 4; q++) while (H.hands[q].length < n[q] && spare.length) H.hands[q].push(spare.pop());
+  for (let q = 1; q < M; q++) while (H.hands[q].length < n[q] && spare.length) H.hands[q].push(spare.pop());
   // cards nobody holds any more went out in pairs we didn't see: under the pile, face down
   for (const id of spare) put(id, PILE[0] + (Math.random() * 60 - 30), PILE[1] + (Math.random() * 30 - 15), Math.random() * 30 - 15, .62, 1, false);
   return H.hands.every((h, q) => h.length === n[q]);
@@ -958,7 +984,7 @@ function handsFrom(mine, counts){
   const free = ALL.filter(i => !ON.known.has(i));
   return counts.map((n, p) => p === 0 ? mine.slice() : free.splice(0, n));
 }
-function matchFrom(s){ return { losses: rot(s.losses || [0, 0, 0, 0]), round: s.round || 0, dealer: lpos(s.dealer || 0), hand: null, rand: Math.random }; }
+function matchFrom(s){ const d = lpos(s.dealer || 0); return { size: M, seats: lrange(M), losses: rot(s.losses || []), round: s.round || 0, dealer: d < 0 ? 0 : d, hand: null, rand: Math.random }; }
 function resync(t){
   gen++; stopInput(); dealt = null;
   seatNames(t);
@@ -979,7 +1005,7 @@ async function applyEv(ev, my){
     mt = matchFrom(ev);
     const hands = handsFrom(ev.hand, rot(ev.counts));
     const pools = hands.map(h => h.slice()), order = [];
-    const ring = [1, 2, 3, 4].map(k => (mt.dealer + k) % 4).filter(p => pools[p].length);
+    const ring = lrange(M).map(k => (mt.dealer + 1 + k) % M).filter(p => pools[p].length);
     for (let i = 0; i < 49 && ring.length; i++) { const p = ring[i % ring.length]; order.push(pools[p].shift()); }
     H = { hands, order: [], cur: 0, dealOrder: order, over: false, loser: -1 };
     mt.hand = H; meta(); status('');
@@ -989,10 +1015,10 @@ async function applyEv(ev, my){
   }
   if (!H) throw new Error('no hand');
   if (ev.k === 'pairs') {
-    const pairs = rot(ev.pairs);
+    const pairs = rot(ev.pairs, []);
     pairs.forEach((prs, p) => prs.flat().forEach(id => { ON.known.add(id); if (p) claim(id, p); }));
     dealt = H.hands.map(h => h.slice());                 // the hands as dealt, real pair cards in place
-    for (let p = 0; p < 4; p++) { const gone = new Set(pairs[p].flat()); H.hands[p] = H.hands[p].filter(id => !gone.has(id)); }
+    for (let p = 0; p < M; p++) { const gone = new Set(pairs[p].flat()); H.hands[p] = H.hands[p].filter(id => !gone.has(id)); }
     H.order = ev.outs.map(lpos);
     H.cur = lpos(ev.cur);
     if (!fitCounts(ev.n)) ON.redraw = true;
@@ -1152,8 +1178,10 @@ function onTable(t, S2){
 
 /* ---------- menu, rooms, connection (net.js) ---------- */
 const NET = NETWORK({
-  game: 'derri', rematch: false, title: 'Derri në dorë', sub: (window.VWL ? VWL.t('4 lojtarë · mos mbet me derrin', '4 players · don\'t get stuck with the pig') : '4 lojtarë · mos mbet me derrin'), art: [9, 10, 40, 35, 20],
-  seatsFor: () => [0, 1, 2, 3],
+  game: 'derri', rematch: false, title: 'Derri në dorë', sub: (window.VWL ? VWL.t('4 deri 6 lojtarë · mos mbet me derrin', '4 to 6 players · don\'t get stuck with the pig') : '4 deri 6 lojtarë · mos mbet me derrin'), art: [9, 10, 40, 35, 20],
+  modes: [4, 5, 6].map(n => ({ label: window.VWL ? VWL.t(`${n} lojtarë`, `${n} players`) : `${n} lojtarë`, cfg: { n } })),
+  seatsFor: cfg => lrange([4, 5, 6].includes(cfg && cfg.n) ? cfg.n : 4),
+  plateOf: (s, t) => { const l = (t.seatList || []).indexOf(s), k = (t.seatList || []).indexOf(t.me); return l < 0 || k < 0 ? -1 : (l - k + t.seatList.length) % t.seatList.length; },
   onLocal: (cfg, seats) => { lastT = null; if (!READY) { readyQ = () => startLocal(cfg, seats); return; } startLocal(cfg, seats); },
   onTable,
   applied: () => ON.seq,
@@ -1170,7 +1198,7 @@ async function start(){
   await buildArt();
   const mk = document.createElement('canvas'); mk.width = 300; mk.height = 300; logo(mk.getContext('2d'), 150, 150, 210, 'color');
   const mu = await toURL(mk); $('#brandImg').src = mu; $('#feltMark').src = mu;
-  mkCards(); resetCards();
+  seatGeo(M); mkCards(); resetCards();
   renderPlates();
   $('#loading').hidden = true;
   READY = true;

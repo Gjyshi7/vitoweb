@@ -114,7 +114,7 @@ export function makeTable(spec) {
     const plan = spec.onlyUs(g.cfg, people.length);
     if (!plan) return { error: "only_count" };
     g.cfg = plan.cfg;
-    const seats = [null, null, null, null];
+    const seats = g.seats.map(() => null);
     plan.seats.forEach((i, k) => (seats[i] = people[k]));
     g.seats = seats;
     g.playSeats = plan.seats.length === spec.seatList(plan.cfg).length ? null : plan.seats.slice();
@@ -384,7 +384,7 @@ export function makeTable(spec) {
   }
   const realAuto = spec.auto, realFallbacks = spec.fallbacks;
   return {
-    maxPlayers: 4,
+    maxPlayers: spec.maxSeats || 4,
     // tests only (test/heal.mjs): swap in a broken bot to prove the table heals
     __setSabotage(wrap, breakFallbacks) {
       spec.auto = wrap ? wrap(realAuto) : realAuto;
@@ -398,7 +398,7 @@ export function makeTable(spec) {
         // quick match: the first player sits down after ~1-2 s, the deal is at the latest WAIT_MS from now
         dealBy: opts.public ? now + WAIT_MS : 0,
         fillAt: opts.public ? now + ((WAIT_MS - 900) / Math.max(1, spec.seatList(spec.cleanCfg(opts.cfg || {})).length - 1)) * (0.6 + Math.random() * 0.3) : 0,
-        seats: [null, null, null, null], mt: null, step: null, actor: -1, due: 0, stepAt: 0, seq: 0, log: [],
+        seats: Array(Math.max(4, ...spec.seatList(spec.cleanCfg(opts.cfg || {})).map((i) => i + 1))).fill(null), mt: null, step: null, actor: -1, due: 0, stepAt: 0, seq: 0, log: [],
       };
     },
 
