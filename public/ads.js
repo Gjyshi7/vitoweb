@@ -23,7 +23,7 @@
    EEA/UK/Swiss visitors get Google's consent message (AdSense -> Privacy & messaging); the "Cookie settings"
    link in the hub footer reopens it, and only shows for visitors that message applies to. */
 const ADS = (() => {
-  const CLIENT = '';
+  const CLIENT = 'ca-pub-5202495093966657';
   const ENABLED = false;
   const SLOTS = { default: '', 'hub-top': '', 'hub-bottom': '', lobby: '', rules: '' };
   const SIZE = { 'hub-top': [320, 100], 'hub-bottom': [320, 250], lobby: [320, 100], rules: [320, 100] };
@@ -40,6 +40,9 @@ const ADS = (() => {
   const preview = mode === 'preview';
   const test = mode === 'test' && /^ca-pub-\d{16}$/.test(CLIENT);
   const live = /^ca-pub-\d{16}$/.test(CLIENT) && !preview && (ENABLED || test);
+  // Before approval: Google's code is on the page (AdSense checks for it during the review) but no ad spot is
+  // filled and no full-screen break runs. Auto ads stay off in the AdSense account.
+  const review = /^ca-pub-\d{16}$/.test(CLIENT) && !preview && !live;
   const on = live || preview;
   let lib = 'none';                                  // none | loading | ok | failed (blocked by an ad blocker, offline)
 
@@ -56,7 +59,7 @@ const ADS = (() => {
 #adBreak small{display:block;margin-top:8px;color:rgba(255,255,255,.55);font-weight:500;font-size:14px}`;
   document.head.appendChild(css);
 
-  if (live) {
+  if (live || review) {
     const s = document.createElement('script');
     s.async = true; s.crossOrigin = 'anonymous';
     s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${CLIENT}`;
