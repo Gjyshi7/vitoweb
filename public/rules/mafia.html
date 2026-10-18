@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script>/* one address: www. and the old loja. go to vitoweb.al */if(/^(www|loja)\./.test(location.hostname))location.replace('https://vitoweb.al'+location.pathname+location.search+location.hash)</script>
+<script>/* one address: www. and the old loja. go to vitoweb.al. Not when opened from a home-screen icon: an icon saved on www. would leave its own address and iPhone would show Safari's bars again. */if(/^(www|loja)\./.test(location.hostname)&&!(navigator.standalone||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)))location.replace('https://vitoweb.al'+location.pathname+location.search+location.hash)</script>
 <link rel="canonical" href="https://vitoweb.al/rules/mafia">
 <link rel="alternate" hreflang="sq" href="https://vitoweb.al/rregullat/mafia">
 <link rel="alternate" hreflang="en" href="https://vitoweb.al/rules/mafia">
