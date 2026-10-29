@@ -634,7 +634,7 @@ async function showPair(p, ids, my, drawn){
 /* ---------- your turn: tap a card from the hand in the middle (or RASTËSISHT) ---------- */
 function refresh(){
   const w = $('#bWait');
-  w.style.visibility = LK.on && (!LK.used || LK.held) ? '' : 'hidden';
+  w.style.visibility = (LK.on || LK.armed) && (!LK.used || LK.held) ? '' : 'hidden';
   w.textContent = LK.held ? 'GATI' : 'PRIT'; w.classList.toggle('hot', LK.held);
 }
 // Taking a card: one tap takes it (you feel and hear it). If their hand is still settling, or they pressed
@@ -653,15 +653,20 @@ $('#cards').addEventListener('click', e => {
 function takeLifted(){
   clearTimeout(armT);
   if (mode !== 'pick' || !humanResolve || pickBlocked()) return;
-  const idx = H.hands[pickSrc].indexOf(hov); if (idx < 0) return;
+  const h = H.hands[pickSrc];
+  let idx = h.indexOf(hov);
+  if (idx < 0 && armAt >= 0 && h.length) { idx = Math.min(armAt, h.length - 1); hov = h[idx]; }   // the hand was redrawn meanwhile: same place
+  if (idx < 0) return;
   buzz([18, 40, 18]); snap(.32, 2200, .06);
   choose(idx);
 }
 // waits out the settling moment / PRIT, then takes the lifted card; stops if the turn moved on
+let armAt = -1;
 function armPick(){
   clearTimeout(armT);
+  armAt = H.hands[pickSrc].indexOf(hov);
   const tick = () => {
-    if (mode !== 'pick' || !humanResolve || hov < 0 || H.hands[pickSrc].indexOf(hov) < 0) return;
+    if (mode !== 'pick' || !humanResolve) return;
     if (pickBlocked()) { armT = setTimeout(tick, 80); return; }
     takeLifted();
   };
@@ -683,7 +688,7 @@ const relayoutHand = () => { if (H) layoutSeat(0); };
    Half a second to finish what you were doing, then your hand stays still: where a card sits is
    what they pick. PRIT gives you up to 3 seconds more to rearrange, once per turn; they wait. */
 const LOCK_MS = 500, HOLD_MS = 3000;
-const LK = { on: false, held: false, used: false, t: 0, at: 0, key: '' };
+const LK = { on: false, armed: false, held: false, used: false, t: 0, at: 0, key: '' };   // armed: someone is about to take from you (PRIT shows)
 function myOrder(){ return orderHand(H.hands[0]).slice(); }
 function lockMine(){
   clearTimeout(LK.t); LK.at = 0;
@@ -694,9 +699,10 @@ function lockMine(){
   relayoutHand(); refresh();
   if (mode !== 'pick') status('');
 }
-function unlockMine(){ clearTimeout(LK.t); LK.at = 0; LK.on = LK.held = LK.used = false; LK.key = ''; refresh(); }
+function unlockMine(){ clearTimeout(LK.t); LK.at = 0; LK.on = LK.armed = LK.held = LK.used = false; LK.key = ''; refresh(); }
 function startHold(){
-  if (!LK.on || LK.used || LK.held) return;
+  if (!(LK.on || LK.armed) || LK.used || LK.held) return;
+  clearTimeout(LK.t);                        // pressed before the hand locked: it locks when the PRIT ends
   LK.held = true; LK.used = true;
   if (NET.online) NET.send({ t: 'hold' });
   status('Rendit letrat');
@@ -710,16 +716,18 @@ function endHold(send){
 }
 // local: a bot is about to take from you
 async function guardMine(my){
-  LK.used = false;
+  LK.used = false; LK.armed = true; refresh();
   await sleep(LOCK_MS); if (my !== gen) return;
-  lockMine();
+  if (!LK.held) lockMine();
   while (LK.held) { await sleep(100); if (my !== gen) return; }
 }
-// online, picking from a person: not before their hand has settled, and not while they rearrange
+// online, picking from a person: not before their hand has settled, not before they've had a fair moment
+// to press PRIT (it shows as soon as the turn reaches their phone), and not while they rearrange
+const PRIT_OPEN = 1200;
 function pickBlocked(){
   const t = NET.online && lastT; if (!t) return false;
   const now = Date.now() + ON.skew;
-  return !!(t.hold && t.hold.until > now) || (t.guardUntil && now < t.guardUntil);
+  return !!(t.hold && t.hold.until > now) || (t.guardUntil && now < Math.max(t.guardUntil, t.turnStart + PRIT_OPEN));
 }
 
 /* ---------- your hand (hand.js): drag sideways to rearrange ---------- */
@@ -750,14 +758,14 @@ function orderSoon(){ if (!NET.online || !H) return; clearTimeout(orderT); order
 // key (online): this turn. The same turn asked again keeps the card you lifted; the pick only counts if it's
 // still that turn when you take it (an update in between, like a PRIT or someone reconnecting, never drops it).
 async function humanPick(src, my, key){
-  if (!key || ON.pickKey !== key) hov = -1;
+  if (!key || ON.pickKey !== key) { hov = -1; armAt = -1; }
   ON.pickKey = key || null;
   pickSrc = src; layoutSeat(src);
   const tag = $('#pickTag'); tag.innerHTML = ''; tag.appendChild(document.createTextNode(NAMES[src])); tag.hidden = false;
   status('Radha jote');
   snap(.2, 2000, .08);
   mode = 'pick'; refresh();
-  const idx = await new Promise(r => humanResolve = r);
+  const idx = await new Promise(r => { humanResolve = r; if (armAt >= 0) { const at = armAt; armPick(); if (armAt < 0) armAt = at; } });   // asked again mid-wait: keep waiting to take it
   tag.hidden = true;
   if (key ? !(NET.online && lastT && turnKey(lastT) === key) : my !== gen) return -1;
   hov = H.hands[src][idx]; layoutSeat(src); await sleep(D(260));
@@ -766,15 +774,25 @@ async function humanPick(src, my, key){
 function stopInput(){ clearTimeout(clockT); clearTimeout(armT); HAND.cancel(); mode = 'idle'; humanResolve = null; $('#pickTag').hidden = true; }
 
 /* ---------- the other players ---------- */
-async function botPickFromMe(p, my){
-  const hand = H.hands[0], tries = hand.length > 1 ? 1 + ((Math.random() * 2) | 0) : 0;
+// waits while you rearrange (PRIT); false if the hand moved on meanwhile
+async function heldOff(my){ while (LK.held) { await sleep(100); if (my !== gen) return false; } return my === gen; }
+// you get the same fair moment to press PRIT as at an online table, and PRIT always stops them
+async function botPickFromMe(p, my, turnAt){
+  const tries = H.hands[0].length > 1 ? 1 + ((Math.random() * 2) | 0) : 0;
   for (let k = 0; k < tries; k++) {
+    if (!await heldOff(my)) return -1;
+    const hand = H.hands[0];
     hov = hand[(Math.random() * hand.length) | 0]; layoutSeat(0); snap(.1, 3000, .03);
     await sleep(300 + Math.random() * 450); if (my !== gen) return -1;
   }
-  const idx = E.botPick(mt, p);
-  hov = hand[idx]; layoutSeat(0); await sleep(250 + Math.random() * 300);
-  return idx;
+  const left = (turnAt || 0) + PRIT_OPEN - 400 - Date.now();
+  if (left > 0) { await sleep(left); if (my !== gen) return -1; }
+  for (;;) {
+    if (!await heldOff(my)) return -1;
+    const idx = E.botPick(mt, p);
+    hov = H.hands[0][idx]; layoutSeat(0); await sleep(250 + Math.random() * 300); if (my !== gen) return -1;
+    if (!LK.held) return idx;            // PRIT pressed while they reached for it: wait it out, then choose again
+  }
 }
 async function botPickFromBot(p, src, my){
   const idx = E.botPick(mt, p);
@@ -865,9 +883,10 @@ async function runRound(){
     if (p === 0) idx = await humanPick(src, my);
     else {
       status('');
+      const turnAt = Date.now();
       if (src === 0) { await guardMine(my); if (my !== gen) return; }
       await sleep(Math.max(150, PLAYERS.think(SEAT[p], { forced: true }) * .7 - (src === 0 ? LOCK_MS : 0))); if (my !== gen) return;
-      idx = src === 0 ? await botPickFromMe(p, my) : await botPickFromBot(p, src, my);
+      idx = src === 0 ? await botPickFromMe(p, my, turnAt) : await botPickFromBot(p, src, my);
     }
     if (my !== gen || idx < 0) return;
     const ev = E.draw(mt, p, idx);
@@ -1074,7 +1093,7 @@ function askOrWait(t){
   setTurn(a, src); setTimer(a, t.turnStart - ON.skew, t.turnMs);
   if (a !== 0 && src === 0) {
     // someone is taking from you: lock half a second after their turn began (server clock)
-    if (LK.key !== t.turnStart) { unlockMine(); LK.key = t.turnStart; const wait = t.turnStart - ON.skew + LOCK_MS - Date.now(); if (wait > 0) LK.t = setTimeout(lockMine, wait); else lockMine(); }
+    if (LK.key !== t.turnStart) { unlockMine(); LK.key = t.turnStart; LK.armed = true; const wait = t.turnStart - ON.skew + LOCK_MS - Date.now(); if (wait > 0) LK.t = setTimeout(lockMine, wait); else lockMine(); }
     if (t.holdUsed) LK.used = true;
     refresh();
   } else if (LK.on || LK.key) unlockMine();
