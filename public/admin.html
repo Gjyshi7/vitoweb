@@ -59,6 +59,19 @@ td.n,th.n{text-align:right}
 .k{font-weight:700}
 .k.bad{color:var(--bad)}.k.warn{color:var(--gold)}.k.ok{color:var(--ok)}
 .empty{color:var(--sub);padding:8px 0}
+/* players: who sat down, under which name */
+.phead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.phead h2{margin:0;flex:1;min-width:200px}
+.phead input{height:40px;width:220px;max-width:100%;border-radius:12px;border:0;background:var(--shelf2);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);font:600 16px var(--f-ui);padding:0 12px}
+.live{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.live .chip{color:var(--ink)}
+.live .chip i{font-style:normal;color:var(--sub)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:6px;vertical-align:1px;box-shadow:0 0 0 3px rgba(95,197,154,.18)}
+td.pn{font-weight:700}
+td.pn small{display:block;font-weight:500;color:var(--sub);font-size:13px}
+td.on{color:var(--ok);font-weight:700;white-space:nowrap}
+.gs{color:var(--sub)}
+.gs b{color:var(--ink);font-weight:600}
 /* key prompt */
 .gate{max-width:380px;margin:12vh auto 0;text-align:center}
 .gate h1{font:800 36px var(--f-sign);margin:0 0 8px}
@@ -97,6 +110,13 @@ td.n,th.n{text-align:right}
       <h2>Sot nga plani Free i Cloudflare</h2>
       <div id="meters"></div>
       <div class="note" id="meterNote"></div>
+    </section>
+
+    <section class="card c12">
+      <div class="phead"><h2>Lojtarët · 3 ditët e fundit</h2><input id="pq" type="search" placeholder="Kërko emrin" aria-label="Kërko emrin" autocomplete="off"></div>
+      <div class="live" id="pLive"></div>
+      <div class="scroll"><table id="players"></table></div>
+      <div class="note">Emri që shkruan secili kur ulet në tavolinë, loja dhe kur. Një rresht për çdo telefon. Fshihen vetë pas 3 ditësh dhe i sheh vetëm ky panel.</div>
     </section>
 
     <section class="card c6">
@@ -220,11 +240,47 @@ function render(d){
       return `<tr><td>${k}</td><td class="n">${fmt(sum(x.plays))}</td><td class="n">${fmt(sum(x.solo))}</td><td class="n">${fmt(sum(x.server))}</td><td class="n">${fmt(req)}</td><td class="n">${fmt(wr)}</td><td class="n k ${pct >= 80 ? 'bad' : pct >= 50 ? 'warn' : ''}">${Math.round(pct)}%</td></tr>`;
     }).join('');
 
+  // ---- players: one row per phone, newest first ----
+  P = d.players || []; drawPlayers();
+
   // ---- latest events ----
   $('#incidents').innerHTML = d.incidents.length
     ? '<tr><th>Kur</th><th>Çfarë</th><th>Loja</th><th>Hollësi</th></tr>' + d.incidents.slice(0, 40).map(i => `<tr><td>${new Date(i.at).toLocaleString('sq-AL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td><td class="k ${kindTone(i.kind)}">${esc(kindName(i.kind))}</td><td>${esc(GAME[i.game] || i.game || '')}</td><td>${esc(i.msg || '')}</td></tr>`).join('')
     : '<tr><td class="empty">Asnjë ngjarje.</td></tr>';
 }
+
+// players: grouped per phone, the latest name first; filtered by the search box
+let P = [];
+function when(t){
+  const d = new Date(t), now = new Date(), hm = d.toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86400000);
+  return diff === 0 ? 'sot ' + hm : diff === 1 ? 'dje ' + hm : d.toLocaleDateString('sq-AL', { day: '2-digit', month: '2-digit' }) + ' ' + hm;
+}
+function drawPlayers(){
+  const q = ($('#pq').value || '').trim().toLocaleLowerCase('sq');
+  const by = new Map();
+  for (const r of P) {                       // rows come newest first
+    let g = by.get(r.g);
+    if (!g) by.set(r.g, g = { name: r.name, names: new Set(), games: {}, last: r.at, live: null });
+    g.names.add(r.name);
+    g.games[r.game] = (g.games[r.game] || 0) + 1;
+    if (r.live && !g.live) g.live = r.game;
+  }
+  const list = [...by.values()].filter(g => !q || [...g.names].some(n => n.toLocaleLowerCase('sq').includes(q)));
+  const live = list.filter(g => g.live);
+  $('#pLive').innerHTML = live.length
+    ? live.map(g => `<span class="chip"><span class="dot"></span>${esc(g.name)} <i>· ${esc(GAME[g.live] || g.live)}</i></span>`).join('')
+    : `<span class="empty">${q ? 'Askush me këtë emër nuk po luan tani.' : 'Askush nuk po luan tani.'}</span>`;
+  $('#players').innerHTML = list.length
+    ? `<tr><th>Emri</th><th>Lojërat</th><th>Hera e fundit</th><th></th></tr>` + list.slice(0, 300).map(g => {
+        const other = [...g.names].filter(n => n !== g.name);
+        const games = Object.entries(g.games).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<b>${esc(GAME[k] || k)}</b>${n > 1 ? ' ×' + n : ''}`).join(' · ');
+        return `<tr><td class="pn">${esc(g.name)}${other.length ? `<small>edhe: ${esc(other.join(', '))}</small>` : ''}</td><td class="gs">${games}</td><td>${when(g.last)}</td><td class="on">${g.live ? '<span class="dot"></span>po luan' : ''}</td></tr>`;
+      }).join('')
+    : `<tr><td class="empty">${q ? 'Asnjë emër i tillë në 3 ditët e fundit.' : 'Askush nuk ka luajtur në 3 ditët e fundit.'}</td></tr>`;
+}
+$('#pq').addEventListener('input', drawPlayers);
 
 load();
 setInterval(() => { if (document.visibilityState === 'visible' && KEY && !$('#app').hidden) load(); }, 30000);

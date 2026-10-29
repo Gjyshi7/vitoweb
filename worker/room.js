@@ -191,13 +191,25 @@ export class Room extends DurableObject {
     }
   }
 
+  // the owner's player list (dashboard): this person sat down here under this name. Never holds up the table.
+  noteName(p) {
+    try {
+      if (!this.s || !this.env.GUARD || !p || !p.name) return;
+      const dev = p.keys.find((k) => k.startsWith("c:")) || p.keys[0];
+      if (!dev) return;
+      this.use("do", "rpc guard.sawName");
+      const r = this.env.GUARD.get(this.env.GUARD.idFromName("guard")).sawName(dev, p.name, this.s.game, this.s.code);
+      if (r && r.catch) r.catch(() => {});
+    } catch {}
+  }
+
   // a card table that is over: it closed, or its only person now plays it on the phone ("solo")
   ending() { const g = this.s && this.s.g; return !!(g && GAMES[this.s.game].canJoin && (g.phase === "closed" || g.phase === "solo")); }
   async close(quiet) {
     this.use("rows", "deleteAll", 2);
     if (this.s) {
       this.use("do", "rpc guard.usage");
-      try { await this.env.GUARD.get(this.env.GUARD.idFromName("guard")).usage(this.s.game, this.s.u || {}, this.s.g && this.s.g.phase); } catch {}
+      try { await this.env.GUARD.get(this.env.GUARD.idFromName("guard")).usage(this.s.game, this.s.u || {}, this.s.g && this.s.g.phase, this.s.code); } catch {}
       const g = this.s.g || {}, u = this.s.u || {};
       await mirrorTable(this.env, { game: this.s.game, phase: g.phase || "", room: this.s.code, ...u, secs: Math.round((Date.now() - this.s.created) / 1000),
         people: Array.isArray(g.seats) ? g.seats.filter((x) => x && !x.bot && !x.stand).length || this.s.players.length : this.s.players.length,
@@ -240,12 +252,15 @@ export class Room extends DurableObject {
       if (game.canJoin && !game.canJoin(s)) return refuse(4005, "started");
       let pid;
       do { pid = publicId(); } while (s.players.some((x) => x.pid === pid));
-      p = { pid, keys: [], name, joinedRound: s.round };
+      p = { pid, keys: [], name, joinedRound: s.round, fresh: true };
       s.players.push(p);
     }
     for (const k of [key, alt]) if (k && !p.keys.includes(k)) p.keys.push(k);
     p.keys = p.keys.slice(-4);
+    const named = p.fresh || p.name !== name;
+    delete p.fresh;
     p.name = name;
+    if (named) this.noteName(p);
     p.clock = url.searchParams.get("v") === "2";        // this page drives the table's clock (sends "go" when a move is due)
     if (hostToken && hostToken === s.hostToken) s.hostPid = p.pid;
     if (!s.hostPid || !s.players.some((x) => x.pid === s.hostPid)) s.hostPid = p.pid;
@@ -340,7 +355,7 @@ export class Room extends DurableObject {
       }
       case "rename": {
         const n = cleanName(msg.name);
-        if (n && n !== me.name) { me.name = n; changed = true; }
+        if (n && n !== me.name) { me.name = n; changed = true; this.noteName(me); }
         break;
       }
       case "leave": {

@@ -11,6 +11,8 @@ const DAYS_KEPT = 14;
 // Quick match: a new table takes people for this long (its deal comes at 7 s; the last ones need a moment to connect)
 const LOBBY_MS = 6_100;
 const MENU_TTL = 75_000, PLAY_TTL = 330_000;
+// The owner's player list (dashboard only): the name someone sat down under, the game and when. Kept 3 days.
+const NAMES_MS = 3 * 86400_000;
 
 export class Guard extends DurableObject {
   // ---- the dashboard's counters: kept in memory, added to today's record every 2 minutes ----
@@ -53,8 +55,9 @@ export class Guard extends DurableObject {
     await mirrorDay(this.env, key.slice(2), d);
   }
   // a table closed: what it cost (rooms count their own requests, messages and storage writes)
-  async usage(game, u, phase) {
+  async usage(game, u, phase, room) {
     this.count("rpc guard.usage");
+    if (room) { const now = Date.now(); try { this.sql().exec("UPDATE names SET ended = ?, last = ? WHERE room = ? AND ended IS NULL", now, now, String(room).slice(0, 8)); } catch {} }
     return this.daily(() => this.addUsage(game, u, phase));
   }
   async addUsage(game, u, phase) {
@@ -77,8 +80,35 @@ export class Guard extends DurableObject {
     for (const [k, v] of await this.ctx.storage.list({ prefix: "u:" })) days[k.slice(2)] = v;
     const rooms = {};
     for (const [k, v] of await this.ctx.storage.list({ prefix: "d:" })) rooms[k.slice(2)] = v;
-    const people = this.present().map((u) => ({ place: u.place, state: u.state, ago: Math.round((now - u.at) / 1000) }));
-    return { now, people, days, rooms };
+    const here = this.present();
+    const people = here.map((u) => ({ place: u.place, state: u.state, ago: Math.round((now - u.at) / 1000) }));
+    return { now, people, days, rooms, players: this.players(here, now) };
+  }
+
+  // ---- the owner's player list: who sat down at a table, under which name, in the last 3 days ----
+  // One row per phone per table, written when they sit down (or change their name), not on every move.
+  async sawName(dev, name, game, room) {
+    this.count("rpc guard.sawName");
+    dev = String(dev || "").slice(0, 90); name = String(name || "").trim().slice(0, 24);
+    if (!dev || !name) return;
+    const now = Date.now(), q = this.sql();
+    q.exec("INSERT INTO names (dev, room, name, game, first, last, ended) VALUES (?, ?, ?, ?, ?, ?, NULL) ON CONFLICT(dev, room) DO UPDATE SET name = excluded.name, last = excluded.last",
+      dev, String(room || "").slice(0, 8), name, String(game || "").slice(0, 12), now, now);
+    if (!this.namesPruned || now - this.namesPruned > 10 * 60_000) { this.namesPruned = now; q.exec("DELETE FROM names WHERE last < ?", now - NAMES_MS); }
+  }
+  // Playing now: the page says it's at that game's table (presence), or, for a phone without the cookie, its table is still open.
+  // Phones are grouped by a number that only means something inside this one answer.
+  players(here, now) {
+    const at = new Map();
+    for (const u of here) at.set(u.id, u);
+    const groups = new Map(), out = [];
+    for (const r of this.sql().exec("SELECT dev, room, name, game, first, last, ended FROM names WHERE last > ? ORDER BY first DESC LIMIT 600", now - NAMES_MS).toArray()) {
+      if (!groups.has(r.dev)) groups.set(r.dev, groups.size + 1);
+      const u = r.dev.startsWith("c:") ? at.get(r.dev.slice(2)) : null;
+      const live = u ? u.place === r.game && (u.state === "play" || u.state === "room") : r.ended == null && now - r.first < 6 * 3600_000;
+      out.push({ g: groups.get(r.dev), name: r.name, game: r.game, room: r.room, at: r.first, end: r.ended, live: !!live });
+    }
+    return out;
   }
 
   // Returns { ok, reason?, count }.
@@ -113,6 +143,8 @@ export class Guard extends DurableObject {
       q.exec("CREATE TABLE IF NOT EXISTS pub (k TEXT, code TEXT, until INTEGER, PRIMARY KEY (k, code))");
       q.exec("CREATE TABLE IF NOT EXISTS inv (dest TEXT, src TEXT, uname TEXT, code TEXT, game TEXT, at INTEGER, PRIMARY KEY (dest, src))");
       try { q.exec("ALTER TABLE who ADD COLUMN uid TEXT"); } catch {}       // signed-in players (friends' online dots)
+      q.exec("CREATE TABLE IF NOT EXISTS names (dev TEXT, room TEXT, name TEXT, game TEXT, first INTEGER, last INTEGER, ended INTEGER, PRIMARY KEY (dev, room))");
+      q.exec("CREATE INDEX IF NOT EXISTS names_last ON names (last)");
       this.ready = true;
     }
     return this.metered || this.ctx.storage.sql;
