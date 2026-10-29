@@ -483,7 +483,7 @@ pages_en["derri"] = dict(
 
 <h2>Derri në dorë online on VITOWEB</h2>
 {ul("Press <b>LUAJ</b> (Play) for a table with players online, or create a room for your friends.",
-    "Tap a card to lift it, tap it again to take it. You have 20 seconds.",
+    "Tap one of the cards in the middle to take it. You have 20 seconds.",
     "<b>PRIT</b> (Wait) gives you 3 more seconds to rearrange your cards before the other player picks from you, once per turn. While they pick, your hand stays still.")}
 """)
 

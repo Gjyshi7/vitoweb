@@ -239,7 +239,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
       <li>Kush mbaron letrat <b>del</b> dhe shpëton. Kur dikush del, merr nga i radhës që ka ende letra.</li>
       <li>Në fund mbetet vetëm një lojtar me derrin në dorë. Ai <b>humbet</b> dorën.</li>
     </ul>
-    <p>Prek një letër për ta ngritur, prek sërish për ta marrë. PRIT të jep edhe 3 sekonda për të rregulluar letrat para se tjetri të zgjedhë nga ti, një herë në radhë.</p>
+    <p>Prek një letër për ta marrë. PRIT të jep edhe 3 sekonda për të rregulluar letrat para se tjetri të zgjedhë nga ti, një herë në radhë.</p>
     <button class="pbtn ghost" id="bRulesClose" data-en="Close">Mbyll</button>
   </div></div>
   <template id="rulesEn">
@@ -252,7 +252,7 @@ body{font-family:var(--f-ui);-webkit-font-smoothing:antialiased;-webkit-tap-high
       <li>Whoever runs out of cards is <b>out</b> and safe. After that, cards are taken from the next player who still has some.</li>
       <li>In the end only one player is left holding the pig. They <b>lose</b> the hand.</li>
     </ul>
-    <p>Tap a card to lift it, tap it again to take it. PRIT (Wait) gives you 3 more seconds to rearrange your cards before the other player picks from you, once per turn.</p>
+    <p>Tap a card to take it. PRIT (Wait) gives you 3 more seconds to rearrange your cards before the other player picks from you, once per turn.</p>
   </template>
   <script>/* English chosen in Settings: the same rules in English (before anything copies the panel) */
   (() => { if (!window.VWL || !VWL.en) return; const p = document.querySelector('#ovRules .panel'), close = document.getElementById('bRulesClose');
@@ -637,23 +637,36 @@ function refresh(){
   w.style.visibility = LK.on && (!LK.used || LK.held) ? '' : 'hidden';
   w.textContent = LK.held ? 'GATI' : 'PRIT'; w.classList.toggle('hot', LK.held);
 }
-// Taking a card: the first tap lifts it (you feel and hear it), a second tap on the same card takes it.
-// Tapping another card moves the choice there.
+// Taking a card: one tap takes it (you feel and hear it). If their hand is still settling, or they pressed
+// PRIT, the card you tapped stays lifted and is taken the moment they're done; tapping another moves the choice.
+let armT = 0;
 $('#cards').addEventListener('click', e => {
   audio();
   if (mode !== 'pick') return;
   const c = e.target.closest('.card.pickable'); if (!c) return;
-  const id = +c.dataset.id, idx = H.hands[pickSrc].indexOf(id);
-  if (idx < 0) return;
-  if (hov !== id) {
-    hov = id; layoutSeat(pickSrc);
-    snap(.22, 2900, .05); buzz(12);
-    return;
-  }
-  if (pickBlocked()) { snap(.1, 1800, .03); return; }
+  const id = +c.dataset.id;
+  if (H.hands[pickSrc].indexOf(id) < 0) return;
+  if (hov !== id) { hov = id; layoutSeat(pickSrc); }
+  if (pickBlocked()) { snap(.22, 2900, .05); buzz(12); armPick(); return; }
+  takeLifted();
+});
+function takeLifted(){
+  clearTimeout(armT);
+  if (mode !== 'pick' || !humanResolve || pickBlocked()) return;
+  const idx = H.hands[pickSrc].indexOf(hov); if (idx < 0) return;
   buzz([18, 40, 18]); snap(.32, 2200, .06);
   choose(idx);
-});
+}
+// waits out the settling moment / PRIT, then takes the lifted card; stops if the turn moved on
+function armPick(){
+  clearTimeout(armT);
+  const tick = () => {
+    if (mode !== 'pick' || !humanResolve || hov < 0 || H.hands[pickSrc].indexOf(hov) < 0) return;
+    if (pickBlocked()) { armT = setTimeout(tick, 80); return; }
+    takeLifted();
+  };
+  armT = setTimeout(tick, 80);
+}
 function buzz(p){ try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 function choose(idx){
   if (mode !== 'pick' || !humanResolve) return;
@@ -750,7 +763,7 @@ async function humanPick(src, my, key){
   hov = H.hands[src][idx]; layoutSeat(src); await sleep(D(260));
   return idx;
 }
-function stopInput(){ clearTimeout(clockT); HAND.cancel(); mode = 'idle'; humanResolve = null; $('#pickTag').hidden = true; }
+function stopInput(){ clearTimeout(clockT); clearTimeout(armT); HAND.cancel(); mode = 'idle'; humanResolve = null; $('#pickTag').hidden = true; }
 
 /* ---------- the other players ---------- */
 async function botPickFromMe(p, my){
